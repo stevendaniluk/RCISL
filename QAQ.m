@@ -41,7 +41,6 @@ classdef QAQ < handle
         lastAction = 0;
         worldHeight = 0;
         worldWidth = 0;
-        %encodedCodes = zeros(200,200,400);
         actionCount = 0;
         
         triggerDistance = 0.4;
@@ -61,8 +60,6 @@ classdef QAQ < handle
 
         la_epochMax = 200;
         adv_epochMax = 200;
-
-        s_encodedCodes = [];
         
         pIncorrectAction = 0;
         numActions = 0;
@@ -106,14 +103,6 @@ classdef QAQ < handle
         
     end
     
-    
-    properties (Constant)
-        %SysEncodedCodes = zeros(200,200,400);
-
-        %s_encodedCodes = SparseHashtable(24);
-
-    end
-    
     methods
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -123,9 +112,7 @@ classdef QAQ < handle
         %   
         %   
         %   
-        function this = QAQ(configId,robotId,encCodes)
-            %this.s_encodedCodes = zeros(200,200,400);
-            this.s_encodedCodes =encCodes;
+        function this = QAQ(configId,robotId)
             this.robotId = robotId;
             this.configId = configId;
             
@@ -194,19 +181,7 @@ classdef QAQ < handle
             this.stepSize = stepSizeIn;
             this.rotationSize = rotationSizeIn;
         end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function TrimForSave(this)
-            this.s_encodedCodes.Empty();
-        end        
+             
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   Class Name
@@ -1303,18 +1278,6 @@ classdef QAQ < handle
         val = this.qlearning.quality.OccupancyPercentage();
       end
       
-      
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function LoadAfterSave(this,cdIn)
-            this.s_encodedCodes.Fill(cdIn);
-        end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -1325,54 +1288,39 @@ classdef QAQ < handle
         %   
         %   
       function code = EncodePos(this,dist,orient)
-        %dist = [-200 -100];
         
         d= floor(dist+100);
         o= round(orient+1);
         if(o <= 0)
             o = 1;
         end
-        %s_encodedCodes
-        %[d(1) d(2) o]
-        %if(this.encodedCodes(d(1),d(2),o) ~= 0)
-        %    code = this.encodedCodes(d(1),d(2),o);
+
         if(d(1) < 0) d(1) = 0; end
         if(d(2) < 0) d(2) = 0; end
         if(d(1) >200) d(1) = 200; end
         if(d(2) >200) d(2) = 200; end
         
-        testCode = this.s_encodedCodes.cd(d(1), d(2), o);
-        %testCode = this.s_encodedCodes.Get(d(1), d(2), o);
-        if(testCode ~= 0 || isnan(testCode))
-            code = testCode;
-            return;
-        else
-            angle = atan2(dist(2),dist(1))*180/pi;
-            angle = angle - orient*180/pi; %adjust to make angle relative
-            if(angle <0)
-                angle = angle + 360;
-            end
 
-            if(angle <= 180)
-                positionCode=  floor(angle*3/180)+1;
-            else
-                positionCode = 4;
-            end
-            %distanceCode = floor(log((sum(dist.^2)+1)))*4;
-            distanceCode = floor(log((sum((abs(dist)*4).^2)+1)))*4;
-
-            if(distanceCode >= 16)
-                distanceCode = 16;
-            end
-
-            code = positionCode +distanceCode;
-            code = full(code);
-            %this.s_encodedCodes.Set(d(1), d(2), o,code);
-
-            this.s_encodedCodes.cd(d(1), d(2), o) = code;
-            
-            %this.s_encodedCodes(d(1),d(2),o) = code;
+        angle = atan2(dist(2),dist(1))*180/pi;
+        angle = angle - orient*180/pi; %adjust to make angle relative
+        if(angle <0)
+            angle = angle + 360;
         end
+
+        if(angle <= 180)
+            positionCode=  floor(angle*3/180)+1;
+        else
+            positionCode = 4;
+        end
+        distanceCode = floor(log((sum((abs(dist)*4).^2)+1)))*4;
+
+        if(distanceCode >= 16)
+            distanceCode = 16;
+        end
+
+        code = positionCode +distanceCode;
+        code = full(code);
+            
       end
       
   end

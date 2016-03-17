@@ -150,9 +150,6 @@ classdef worldState < handle
         boxPickup = 0;
         groupPickup = 0;
         
-        % The list of the robots in the world
-        s_robotTeam = [];
-        
     end
     
     methods
