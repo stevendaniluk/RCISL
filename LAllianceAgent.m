@@ -522,6 +522,21 @@ classdef LAllianceAgent < handle
                 end
         end
         %%
+        function GiveUpTask(this)
+                %disp('Time to acquiescnece from this task. I suck!!');
+                [amount,index] = max(this.data(this.robotId,:,this.ji),[],2);
+                if(this.calculateTau ==1)
+                   this.UpdateTau(index(1), this.failureTau);
+                end
+                this.data(this.robotId,index(1),this.vi) = this.data(this.robotId,index(1),this.vi) + 1;                    
+                this.data(this.robotId,:,this.ji) = this.data(this.robotId,:,this.ji) .*0;
+                this.data(this.robotId,:,this.ci) = 0;
+                % Once you acquiesce a task, leave it forever
+                this.data(this.robotId,:,this.ai) = 0;
+                this.data(this.robotId,index(1),this.mi) = 0;
+            
+        end
+        %%
         function taskId = GetCurrentTask(this)
             taskId = 0;
             taskAssignment = this.data(this.robotId,:,this.ji);
