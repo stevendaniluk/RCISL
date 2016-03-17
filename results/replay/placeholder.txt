@@ -1,0 +1,1 @@
+This files serves as a placeholder so that it will be included in the Git repo, despite its contents being ignored.
