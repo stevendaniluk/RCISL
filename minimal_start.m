@@ -19,7 +19,7 @@ clc
 
 % Required variables
 configId=21122212;  % ID code, described above
-max_time=20;    % Maximum number of iterations (seconds)
+max_time=15000;    % Maximum number of iterations (seconds)
 show_plot=2;    % Show the plot during the simulation (2=true)
 
 %% Create objects required to call SimulationRun.Run
@@ -33,9 +33,8 @@ WorldState=worldState(configId);
 
 % Create robotList object
 robotList = robot.empty(1,0);
-encCodes = EncodedCodes();
 for i=1:numRobots
-    robotList(i,1) = robot(i,configId,encCodes);
+    robotList(i,1) = robot(i,configId);
 end
     
 % Create SimulationRun object

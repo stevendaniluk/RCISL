@@ -41,7 +41,6 @@ classdef QAL < handle
         lastAction = 0;
         worldHeight = 0;
         worldWidth = 0;
-        %encodedCodes = zeros(200,200,400);
         actionCount = 0;
         
         triggerDistance = 0.4;
@@ -60,7 +59,6 @@ classdef QAL < handle
         adv_epochTicks = 0;
         la_epochMax = 300;
         adv_epochMax = 300;
-        s_encodedCodes = [];
         
         saExecTruth = [];
         saExecBelief = [];
@@ -115,14 +113,6 @@ classdef QAL < handle
         minAttempts = 0;
     end
     
-    
-    properties (Constant)
-        %SysEncodedCodes = zeros(200,200,400);
-
-        %s_encodedCodes = SparseHashtable(24);
-
-    end
-    
     methods
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -133,9 +123,7 @@ classdef QAL < handle
         %   
         %   
         %Constructor
-        function this = QAL(configId,robotId,encCodes)
-            %this.s_encodedCodes = zeros(200,200,400);
-            this.s_encodedCodes =encCodes;
+        function this = QAL(configId,robotId)
             this.robotId = robotId;
             this.configId = configId;
             
@@ -184,34 +172,6 @@ classdef QAL < handle
             if(this.useCompressedSensing ==1)
                 this.InitCompressSensing();
             end
-        end
-        
-
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function TrimForSave(this)
-            this.s_encodedCodes.Empty();
-        end
-
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function LoadAfterSave(this,cdIn) 
-            this.s_encodedCodes.Fill(cdIn);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1175,31 +1135,19 @@ classdef QAL < handle
         %   
         %   
         %   
-      function code = EncodePos(this,dist,orient)
-        %dist = [-200 -100];
-        
-        d= floor(dist+100);
-        o= round(orient+1);
-        if(o <= 0)
-            o = 1;
-        end
-        %s_encodedCodes
-        %[d(1) d(2) o]
-        %if(this.encodedCodes(d(1),d(2),o) ~= 0)
-        %    code = this.encodedCodes(d(1),d(2),o);
-        %testCode = this.s_encodedCodes.Get([d(1) d(2) o]);
-        if(d(1) < 0) d(1) = 0; end
-        if(d(2) < 0) d(2) = 0; end
-        if(d(1) >200) d(1) = 200; end
-        if(d(2) >200) d(2) = 200; end
-        
-        testCode = this.s_encodedCodes.cd(d(1), d(2), o);
-        %testCode = this.s_encodedCodes.Get(d(1), d(2), o);
-        
-        if(testCode ~= 0 || isnan(testCode))
-            code = testCode;
-            return;
-        else
+        function code = EncodePos(this,dist,orient)
+
+            d= floor(dist+100);
+            o= round(orient+1);
+            if(o <= 0)
+                o = 1;
+            end
+
+            if(d(1) < 0) d(1) = 0; end
+            if(d(2) < 0) d(2) = 0; end
+            if(d(1) >200) d(1) = 200; end
+            if(d(2) >200) d(2) = 200; end
+
             angle = atan2(dist(2),dist(1))*180/pi;
             angle = angle - orient*180/pi; %adjust to make angle relative
             if(angle <0)
@@ -1221,11 +1169,7 @@ classdef QAL < handle
             code = positionCode +distanceCode;
             code = full(code);
 
-            this.s_encodedCodes.cd(d(1), d(2), o) = code;
-            %this.s_encodedCodes.Set(d(1), d(2), o,code);
-            
         end
-      end
       
         function InitCompressSensing(this)
             this.dict = -10*ones(2,this.sizeCol) +rand(2,this.sizeCol)*20;
