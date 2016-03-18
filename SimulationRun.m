@@ -13,7 +13,7 @@ classdef SimulationRun < handle
         numRobots = 0;
         numTargets = 0;
         numObstacles = 0;
-        numMilliseconds = 0;
+        numIterations = 0;
         WorldState = [];
         
         % World data
@@ -40,16 +40,16 @@ classdef SimulationRun < handle
         %   Constructor
         %
         %   configId: The 8 digit configuration ID
-        %   milliSecondsIn: Maximum number of iterations (seconds) for sim
+        %   iterationsIn: Maximum number of iterations (seconds) for sim
         %
-        function this = SimulationRun(milliSecondsIn,configId)
+        function this = SimulationRun(iterationsIn,configId)
             this.configurationId = configId;
             c= Configuration.Instance(this.configurationId );
             
             this.numRobots = c.numRobots;
             this.numObstacles = c.numObstacles;
             this.numTargets = c.numTargets;
-            this.numMilliseconds = milliSecondsIn; 
+            this.numIterations = iterationsIn; 
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -65,7 +65,7 @@ classdef SimulationRun < handle
         %   Graphics can be set to be displayed live, only show the path
         %   afterwards, or not show at all.
 
-        function milliseconds = Run(this,robotsList,show,world)
+        function iterations = Run(this,robotsList,show,world)
              
             % Set world properties
             this.WorldState = world;
@@ -83,26 +83,26 @@ classdef SimulationRun < handle
                 h1 =figure();
             end
             
-            while this.WorldState.milliseconds < this.numMilliseconds && this.WorldState.GetConvergence() < 2
+            while this.WorldState.iterations < this.numIterations && this.WorldState.GetConvergence() < 2
                 for i=1:this.numRobots
                     % Get action, act, and update state
                     robotsList(i).Run();
                     % Run one step of world physics
-                    this.WorldState.RunPhysics(this.step );
+                    this.WorldState.RunPhysics();
                     % Update learning rate and learn
                     robotsList(i).Reward();
                 end
                 
-                this.WorldState.milliseconds = this.WorldState.milliseconds + this.step ;
+                this.WorldState.iterations = this.WorldState.iterations + this.step ;
                 
                 % Load worldstate and record data 
                 % (saved in new variables to be used later)
                 [pos, this.orient, ~,obstacles,targets,goalPos,targetProperties,this.robotProperties ] = this.WorldState.GetSnapshot();
-                this.posData(:,:,this.WorldState.milliseconds) = pos;
-                this.targData(:,:,this.WorldState.milliseconds) = targets;
-                this.goalData(:,:,this.WorldState.milliseconds) = goalPos;
-                this.obsData(:,:,this.WorldState.milliseconds) = obstacles;
-                this.tpropData(:,:,this.WorldState.milliseconds) = targetProperties;
+                this.posData(:,:,this.WorldState.iterations) = pos;
+                this.targData(:,:,this.WorldState.iterations) = targets;
+                this.goalData(:,:,this.WorldState.iterations) = goalPos;
+                this.obsData(:,:,this.WorldState.iterations) = obstacles;
+                this.tpropData(:,:,this.WorldState.iterations) = targetProperties;
                 
                 % If requested, display the live graphics during the run
                 if(show==2)
@@ -141,7 +141,7 @@ classdef SimulationRun < handle
                     end
                     
                     % Display Robots
-                    text(1,9,num2str(this.WorldState.milliseconds));
+                    text(1,9,num2str(this.WorldState.iterations));
                     for i=1:this.numRobots
                         point = robotsList(i).RobotState.belief_self(1:2);
                         
@@ -250,7 +250,7 @@ classdef SimulationRun < handle
                 
                 % Output Robot Representation
                 for i=1:this.numRobots
-                    point = this.posData(i,:,this.numMilliseconds);
+                    point = this.posData(i,:,this.numIterations);
                     boxPoints = this.GetBox(point,0.5);
                     hold all
                     plot(boxPoints(1,:),boxPoints(2,:),'b');
@@ -280,7 +280,7 @@ classdef SimulationRun < handle
             end % end if(show==2)
             
             % Set task completion time to return
-            milliseconds = this.WorldState.milliseconds;
+            iterations = this.WorldState.iterations;
             
         end % end Run
 

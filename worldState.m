@@ -35,32 +35,29 @@ classdef worldState < handle
     
     properties
         
-        %todo - rename milliseconds -> iterations
-        %this variable represents time steps
-        milliseconds = 0;
+        % Time steps
+        iterations = 0;
 
-        %Robot position [x y z]
+        % Positions [x y z]
         robotPos = [];
         obstaclePos = [];
         targetPos = [];
         goalPos = [];
 
-        %Robot position [rx ry rz]
+        % Orientations [rx ry rz]
         robotOrient = [];
         obstacleOrient = [];
         targetOrient = [];  
         goalOrient = [];
 
-        %Robot position [x y z]
+        % Velocities [vx vy vz]
         robotVelocity = [];
         obstacleVelocity = [];
         targetVelocity = [];
         goalVelocity = [];
         
 
-        % Robot Properties 
-        % [ currentTarget rotationStep mass              
-        % robotType reach] 
+        % Robot Properties array and indicies 
         robotProperties = [];
         rpid_currentTarget = 1;
         rpid_rotationStep = 2;
@@ -68,10 +65,7 @@ classdef worldState < handle
         rpid_typeId = 4;
         rpid_reachId = 5;
         
-        % Target Properties       
-        % [ isReturned weight                 
-        %   type(1/2) carriedBy           
-        %   size lastRobotToCarry]
+        % Target Properties  array and indicies      
         targetProperties = [];
         tpid_isReturned = 1;
         tpid_weight = 2;
@@ -80,14 +74,11 @@ classdef worldState < handle
         tpid_size = 5;
         tpid_lastRobotToCarry = 6;
 
-        %Is this world all 'finished' == 1
+        % Is this world all 'finished' == 1
         converged = 0;
-        
-        
         
         % The 'inital' properties are used to reset the world
         % after a simulation is performed
-        % {Begin
         robotPos_inital = [];
         robotVelocity_inital = [];
         robotOrient_inital = [];
@@ -115,12 +106,8 @@ classdef worldState < handle
         WIDTH_inital = 0;  
         HEIGHT_inital = 0; 
         DEPTH_inital = 0;  
-        
-        % } Inital properties end
-        
-       
-        % Some constant world parameters. 
-        % (These are redefined by a configuration file!)
+                
+        % World parameters set by Configuration
         randomPaddingSize = 0.5;
         randomBorderSize = 1;
         robotSize = 0.25/2;
@@ -156,12 +143,11 @@ classdef worldState < handle
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   worldState Constructor
+        %   Constructor
         %   
-        %   The constructor uses a configuration file
-        %   to build the world
-        %   
-        %   
+        %   Loads a configuration, then signs all loaded parameters and
+        %   saves all initial parameters
+        
         function this = worldState(configId)
             %TODO - Rafactor so all objects are in one array and handeled
             %at the same time. It's very silly to have three seperate
@@ -169,37 +155,38 @@ classdef worldState < handle
 
             %TODO - rafactor so positions AND orientations are stored in
             %one vector, not two.
-
+            
+            % Load configuration and assign properties
             c = Configuration.Instance(configId);
+            this.randomPaddingSize = c.world_randomPaddingSize;
+            this.randomBorderSize = c.world_randomBorderSize;
+            this.robotSize = c.world_robotSize;
+            this.obstacleSize = c.world_obstacleSize;
+            this.targetSize = c.world_targetSize;
+            this.goalSize = c.world_goalSize;
+            this.robotMass = c.world_robotMass;
+            this.targetMass = c.world_robotMass;
+            this.obstacleMass = c.world_obstacleMass;
             this.WIDTH = c.world_Height;
             this.HEIGHT = c.world_Width;
             this.DEPTH = c.world_Depth;
-
-            
-            
+                        
             % randomize all the positions and orientatons for all objects
             this.randomizeState(c.numRobots, c.numObstacles,c.numTargets,configId);
           
-            
-            % save the inital configurations
-            % {begin save
+            % Save the inital configurations
             this.obstaclePos_inital =  this.obstaclePos;
             this.obstacleOrient_inital  = this.obstacleOrient ;
             this.obstacleVelocity_inital  = this.obstacleVelocity ;
-            
             this.robotPos_inital  =  this.robotPos;
             this.robotOrient_inital  = this.robotOrient;
             this.robotVelocity_inital  = this.robotVelocity;
             this.robotProperties_inital = this.robotProperties;
-
             this.targetPos_inital  =  this.targetPos;
             this.targetOrient_inital  = this.targetOrient ;
             this.targetVelocity_inital  = this.targetVelocity;
             this.targetProperties_inital = this.targetProperties;
-
             this.goalPos_inital  = this.goalPos;
-            %} end save 
-            
             this.randomPaddingSize_inital = this.randomPaddingSize;
             this.randomBorderSize_inital = this.randomBorderSize;
             this.robotSize_inital = this.robotSize;
@@ -213,7 +200,6 @@ classdef worldState < handle
             this.HEIGHT_inital = this.HEIGHT; %world y
             this.DEPTH_inital = this.DEPTH;  %world z
 
-            
             % set the realism level accordingly
             % at the first realism level, we let the boxes be 'picked up'
             % by a robot. At later sim levels this is not the case.
@@ -226,8 +212,9 @@ classdef worldState < handle
             if(c.simulation_Realism == 2)
                 this.groupPickup = 1;
             end 
-        end
+        end % end constructor
 
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   reset
@@ -236,13 +223,11 @@ classdef worldState < handle
         %   the inital properties for the world
         %   will be recovered.
         %
-        %   Although unused, this function allows the 
-        %   entire simulation to be run many times under
-        %   different utility functions
+        %   This function allows the entire simulation to be run many 
+        %   times under different utility functions
         %
         function reset(this)
-
-            this.milliseconds = 0;
+            this.iterations = 0;
             this.obstaclePos =  this.obstaclePos_inital;
             this.obstacleOrient  = this.obstacleOrient_inital ;
             this.obstacleVelocity  = this.obstacleVelocity_inital ;
@@ -258,7 +243,6 @@ classdef worldState < handle
             this.targetProperties = this.targetProperties_inital;
             this.converged = 0;
             this.goalPos  = this.goalPos_inital;       
-            
         end
 
         
@@ -270,7 +254,7 @@ classdef worldState < handle
         %   the way the world was over many experiments
         %   
         function save(this,filename)
-            simMilliseconds = this.milliseconds;
+            simIterations = this.iterations;
             simObstaclePos = this.obstaclePos;
             simObstacleOrient = this.obstacleOrient;
             simObstacleVelocity = this.obstacleVelocity;
@@ -289,9 +273,9 @@ classdef worldState < handle
             simGoalPos = this.goalPos;       
 
             if exist(Name, 'file') == 2
-                save(strcat('C:\justin\Dropbox\CISL\CISL_Run\status\',filename), 'simMilliseconds','-append');
+                save(strcat('C:\justin\Dropbox\CISL\CISL_Run\status\',filename), 'simIterations','-append');
             else
-                save(strcat('C:\justin\Dropbox\CISL\CISL_Run\status\',filename), 'simMilliseconds');
+                save(strcat('C:\justin\Dropbox\CISL\CISL_Run\status\',filename), 'simIterations');
             end
             
             save(strcat('C:\justin\Dropbox\CISL\CISL_Run\status\',filename), 'simObstaclePos','-append');
@@ -323,7 +307,7 @@ classdef worldState < handle
         %   
         %   Those robots are going to be so confused!   
         %
-        function randomState = randomizeState(this,numRobots, numObstacles,numTargets,configId)
+        function randomizeState(this,numRobots, numObstacles,numTargets,configId)
             
             c = Configuration.Instance(configId);
             
@@ -416,123 +400,73 @@ classdef worldState < handle
             this.goalPos = [randomPositions(i+preOffset,:) 0];
         end
         
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   GetGoalPos
+        %   SetRobotAdvisor
         %   
-        %   Return the position of the goal in 
-        %   World space
-        %   
-        %   
-        function val = GetGoalPos(this)
-            (DEPRECATED) %This will crash when run
-           val = this.goalPos;
-        end
+        %   Description 
+
         function SetRobotAdvisor(this,robotId,advisorId)
             this.robotProperties(robotId,7) = advisorId;
         end
+        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   GetRobotPos
         %   
         %   Return the robot (X,Y,Z) 
-        %   
-        %   
-        %   
+
         function val = GetRobotPos(this,id )
            val = this.robotPos(id,:);
         end
+        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   GetConvergence
         %   
         %   Have all the foraging targets been returned?
-        %   
-        %   
-        %   
+ 
         function conv = GetConvergence(this)
             conv = this.converged;
         end
+        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   GetRobotOrient
         %   
         %   Orientation of the robot
-        %   
-        %   
-        %   
+  
         function val = GetRobotOrient(this,id )
            val = this.robotOrient(id,:);
         end        
+        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   SetRobotPos
         %   
         %   Set the position of the robot. 
-        %   
-        %   
-        %   
-        function val = SetRobotPos(this,posIn,id)
+ 
+        function SetRobotPos(this,posIn,id)
            this.robotPos(id,:) = posIn;
-           val = 1;
         end
+        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   SetRobotOrient
         %   
         %   Set the orientation for the robot
-        %   
-        %   
-        %   
-        function val = SetRobotOrient(this,newOrient,id)
+ 
+        function SetRobotOrient(this,newOrient,id)
             %TODO - capture assignment errors here.
             this.robotOrient(id,:) = newOrient;
-            val = 1;
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   RobotCollide
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-%{
-        function collide = RobotCollide(this,newPoint,type,id)
-            (DEPRECATED)
-            %find the size to be used
-            if type == 1
-                mySize = this.obstacleSize;
-            elseif type == 2
-                mySize = this.robotSize;
-            else %type == 3
-                mySize = this.targetSize;
-            end
-
-            %Test against Robots (other robots)
-            robDist = bsxfun(@minus,this.robotPos, newPoint);
-            if type==2 ; robDist(id) = []; end; 
-            robDist = robDist(:,1).^2 + robDist(:,2).^2 + robDist(:,3).^2;
-            robDist = sqrt(robDist);
-            minDistRobot = min(robDist);
-
-            %Test against Targets
-            targetDist = bsxfun(@minus,this.targetPos, newPoint);
-            if  type == 3 ; targetDist(id) = []; end; 
-            targetDist = targetDist(:,1).^2 + targetDist(:,2).^2 + targetDist(:,3).^2;
-            targetDist = sqrt(targetDist);
-            minTargetDist = min(targetDist);
-            
-            collide = 1;
-        
-        end
- %}
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -541,13 +475,11 @@ classdef worldState < handle
         %   Test if a new point is valid, in terms of collision,
         %   if the object with the current id and type is taken
         %   and moved toward the newPoint.
-        %   
-        %   
+  
         function valid = ValidPoint(this,newPoint,type,id,doCollide,partnerId)
             %find the size to be used
             myRobot1 = 0;
             myRobot2 = 0;
-            myTargetId = 0;
             
             if type == 1
                 mySize = this.obstacleSize;
@@ -562,16 +494,6 @@ classdef worldState < handle
                 myPos = this.robotPos(id,:);
                 myMass = this.robotMass;
                 myStrength = this.robotProperties(id,3);
-                
-                if(this.groupPickup == 1)
-                    myTargetId = this.robotProperties(id,1);
-                    if(myTargetId >0)
-                        if(this.targetProperties(myTargetId,this.ID_CARRIED_BY) ~= id && ...
-                            this.targetProperties(myTargetId,this.ID_CARRIED_BY_2) ~= id)
-                            myTargetId = 0;
-                        end
-                    end
-                end
                 
             else %type == 3
                 mySize = this.targetSize;
@@ -595,7 +517,6 @@ classdef worldState < handle
             if newPoint(1) + mySize > this.WIDTH; valid=0; return; end;
             if newPoint(2) + mySize > this.HEIGHT; valid=0; return; end;
             if newPoint(3)  > this.DEPTH; valid=0; return; end;
-            
             
             %Test against Obstacles
             obsDist = bsxfun(@minus,this.obstaclePos, newPoint);
@@ -638,9 +559,7 @@ classdef worldState < handle
 
             end
             if(this.groupPickup == 1) 
-                targetDist = bsxfun(@plus,targetDist, (abs(this.targetProperties(:,this.ID_CARRIED_BY_2)).*100));
-                %targetDist = bsxfun(@plus,targetDist, (abs(this.targetProperties(myTargetId ,this.ID_CARRIED_BY_2)).*100));
-                
+                targetDist = bsxfun(@plus,targetDist, (abs(this.targetProperties(:,this.ID_CARRIED_BY_2)).*100));                
             end            
             
             targetDist = targetDist(:,1).^2 + targetDist(:,2).^2 + targetDist(:,3).^2;
@@ -722,9 +641,7 @@ classdef worldState < handle
         %   Collide
         %   
         %   Collide a set of two similar objects
-        %   
-        %   
-        %   
+  
         function [phyResult1,phyResult2]= Collide(this,physicsArray1,physicsArray2)
             %first lets get complete vectors
             pa1 = physicsArray1;
@@ -748,7 +665,6 @@ classdef worldState < handle
                 m2 = 10000;
             end
 
-          %  b = [0 1 0];
             b = b(:)./sqrt(b(1)^2 + b(2) ^2 + b(3) ^2);
 
             v1a = ((v1*b)*b)';
@@ -756,9 +672,6 @@ classdef worldState < handle
 
             v2a = ((v2*b)*b)';
             v2b = v2 - v2a;
-
-            %mo1a = v1a*m1;
-            %mo2a = v2a*m2;
 
             vf1a = ((m1 -  m2).*v1a + 2*(m2.*v2a))./(m1+m2);
 
@@ -789,11 +702,11 @@ classdef worldState < handle
             [amount,index] = max(freeRobots);
             if(amount >0)
                 if(this.robotProperties(index(1),1) == 0)
-                    %disp('helper assigned');
                     this.UpdateRobotTarget(index(1),targetId);
                 end
             end
         end
+        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -801,9 +714,8 @@ classdef worldState < handle
         %   
         %   Apply power, given by a robot, to a target
         %   in a certain direction, relative to the robot,
-        %   all using a certain powerAndle (distance, angle).
-        %   
-        %   
+        %   all using a certain powerAngle (distance, angle).
+  
         function targetVelocity = MoveTarget(this,robotId,targetId,powerAngle)
             
             %TODO - code these
@@ -906,8 +818,7 @@ classdef worldState < handle
         %   
         %   Move the robot forward a certain amount and with a
         %   certain amount of rotation.
-        %   
-        %   
+  
         function [orientVelocity, currentVelocity] = MoveRobot(this,id,amount,rotation)
             %find a new orientation 
             newOrient =[ 0 0 mod(this.robotOrient(id,3) + rotation,2*pi)];
@@ -934,7 +845,7 @@ classdef worldState < handle
 
             this.robotVelocity(id,:) = currentVelocity;
             orientVelocity = [0 0 rotation];
-        end
+        end% end MoveRobot
         
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -943,17 +854,16 @@ classdef worldState < handle
         %   
         %   set the RobotId of a certain target to be
         %   equal to id.
-        %   
-        %   
+  
         function UpdateRobotTarget(this,id,targetId)
             this.robotProperties(id,1) = targetId;
             if(targetId > 0 )
                 assigned = this.robotProperties(:,1) == targetId;
                 totalOnTask = sum(assigned);
                 if(totalOnTask >2)
-                    assigned
-                    id
-                    targetId
+                    disp('assigned')
+                    disp('id')
+                    disp('targetId')
                     disp('Too many robots on a task!');
                     %rolled back gracefully
                     this.robotProperties(id,1) = 0;
@@ -961,24 +871,21 @@ classdef worldState < handle
                     this.targetProperties(targetId,this.tpid_lastRobotToCarry) = id;
                 end
             end
-        end
+        end % end UpdateRobotTarget
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   RunPhysics
         %   
         %   Iterative. Run one cycle of the physics engine.
-        %   
-        %   
-        %   
-        function val = RunPhysics(this,timeMilliseconds)
+  
+        function val = RunPhysics(this)
             %deal with inst velocity
             %next lines "moves" targets that are being carried.
         
-            
             %apply friction
             decay = 0;
-            [ numRobots, dimensions] = size( this.robotPos);
+            numRobots = size(this.robotPos,1);
             for i=1:numRobots
                 newPos = this.robotPos(i,:) + this.robotVelocity(i,:);
                 
@@ -1039,15 +946,11 @@ classdef worldState < handle
                         this.robotPos(i,:) = newPos;
                     end
                     
-                    %If we are stuck in a wall, move off it
-                %elseif (this.ValidPoint(this.robotPos(i,:),this.TYPE_ROBOT,i,0,0) == 0 )
-                    %disp('getting out of here!') ;   
-                %    this.robotPos(i,:) = newPos;
                 end                
                 this.robotVelocity(i,:) = this.robotVelocity(i,:)*decay;
             end
             
-            [ numTargets, dimensions] = size( this.targetPos);
+            numTargets = size(this.targetPos,1);
             if(this.groupPickup == 0)
                 for i=1:numTargets
                     newPos = this.targetPos(i,:) + this.targetVelocity(i,:);
@@ -1086,7 +989,7 @@ classdef worldState < handle
             targetDistanceToGoal = sqrt(targetDistanceToGoal);
             targetDistanceToGoalBarrier = targetDistanceToGoal - (this.targetSize + this.goalSize);
             i = 1;
-            [numTargets,rows] = size(targetDistanceToGoal);
+            numTargets = size(targetDistanceToGoal,1);
             
             %targetDistanceToGoalBarrier(2)
             while i <= numTargets
@@ -1113,37 +1016,34 @@ classdef worldState < handle
             end
             
             val = 1;
-        end
+        end % end RunPhysics
 
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   GetSnapshot
         %   
         %   Get a copy of the entire world.
-        %   
-        %   
-        %   
-        function [robPos, robOrient, millis, obstaclePos,targetPos,goalPos,targetProperties,robotProperties ] ...
+  
+        function [robPos, robOrient, iterations, obstaclePos,targetPos,goalPos,targetProperties,robotProperties ] ...
                 = GetSnapshot(this)
             robPos = this.robotPos;
             robOrient = this.robotOrient;
             obstaclePos = this.obstaclePos;
             targetPos = this.targetPos;
-            millis = this.milliseconds;
+            iterations = this.iterations;
             goalPos = this.goalPos;
             targetProperties = this.targetProperties;
             robotProperties = this.robotProperties;
-            
-        end
+        end % end GetSnapshot
+        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   GetTargetState
         %   
         %   Get all the targets in a Nx6 array.
-        %   
-        %   
-        %   
+  
         function targetState =  GetTargetState(this)
                 targetState = [this.targetPos this.targetOrient];
         end
@@ -1153,9 +1053,7 @@ classdef worldState < handle
         %   GetTargetObstacles
         %   
         %   Get all the obstacles in a Nx6 array.        
-        %   
-        %   
-        %   
+
         function obstacleState =  GetObstacleState(this)
                 obstacleState = [this.obstaclePos this.obstacleOrient];
         end
@@ -1167,17 +1065,14 @@ classdef worldState < handle
         %   
         %   Generate random poisitions for the world objects
         %   given a set of world properties
-        %   
-        %   
+ 
         function randomPositions = GetRandomPositions(this,borderSize,paddingSize)
             worldWidth = this.WIDTH;
             worldHeight = this.HEIGHT;
-            border = borderSize;
-            padding = paddingSize;
-            objectRadius = 0.5 + padding;
+            objectRadius = 0.5 + paddingSize;
 
-            slotH = floor( (worldWidth - border*2)/ (objectRadius+paddingSize));
-            slotV = floor((worldHeight - border*2)/ (objectRadius+paddingSize));
+            slotH = floor( (worldWidth - borderSize*2)/ (objectRadius+paddingSize));
+            slotV = floor((worldHeight - borderSize*2)/ (objectRadius+paddingSize));
 
             positions = zeros(slotH*slotV,2);
 
@@ -1191,7 +1086,6 @@ classdef worldState < handle
                     positions(x,:) =  [hor(i) ver(j)];
                     x= x+ 1;
                 end
-              
             end
             
             posRandom =  zeros(slotH*slotV,2);
@@ -1207,9 +1101,9 @@ classdef worldState < handle
             positions = positions.*(objectRadius+paddingSize);
             positions = bsxfun(@plus,positions,[borderSize borderSize]);
             randomPositions = positions;
-        end
+        end % end randomPositions
         
-    end
+    end% end methods
     
-end
+end% end classdef
 
