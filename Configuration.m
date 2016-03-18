@@ -167,9 +167,9 @@ classdef Configuration < handle
         
         world_randomPaddingSize = 0.5;
         world_randomBorderSize = 1;
-        world_robotSize = 0.5;
+        world_robotSize = 0.25/2;
         world_obstacleSize = 0.5;
-        world_targetSize = 0.5;
+        world_targetSize = 0.25;
         world_goalSize = 1.0;
         world_robotMass = 1;
         world_targetMass = 1;
