@@ -19,7 +19,7 @@ clc
 
 % Required variables
 configId=21122212;  % ID code, described above
-max_time=15000;    % Maximum number of iterations (seconds)
+max_iterations=15000;    % Maximum number of iterations (seconds)
 show_plot=2;    % Show the plot during the simulation (2=true)
 
 %% Create objects required to call SimulationRun.Run
@@ -38,8 +38,11 @@ for i=1:numRobots
 end
     
 % Create SimulationRun object
-SimulationRun=SimulationRun(max_time, configId);
+SimulationRun=SimulationRun(max_iterations, configId);
 
 %% Begin simulation
-
-milliSeconds = SimulationRun.Run(robotsList, show_plot, WorldState);
+tic
+iterations = SimulationRun.Run(robotsList, show_plot, WorldState);
+disp('Mission Complete.')
+disp(['Number of iterations: ',num2str(iterations)])
+toc
