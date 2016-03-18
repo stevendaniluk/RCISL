@@ -32,9 +32,9 @@ numRobots = config.numRobots;
 WorldState=worldState(configId);
 
 % Create robotList object
-robotList = robot.empty(1,0);
+robotsList = robot.empty(1,0);
 for i=1:numRobots
-    robotList(i,1) = robot(i,configId);
+    robotsList(i,1) = robot(i,configId);
 end
     
 % Create SimulationRun object
@@ -42,4 +42,4 @@ SimulationRun=SimulationRun(max_time, configId);
 
 %% Begin simulation
 
-milliSeconds = SimulationRun.Run(robotList, show_plot, WorldState, configId);
+milliSeconds = SimulationRun.Run(robotsList, show_plot, WorldState);
