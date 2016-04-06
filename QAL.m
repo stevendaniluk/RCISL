@@ -57,37 +57,10 @@ classdef QAL < handle
         simulationRunActions = 0;
         simulationRunLearns = 0;        
         simulationRewardObtained = 0;
-        
-        % tracking reward and actions
-        % WILL LIKELY BE REMOVED
-        pIncorrectAction = 0;
-        aIncorrectReward = 0;
-        aFalseReward = 0;
-        aTrueReward = 0;
-        dIncorrectMeasurement = 0;
-        vIncorrectMeasurement = 0;
-        M2IncorrectMeasurement = 0;
-        vIncorrectAction = 0;
-        vIncorrectReward = 0;
-        vFalseReward = 0;
-        vTrueReward = 0;
-        M2IncorrectAction = 0;
-        M2IncorrectReward = 0;
-        M2FalseReward = 0;
-        M2TrueReward = 0;
-        
-        %Related to compressed sensing
-        % WILL BE REMOVED
-        firstCompress = 0;
-        dict = [];
-        workingDict = [];
-        useCompressedSensing = 0;
-        sizeCol = 100;
-        
+
         % Related to human advice layer
         % WILL BE REMOVED
         useHal = 0;
-        hal = [];
     end
     
     methods
@@ -129,11 +102,6 @@ classdef QAL < handle
             end
             this.advisorqLearning =  this.qlearning;
 
-            % Compressed sensing option
-            this.useCompressedSensing = c.compressed_sensingOn;
-            if(this.useCompressedSensing ==1)
-                this.InitCompressSensing();
-            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -180,15 +148,13 @@ classdef QAL < handle
                 [~,experienceProfile2,rawQuality2,sQuality2] = this.advisorqLearning.GetUtility(id,0.01);
                 if(sum(rawQuality1,1)*this.adviceThreshold  > sum(rawQuality2,1))
                     experienceProfile = experienceProfile1;
-                    rawQuality = rawQuality1;
                     sQuality = sQuality1;
                 else
                     experienceProfile = experienceProfile2;
-                    rawQuality = rawQuality2;
                     sQuality = sQuality2;
                 end
             else
-                [~,experienceProfile,rawQuality,sQuality] = this.advisorqLearning.GetUtility(id,0.01);
+                [~,experienceProfile,~,sQuality] = this.advisorqLearning.GetUtility(id,0.01);
             end
             quality = exp(sQuality); %We don't need to normalize obviously.
             
@@ -201,7 +167,7 @@ classdef QAL < handle
                        quality(7) this.boxForce this.angle(4)];
             acquiescence = 0;
             
-            %Kind of a hack for L-Alliance, if it forces us to drop a task
+            % Kind of a hack for L-Alliance, if it forces us to drop a task
             % We hack that action into the framework
             if(newTarg ~=oldTarg && newTarg==0)
                 %override default action to be "drop box" action.
@@ -210,9 +176,6 @@ classdef QAL < handle
                 acquiescence=1;
                 return;
             end
-            
-            %update our tracking metrics - Incorrect Actions
-            this.UpdateIncorrectActions(rawQuality,rstate);
             
             % Make all actions with zero quality equal to
             % 0.005*sum(Total Quality), giving it 0.5% probablity to help
@@ -261,48 +224,13 @@ classdef QAL < handle
         % 
         %   LearnFrom
         %   
-        %  WILL BE REMOVED
-        
-        function val = LearnFrom(this,state,actionId)
-            rwdfalse =  this.LearnFromUpdate(state,actionId,1,1);
-            rwdtrue = this.LearnFromUpdate(state,actionId,0,0);
-            val = rwdfalse - rwdtrue;
-            if(this.numLearns == 0)
-                this.aIncorrectReward = val;
-                this.numLearns = 1;
-            end
-            
-            % Appears to be calculations for data monitoring and is not
-            % used anymore
-            delta = val  -  this.aIncorrectReward;
-            this.aIncorrectReward = ((this.aIncorrectReward *this.numLearns) + val)/(this.numLearns+1);
-            this.M2IncorrectReward = this.M2IncorrectReward + delta.*(val - this.aIncorrectReward);
-            this.vIncorrectReward = this.M2IncorrectReward./(this.numLearns);   
-            
-            delta = rwdtrue  -  this.aTrueReward;
-            this.aTrueReward = ((this.aTrueReward *this.numLearns) + rwdtrue)/(this.numLearns+1);
-            this.M2TrueReward = this.M2TrueReward + delta.*(rwdtrue - this.aTrueReward);
-            this.vTrueReward = this.M2TrueReward./(this.numLearns);   
-
-            delta = rwdfalse  -  this.aFalseReward;
-            this.aFalseReward = ((this.aFalseReward *this.numLearns) + rwdfalse)/(this.numLearns+1);
-            this.M2FalseReward = this.M2FalseReward + delta.*(rwdfalse - this.aFalseReward);
-            this.vFalseReward = this.M2FalseReward./(this.numLearns);   
-            
-            this.numLearns =this.numLearns + 1;
-        end% end LearnFrom
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   LearnFromUpdate
-        %   
         %  One robot learns from observing one iteration
         %  state - the resulting robotState
         %  actionId - the action that was taken in the last iteration
         
-        function val = LearnFromUpdate(this,state,actionId,updateQVals,sensorTruth )
+        function val = LearnFrom(this,state,actionId)
             
-            if(actionId == 0 && updateQVals==1)
+            if(actionId == 0)
                 this.UpdateMotivation(0,state);
                 val = 0;
                 return;
@@ -313,14 +241,9 @@ classdef QAL < handle
             [oldRelativeTargetPos,~,oldGoalPos,~,~,oldTargProp] = state.GetSavedState();
             [relativeTargetPos,~,goalPos,~,~,targProp] = state.GetCurrentState();
             
-            if(sensorTruth  == 1)
-                id = this.GetQualityId(state,previousStateId);
-                idNew = this.GetQualityId(state,currentStateId);
-            else
-                id = this.GetTrueQualityId(state,previousStateId);
-                idNew = this.GetTrueQualityId(state,currentStateId);
-            end
-            
+            id = this.GetQualityId(state,previousStateId);
+            idNew = this.GetQualityId(state,currentStateId);
+
             targets_change = relativeTargetPos - oldRelativeTargetPos;
             targets_change = floor(targets_change*100);
             goal_change = goalPos - oldGoalPos;
@@ -346,16 +269,16 @@ classdef QAL < handle
                 end
     
                 %do one step of QLearning
-                if( updateQVals ==1)
-                    this.qlearning.Learn(id,idNew,actionId,reward);
-                    this.UpdateMotivation(reward,state);
-                    this.simulationRunLearns = this.simulationRunLearns +1;
-                    this.simulationRewardObtained = this.simulationRewardObtained  + reward;
-                    if(this.advexc_on == 1)
-                        this.adviceexchange.AddReward(reward);
-                    end
+                this.qlearning.Learn(id,idNew,actionId,reward);
+                this.UpdateMotivation(reward,state);
+                this.simulationRunLearns = this.simulationRunLearns +1;
+                this.simulationRewardObtained = this.simulationRewardObtained  + reward;
+                if(this.advexc_on == 1)
+                    this.adviceexchange.AddReward(reward);
                 end
+                
                 val = reward;
+                this.numLearns =this.numLearns + 1;
                 return;
             end
             
@@ -421,25 +344,25 @@ classdef QAL < handle
             if(reward < 0)
                 reward = 0;
             end
-
-            if( updateQVals == 1)
-                %do one step of QLearning
-                this.qlearning.Learn(id,idNew,actionId,reward);
-                this.UpdateMotivation(reward,state);
-
-                this.simulationRunLearns = this.simulationRunLearns +1;
-                this.simulationRewardObtained = this.simulationRewardObtained  + reward;
-
-                if(this.targetId > 0)
-                    this.simulationRunLearnsTarget = this.simulationRunLearnsTarget +1;
-                    this.simulationRewardObtainedTarget = this.simulationRewardObtainedTarget + reward;
-                end
-                
-                if(this.advexc_on == 1)
-                    this.adviceexchange.AddReward(reward);
-                end
-             end
+            
+            %do one step of QLearning
+            this.qlearning.Learn(id,idNew,actionId,reward);
+            this.UpdateMotivation(reward,state);
+            
+            this.simulationRunLearns = this.simulationRunLearns +1;
+            this.simulationRewardObtained = this.simulationRewardObtained  + reward;
+            
+            if(this.targetId > 0)
+                this.simulationRunLearnsTarget = this.simulationRunLearnsTarget +1;
+                this.simulationRewardObtainedTarget = this.simulationRewardObtainedTarget + reward;
+            end
+            
+            if(this.advexc_on == 1)
+                this.adviceexchange.AddReward(reward);
+            end
+             
             val = reward;
+            this.numLearns =this.numLearns + 1;
             
         end % end LearnFromUpdate
         
@@ -460,74 +383,7 @@ classdef QAL < handle
             end
             this.lalliance.UpdateMotivation(rewardIndividual,state,confidence);
         end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   UpdateIncorrectActions
-        %   
-        %   WILL LIKELY BE REMOVED 
- 
-        function UpdateIncorrectActions(this,rawQuality,rstate)
-            
-            trueId = this.GetTrueQualityId(rstate,0);
-            
-            [~,~,qDecideTrue] = this.advisorqLearning.GetUtility(trueId,0.00001);
 
-            qDecideNoisy = rawQuality(:,1);
-            
-            % Find pose error
-            [~,~,~,~,robot,~,~] = rstate.GetCurrentState();
-            pose_noisy = robot(1:2);
-            [~,~,~,~,robot,~,~] = rstate.GetTrueCurrentState();
-            pose_true = robot(1:2);
-            
-            pose_error = pose_noisy -  pose_true;
-            pose_error = sum(abs(pose_error),2);
-
-            % normalize:
-            if(sum(qDecideNoisy ,1) > 0)
-                qDecideNoisy (:) = 1/7;
-            end
-            if(sum(qDecideTrue ,1) == 0)
-                qDecideTrue (:) = 1/7;
-            end
-            
-            qDecideTrue = qDecideTrue / sum(qDecideTrue ,1);
-             
-            pSum = abs(qDecideTrue -qDecideNoisy)./2;
-            pSum = qDecideNoisy'*pSum;
-            
-            if(this.numActions == 0)
-                oldpIncorrectActons = pSum;
-                this.pIncorrectAction = pSum;
-                this.numActions = 1;
-            else
-                oldpIncorrectActons = this.pIncorrectAction;
-                this.pIncorrectAction = (this.pIncorrectAction*this.numActions + pSum)/(this.numActions+1);
-                this.numActions = this.numActions +1;
-            end
-
-            delta = pSum  - oldpIncorrectActons;
-            this.M2IncorrectAction = this.M2IncorrectAction + delta.*(pSum - this.pIncorrectAction);
-            this.vIncorrectAction = this.M2IncorrectAction./(this.numActions - 1);   
-
-            % distance calulations
-            if(this.numActionsDistance == 0)
-                olddIncorrectMeasurement = pose_error;
-                this.dIncorrectMeasurement = pose_error;
-                this.numActionsDistance = 1;
-            else
-                olddIncorrectMeasurement = this.dIncorrectMeasurement;
-                this.dIncorrectMeasurement = (this.dIncorrectMeasurement*this.numActionsDistance + pose_error)/(this.numActionsDistance+1);
-                this.numActionsDistance = this.numActionsDistance +1;
-            end
-            
-            delta = pSum  - olddIncorrectMeasurement;
-            this.M2IncorrectMeasurement  = this.M2IncorrectMeasurement  + delta.*(pSum - this.dIncorrectMeasurement );
-            this.vIncorrectMeasurement  = this.M2IncorrectMeasurement ./(this.numActionsDistance - 1);   
- 
-        end% end UpdateIncorrectActions
-        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   EpochCounter
@@ -662,22 +518,12 @@ classdef QAL < handle
             end
 
             %5 bits each
-            if(this.useCompressedSensing == 1)
-                fullVector = [targetPosEnc 0 goalPosEnc 0 borderPosEnc 0 closestObs 0];
-                compressSize = 4;
-                id = RunCompressedSensing(this,fullVector,compressSize);
-                id = [id'  targetType];
-                id = double(id);
-            else
-                id= [this.EncodePos(targetPosEnc,orient )...
-                 this.EncodePos(goalPosEnc,orient )...
-                 this.EncodePos(borderPosEnc ,orient )...
-                 this.EncodePos(closestObs,orient)...
-                 targetType ...
-                 ];
+            id= [this.EncodePos(targetPosEnc,orient )...
+                this.EncodePos(goalPosEnc,orient )...
+                this.EncodePos(borderPosEnc ,orient )...
+                this.EncodePos(closestObs,orient)...
+                targetType];
                 
-            end
-         
              qualityId = id;
              
         end% end GetNewQualityIdFromState
@@ -718,40 +564,6 @@ classdef QAL < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   InitCompressSensing
-        %   
-        %   Encodes distance and orientation info into a single value. Used
-        %   when compressed sensing is turned off.
-        %
-        %   WILL BE REMOVED
-        
-        function InitCompressSensing(this)
-            this.dict = -10*ones(2,this.sizeCol) +rand(2,this.sizeCol)*20;
-            dictb = zeros(1,this.sizeCol);
-            this.dict = [this.dict; dictb];
-            this.dict = [this.dict ;this.dict ;this.dict ;this.dict ];
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   RunCompressedSensing
-        %
-        %   WILL BE REMOVED
-        
-        function xCompress = RunCompressedSensing(this,fullVector,compressSize)
-            xCompress = [];
-            if(this.firstCompress ==0)
-                this.firstCompress =1;
-                this.workingDict  = compress([],[],this.dict,compressSize);
-            else
-                x = fullVector';
-                xCompress = compress(x,this.workingDict,this.dict,compressSize );
-                %size(this.workingDict)    
-            end
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
         %   Reset
         %   
         %    Sets all related aprameters to zero. Used for when we have
@@ -774,26 +586,11 @@ classdef QAL < handle
             this.simulationRunLearnsTarget = 0; 
             this.simulationRewardObtainedTarget = 0;
             
-            this.pIncorrectAction = 0;
             this.numActions = 0;
-            this.M2IncorrectAction = 0;
-            this.vIncorrectAction = 0;             
             this.numActionsDistance = 0;
-            this.dIncorrectMeasurement = 0;
-            this.M2IncorrectMeasurement = 0;
-            this.vIncorrectMeasurement = 0;             
-
-            this.aIncorrectReward = 0;
-            this.aTrueReward = 0;
-            this.aFalseReward = 0;
-            this.vIncorrectReward = 0;
-            this.vTrueReward = 0;
-            this.vFalseReward = 0;
-            
             this.numLearns = 0;
         end % end Reset
         
   end
     
 end
-
