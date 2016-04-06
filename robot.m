@@ -246,18 +246,6 @@ classdef robot < handle
             val = 1;
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function val = GetMemoryOccupancy(this)
-            val = this.CISL.GetMemoryOccupancy();
-        end
-        
     end
     
 end
