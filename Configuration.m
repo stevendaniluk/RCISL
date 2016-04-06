@@ -381,38 +381,15 @@ classdef Configuration < handle
             config.particle_Number = 35;
             config.particle_PruneNumber = 7;           
 
-            %Set team learning parameters
-            %1 = Q-Learning
-            %2 = L-Alliance
-            %3 = RSLA
-            %4 = QAQ - Q-learning, Advice Exchange, Q-Learning (team)
-            %5 = L-Alliance Old
-            if(teamLearning == 1)
-                disp('All Individual Learning');
-                config.cisl_type= teamLearning;
-                config.qlearning_gammamin = 0.60; 
-                config.qlearning_gammamax = 0.60; 
-                config.qlearning_alphaDenom = 30;
-                %config.qlearning_alphaPower = 1.65; %the higher this is, the faster the convergence of Q-Learning
-                %config.cisl_decideFactor = 30;
-                config.qlearning_alphaPower = 1; %the higher this is, the faster the convergence of Q-Learning
-                config.cisl_decideFactor = 0;
-                config.qsystem_commitActionLength = 2000;
-            elseif(teamLearning == 2)
+            % Set team learning parameters
+            % 2 = L-Alliance
+            % All others removed
+            if(teamLearning == 2)
                 disp('L-Alliance');
                 config.cisl_type= teamLearning;
                 config.lalliance_useDistance = 1;
-            elseif(teamLearning == 3)
-                disp('RSLA');
-                config.cisl_type= teamLearning;
-            elseif(teamLearning == 4)
-                disp('QQ');
-                config.cisl_type= teamLearning;
-            elseif(teamLearning == 5)
-                disp('L-Alliance Old Style! (no distance) (no limit)');
-                config.cisl_type= 2;
-                config.lalliance_useDistance = 0;          
-                config.numIterations = 1000000000;
+            else
+                error('Improper team learning.');
             end %end teamLearning if
 
             %Set crowd sourcing parameters

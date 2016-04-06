@@ -25,8 +25,6 @@ classdef robot < handle
         learningFreq = 4;
         lastActionExpProfile =[];
         %s_robotTeam = GenericList();
-
-        systemType = 0;
         
     end
     
@@ -42,24 +40,12 @@ classdef robot < handle
         function this = robot(inId,configId)
               
             this.id = inId;
-            %this.CISL = cisl(this.stepSize ,this.rotationSpeed,configId);
             c = Configuration.Instance(configId);
-            if( c.cisl_type == 1)
-                this.systemType =1;
-                'Only Q-Learning Running'
-                this.CISL = QSystem(configId,inId);
-            elseif( c.cisl_type == 2)
-                this.systemType =2;
-                'L-AllianceRunning'
-                this.CISL = QAL(configId,inId);
-            elseif( c.cisl_type == 3)
-                this.systemType =3;
-                'RSLA Running'
+
+            if( c.cisl_type == 2)
                 this.CISL = QAL(configId,inId);
             else
-                this.systemType =4;
-                'QAQ Running'
-                this.CISL = QAQ(configId,inId);
+                error('Improper CISL type.');
             end
             this.learningFreq = c.cisl_learningFrequency;
             this.lastActionExpProfile = [];
