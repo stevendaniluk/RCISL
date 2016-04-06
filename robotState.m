@@ -159,7 +159,7 @@ classdef robotState < handle
            c = Configuration.Instance(configId);
            this.useParticleFilter = c.particle_Used;
            this.noiseLevel = c.robot_NoiseLevel;
-           this.noiseLevel 
+           this.noiseLevel; 
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

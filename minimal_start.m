@@ -17,7 +17,7 @@ clc
 %   8) Number of Robots (2=3 robots, 3=8 robots, 1=12 robots)
 
 % Required variables
-configId=21122112;  % ID code, described above
+configId=21122212;  % ID code, described above
 max_iterations=15000;    % Maximum number of iterations (seconds)
 show_plot=2;    % Show the plot during the simulation (2=true)
 
