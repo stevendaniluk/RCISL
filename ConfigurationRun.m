@@ -125,7 +125,6 @@ classdef ConfigurationRun < handle
         
         qsystem_commitActionLength = 0;
         
-        compressed_sensingOn = 0;
         use_hal = 0;
         
     end

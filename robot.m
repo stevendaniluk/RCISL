@@ -25,7 +25,6 @@ classdef robot < handle
         learningFreq = 4;
         lastActionExpProfile =[];
         %s_robotTeam = GenericList();
-        
     end
     
     methods
@@ -90,8 +89,7 @@ classdef robot < handle
             this.CISL.Reset();
             val = 1;
         end
-        
-        
+                
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   Class Name

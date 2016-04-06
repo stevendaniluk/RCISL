@@ -271,7 +271,6 @@ classdef Configuration < handle
             
             % Version _tst4:
             % 0.2; 0.5; 300; 500;
-            config.compressed_sensingOn = 0;            
             config.advice_eta = 0.2; %moving average (new measurement weight)
             config.advice_delta = 0.5; %advice threshold (percent advisor is better)
             config.advice_row = 1;
@@ -337,34 +336,19 @@ classdef Configuration < handle
                 config.qteam_epochConvergeTicks = 20000;
             end %End robotNum if
             
-            %Set compressed sensing parameter
-            %Involves work performed by a summer student, but does not work
-            %Should always be off (=0)
-            if(comsen == 1)
-                disp('Compressed Sensing On');
-                config.compressed_sensingOn = 1;   
-            else
-                disp('Compressed Sensing Off');
-                config.compressed_sensingOn = 0;   
-            end %end comsen if
-            
             %%Set noise parameter
             if(noiseNum == 1 )
-                disp('0.00');
                 config.robot_NoiseLevel = 0;
             elseif(noiseNum == 2  )
-                disp('0.05');
                 config.robot_NoiseLevel = 0.05;
             elseif(noiseNum == 3)
-                disp('0.1');
                 config.robot_NoiseLevel = 0.1;
             elseif (noiseNum == 4)
-                disp('0.2');
                 config.robot_NoiseLevel = 0.2;
             elseif(noiseNum == 5)
-                disp('0.4');
                 config.robot_NoiseLevel = 0.4;
             end %end noiseNum if
+            disp(['Noise: ',num2str(config.robot_NoiseLevel)]);
             
             %%Set particle filter params
             if(pf == 2)
