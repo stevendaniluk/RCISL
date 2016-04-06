@@ -230,6 +230,29 @@ classdef robot < handle
             val = 1;
         end
         
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   Class Name
+        %   
+        %   Description 
+        %   
+        %   
+        %   
+        function SetRobotTeam(this,list)
+            this.s_robotTeam  = list;
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   Class Name
+        %   
+        %   Description 
+        %   
+        %   
+        %   
+        function robo = GetRobotFromTeam(this,id)
+            robo = this.s_robotTeam.Get(id);
+        end
     end
     
 end
