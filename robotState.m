@@ -24,7 +24,7 @@ classdef robotState < handle
         %obstacles = [];
         %goal = [];
 
-        id = 0;
+        id = [];
         WorldState = [];
         
         %targets_saved = [];
@@ -33,7 +33,7 @@ classdef robotState < handle
         %goal_saved = [];
         %borderOfWorld_saved = [];
         
-        noiseLevel = 0;
+        noiseLevel = [];
         
         sensor_robPos = []; 
         sensor_robOrient = [];
@@ -108,10 +108,9 @@ classdef robotState < handle
         
         % Rows: robot id, Cols: task Choice
         %belief_taskChoices = [];
-        useParticleFilter = 0;
+        useParticleFilter = [];
         particleFilter;
         
-        configId = 0;
         targetOld = -1;
         %borderOfWorld = [left down right up];
         %borderOfWorld = [0 0 0 0];
@@ -131,9 +130,11 @@ classdef robotState < handle
         newVelocity = 0;
         targetAdj = 0;
         
-        cisl = 0;
+        cisl = [];
         lastActionLabel = '';
         i_robot;
+        
+        configuration = [];
     end
     
     methods
@@ -146,20 +147,18 @@ classdef robotState < handle
         %   
         %   
         %   
-        function this = robotState(id,WorldStateIn,configId, CISL,inst_robot)
+        function this = robotState(id, WorldStateIn, config, CISL,  inst_robot)
            %ptr = libpointer('robotState',this);
            this.i_robot = inst_robot;
            this.particleFilter = [ParticleFilter();ParticleFilter();ParticleFilter()];
 
-           this.configId = configId;
            this.cisl = CISL;
            this.WorldState=WorldStateIn;
            this.id = id;
            
-           c = Configuration.Instance(configId);
-           this.useParticleFilter = c.particle_Used;
-           this.noiseLevel = c.robot_NoiseLevel;
-           this.noiseLevel; 
+           this.configuration = config;
+           this.useParticleFilter = config.particle_Used;
+           this.noiseLevel = config.robot_NoiseLevel;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -713,13 +712,12 @@ classdef robotState < handle
         function values = GetFilteredValues(this,reading,action,boundsTop,boundsBottom,taskId)
             sz = size(reading);
             values = [];
-            c = Configuration.Instance(this.configId);
             
-            numParticles = c.particle_Number;
-            pruneThreshold = c.particle_PruneNumber;
-            resampleStd = c.particle_ResampleNoiseSTD;
-            controlStd =  c.particle_ControlStd;
-            sensorStd  = c.particle_SensorStd;
+            numParticles = this.configuration.particle_Number;
+            pruneThreshold = this.configuration.particle_PruneNumber;
+            resampleStd = this.configuration.particle_ResampleNoiseSTD;
+            controlStd =  this.configuration.particle_ControlStd;
+            sensorStd  = this.configuration.particle_SensorStd;
             
             for i=1:sz(1)
                 % initalize if new

@@ -11,18 +11,17 @@ classdef robot < handle
     %   Detailed explanation goes here
     
     properties
-        %pos = [0 0 0];
-        %orientation = [0 0 0];
         CISL = [];
         state = [];
-        id = 0;
-        RobotState;
-        lastActionId = 0;
+        id = [];
+        RobotState = [];
+        lastActionId = [];
+        config = [];
         
-        stepSize = 0.5;
-        rotationSpeed = pi/4;
+        stepSize = [];
+        rotationSpeed = [];
         ticks = 0;
-        learningFreq = 4;
+        learningFreq = [];
         lastActionExpProfile =[];
         %s_robotTeam = GenericList();
     end
@@ -36,17 +35,11 @@ classdef robot < handle
         %   
         %   
         %   
-        function this = robot(inId,configId)
-              
+        function this = robot(inId,config)
+            this.config = config;
             this.id = inId;
-            c = Configuration.Instance(configId);
-
-            if( c.cisl_type == 2)
-                this.CISL = QAL(configId,inId);
-            else
-                error('Improper CISL type.');
-            end
-            this.learningFreq = c.cisl_learningFrequency;
+            this.CISL = QAL(config,inId);
+            this.learningFreq = config.cisl_learningFrequency;
             this.lastActionExpProfile = [];
         end
         
@@ -60,7 +53,7 @@ classdef robot < handle
         %   
         %   
         function val = SetWorldState(this,WorldState)
-            this.RobotState = robotState(this.id,WorldState,this.CISL.configId,this.CISL,this);
+            this.RobotState = robotState(this.id, WorldState, this.config, this.CISL,this);
             this.state = WorldState;
             %TODO - combine all object properties into a
             %single array.  Constants can describe
