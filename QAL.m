@@ -15,41 +15,34 @@ classdef QAL < handle
         adviceexchange = [];
         
         % World parameters
-        configId = 1;
-        robotId = 0;
+        robotId = [];
         targetId = 0;
-        boxForce = 0.05;
-        angle = [0; 90; 180; 270];  
-        rotationSize = pi/4;
-        stepSize =0.1;
-        maxGridSize = 11;
-        worldHeight = 0;
-        worldWidth = 0;
 
+        % Action parameters
+        angle = [];
+        boxForce = [];
+        rotationSize = [];
+        stepSize =[];
+        
         % Q-Learning parameters
-        arrBits = 20;
-        triggerDistance = 0.4;
-        targetReward = 10;
-        actionsAmount = 7;
-        lastAction = 0;
-        decideFactor = 0;
-        rewardDistanceScale = 0;
+        arrBits = [];
+        triggerDistance = [];
+        targetReward = [];
+        decideFactor = [];
+        rewardDistanceScale = [];
         
         % Advice Exchange Parameters
-        advexc_on = 0;
-        adviceThreshold = 0;
+        advexc_on = [];
+        adviceThreshold = [];
         adv_epochTicks = 0;
-        adv_epochMax = 300;
+        adv_epochMax = [];
         
         % L-Alliance parameters
         la_epochTicks = 0;
-        la_epochMax = 300;
-        useDistance = 0;
+        la_epochMax = [];
+        useDistance = [];
 
         % Action and reward counters
-        numActions = 0;
-        numActionsDistance = 0;
-        numLearns = 0;
         simulationRunActionsTarget = 0;
         simulationRunActionsTargetCoop = 0;
         simulationRunLearnsTarget = 0;
@@ -58,9 +51,6 @@ classdef QAL < handle
         simulationRunLearns = 0;        
         simulationRewardObtained = 0;
 
-        % Related to human advice layer
-        % WILL BE REMOVED
-        useHal = 0;
     end
     
     methods
@@ -69,36 +59,33 @@ classdef QAL < handle
         %   Constructor
         %   
 
-        function this = QAL(configId,robotId)
+        function this = QAL(config,robotId)
             % Set ID's and configuration
             this.robotId = robotId;
-            this.configId = configId;
-            c = Configuration.Instance(this.configId );
             
             % Set learning parameters
-            this.useHal = c.use_hal;
-            this.adviceThreshold = c.advice_threshold;
-            this.decideFactor = c.cisl_decideFactor;
-            this.advexc_on = c.advexc_on;
-            this.adv_epochMax = c.adv_epochMax;
-            this.la_epochMax = c.la_epochMax;
-            this.adv_epochTicks = 0;
-            this.la_epochTicks = 0;
-            this.rewardDistanceScale = c.qlearning_rewardDistanceScale;
-            this.triggerDistance = c.cisl_TriggerDistance;
-            this.useDistance = c.lalliance_useDistance;
+            this.adviceThreshold = config.advice_threshold;
+            this.decideFactor = config.cisl_decideFactor;
+            this.advexc_on = config.advexc_on;
+            this.adv_epochMax = config.adv_epochMax;
+            this.la_epochMax = config.la_epochMax;
+            this.rewardDistanceScale = config.qlearning_rewardDistanceScale;
+            this.triggerDistance = config.cisl_TriggerDistance;
+            this.useDistance = config.lalliance_useDistance;
+            this.arrBits = config.arrBits;
+            this.targetReward = config.targetReward;
+            this.angle = config.angle;
             
             % Set world parameters
-            this.maxGridSize = c.cisl_MaxGridSize;
-            this.worldHeight = c.world_Height;
-            this.worldWidth = c.world_Width;
-            this.boxForce = 0.05;
+            this.boxForce = config.boxForce;
+            this.rotationSize = config.rotationSize;
+            this.stepSize = config.stepSize;
 
             % Instance core objects
-            this.qlearning = Qlearning(this.actionsAmount,this.arrBits,configId );
-            this.lalliance = LAllianceAgent(c,robotId );
+            this.qlearning = Qlearning(config);
+            this.lalliance = LAllianceAgent(config,robotId );
             if(this.advexc_on == 1)
-                this.adviceexchange = AdviceExchange(robotId,c.numRobots,c.robot_sameStrength,configId);
+                this.adviceexchange = AdviceExchange(robotId,config.numRobots,config.robot_sameStrength,config);
             end
             this.advisorqLearning =  this.qlearning;
 
@@ -215,7 +202,6 @@ classdef QAL < handle
             
             % Set the action that was decided
             action = qDecide(index,2:3);
-            this.lastAction = [index action];
             actionId = index;
             
         end% end Act
@@ -278,7 +264,6 @@ classdef QAL < handle
                 end
                 
                 val = reward;
-                this.numLearns =this.numLearns + 1;
                 return;
             end
             
@@ -362,7 +347,6 @@ classdef QAL < handle
             end
              
             val = reward;
-            this.numLearns =this.numLearns + 1;
             
         end % end LearnFromUpdate
         
@@ -572,7 +556,6 @@ classdef QAL < handle
 
         function Reset(this)
             this.lalliance.Reset();
-            
             this.qlearning.Reset();
             this.la_epochTicks = 0;
             this.adv_epochTicks = 0;
@@ -580,15 +563,11 @@ classdef QAL < handle
             this.simulationRunActions = 0;
             this.simulationRunLearns = 0; 
             this.simulationRewardObtained = 0;
-
             this.simulationRunActionsTarget = 0;
             this.simulationRunActionsTargetCoop = 0;
             this.simulationRunLearnsTarget = 0; 
             this.simulationRewardObtainedTarget = 0;
             
-            this.numActions = 0;
-            this.numActionsDistance = 0;
-            this.numLearns = 0;
         end % end Reset
         
   end

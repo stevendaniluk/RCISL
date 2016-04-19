@@ -3,29 +3,15 @@ classdef Qlearning <handle
     %   Detailed explanation goes here
     
     properties
-        arrBits = 0;
         quality = [];
-        qualityMinimal = [];
-        
-        experience = [];
-      
-        learnedActions = 0;
-        randomActions = 0;
-        
-        %rewardObtained = 0;
-        %decisionsMade = 0;  
-        gammamin = 0.5;
-        gammamax = 0.7;
-        alphaDenom = 30;
-        alphaPower = 1;
-        
-        %reset our simple tracking metric
-        %store the alpha,gamma,expereince,bef quality(Q) , iteration,
-        %reward
-        learningData = zeros(5000,6);
+        learnedActions = [];
+        randomActions = [];
+        gamma = [];
+        alphaDenom = [];
+        alphaPower = [];        
+        learningData = [];
         learningDataIndex = 0;
-        actionNum = 100;
-        
+        actionNum = [];
     end
     
     methods
@@ -37,16 +23,13 @@ classdef Qlearning <handle
         %   
         %   
         %   
-        function this = Qlearning(actions,bits,configId)
-            c = Configuration.Instance(configId);
-            this.gammamin = c.qlearning_gammamin;
-            this.gammamax = c.qlearning_gammamax;
-            this.alphaDenom = c.qlearning_alphaDenom;
-            this.alphaPower = c.qlearning_alphaPower;
-            this.actionNum  = actions;
-            
-            this.arrBits = bits;
-            this.quality = SparseActionHashtable(this.arrBits,actions);
+        function this = Qlearning(config)
+            this.gamma = config.qlearning_gamma;
+            this.alphaDenom = config.qlearning_alphaDenom;
+            this.alphaPower = config.qlearning_alphaPower;
+            this.actionNum  = config.actionsAmount;
+            this.learningData = zeros(config.numIterations,6);
+            this.quality = SparseActionHashtable(config.arrBits,config.actionsAmount);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -82,20 +65,18 @@ classdef Qlearning <handle
              
             %softmax - the more expere
             %gamma = exp(expFutureMax/100 +2)/(100+(exp(expFutureMax/100 +2)));
-            
-            gamma = this.gammamax;
-            
+                        
             qualityCurrent = qualityNow(actionId);%
             %alpha = 1/(1+0.01*expNow(actionId));
             alpha = 1/(exp((expNow(actionId).^this.alphaPower)/this.alphaDenom));
            
-            qualityUpdate = qualityCurrent + alpha*(reward + gamma*qualityFutureMax - qualityCurrent );
+            qualityUpdate = qualityCurrent + alpha*(reward + this.gamma*qualityFutureMax - qualityCurrent );
             
             % % % % %             
             % 
             % Update some tracking metrics
             %store the alpha,gamma,expereince,quality(Q) , iteration,rewd
-            this.AddToLearningData ([alpha gamma expNow(actionId),qualityCurrent 0 reward] );            
+            this.AddToLearningData ([alpha this.gamma expNow(actionId),qualityCurrent 0 reward] );            
 
             
             % % % % %
@@ -177,7 +158,6 @@ classdef Qlearning <handle
         %   
         %   
         %   
-        % [alpha,gamma,expereince,quality(Q) , iteration,rewd]
         function dat = GetLearningData(this)
             b = size(this.learningData,1);
             i = 1;

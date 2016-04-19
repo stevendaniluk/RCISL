@@ -9,11 +9,10 @@ classdef SimulationRun < handle
     
     properties
         % World parameters
-        configurationId = 1;
-        numRobots = 0;
-        numTargets = 0;
-        numObstacles = 0;
-        numIterations = 0;
+        numRobots = [];
+        numTargets = [];
+        numObstacles = [];
+        numIterations = [];
         WorldState = [];
         
         % World data
@@ -39,17 +38,13 @@ classdef SimulationRun < handle
         %
         %   Constructor
         %
-        %   configId: The 8 digit configuration ID
         %   iterationsIn: Maximum number of iterations (seconds) for sim
         %
-        function this = SimulationRun(iterationsIn,configId)
-            this.configurationId = configId;
-            c= Configuration.Instance(this.configurationId );
-            
-            this.numRobots = c.numRobots;
-            this.numObstacles = c.numObstacles;
-            this.numTargets = c.numTargets;
-            this.numIterations = iterationsIn; 
+        function this = SimulationRun(config)
+            this.numRobots = config.numRobots;
+            this.numObstacles = config.numObstacles;
+            this.numTargets = config.numTargets;
+            this.numIterations = config.numIterations; 
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -69,7 +64,6 @@ classdef SimulationRun < handle
              
             % Set world properties
             this.WorldState = world;
-            this.numRobots = size(robotsList,1);
             worldWidth = this.WorldState.WIDTH;
             worldHeight = this.WorldState.HEIGHT;
             
@@ -174,26 +168,7 @@ classdef SimulationRun < handle
                             Y = [point(2) point2(2)];
                             plot(X,Y,'y');
                         end
-                        
-                        if(robotsList(i).RobotState.cisl.useHal == 1)
-                            vecAdv = [0 0];
-                            dist = [];
-                            st = [];
-                            [vecAdv,st] = robotsList(i).RobotState.cisl.hal.GetLastAdvisedVector();
-                        else
-                            vecAdv = [0 0];
-                            dist = [];
-                            st = [];
-                        end
-                        
-                        if(sum(vecAdv ,2) ~= 0)
-                            point = pos(i,1:2);
-                            point2 = pos(i,1:2) + vecAdv;
-                            X = [point(1) point2(1)];
-                            Y = [point(2) point2(2)];
-                            plot(X,Y,'b','LineWidth',4);
-                        end
-                        
+                                                
                         axis([0 worldWidth 0 worldHeight]);
                     end
                     

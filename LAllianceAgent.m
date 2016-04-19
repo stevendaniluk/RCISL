@@ -64,89 +64,85 @@ classdef LAllianceAgent < handle
         
         
         
-        robotId = 0;    %Integer [1,n]
-        n = 0;          %number of robots
-        m = 0;          %number of tasks
-        config = [];    %Configuration parameters
+        robotId = [];    %Integer [1,n]
+        n = [];          %number of robots
+        m = [];          %number of tasks
         robotCommunication = [];
         
         %ALLIANCE Parameters
-        theta = 5;
-        motivation_Threshold = 20;
-        movingAverageKeep = 0.3;
+        theta = [];
+        motivation_Threshold = [];
+        movingAverageKeep = [];
         
-        convergeAttempts = 70;
-        convergeSlope = 0.15;
+        convergeAttempts = [];
+        convergeSlope = [];
 
-        confidence_Factor = 0;
+        confidence_Factor = [];
         
         %tauType = 1 - Moving Average
-        tauType = 1;
+        tauType = [];
         
-        tmax = 7000;
-        tmin = 4000;
+        tmax = [];
+        tmin = [];
         
         %default to using only the slow impatience rate
-        useFast = 0;
+        useFast = [];
         
         %Do we store taus for cooperation?
-        useCooperation = 0;
-        useCooperationLimit = 0;
+        useCooperation = [];
+        useCooperationLimit = [];
         
         
         %Do we automatically calculate taus?
-        calculateTau = 0;
+        calculateTau = [];
         tauCounter = 0;
-        failureTau = 7000;
+        failureTau = [];
         
-        updateByTaskType = 0;
-        taskTypes = [];
+        updateByTaskType = [];
         ticks = 0;
-        freq = 0;
+        motiv_freq = [];
         
         
 
     end
     
     methods
-        function this= LAllianceAgent(configuration,robotId)
+        function this= LAllianceAgent(config,robotId)
             %Configure robot communication
-            this.robotCommunication = RobotCommunication.Instance(configuration);
+            this.robotCommunication = RobotCommunication.Instance(config);
             
             %Set number of robots and number of tasks (1 Target=1 task)
-            this.n = configuration.numRobots;
-            this.m = configuration.numTargets;
+            this.n = config.numRobots;
+            this.m = config.numTargets;
             
             %Parameter values taken from Configuration Run
-            this. theta = configuration.lalliance_theta ;
-            this.motivation_Threshold = configuration.lalliance_motivation_Threshold ;
-            this.movingAverageKeep = configuration.lalliance_movingAverageKeep ;
-            this.convergeAttempts = configuration.lalliance_convergeAttempts ;
-            this.convergeSlope =  configuration.lalliance_convergeSlope ;
+            this. theta = config.lalliance_theta ;
+            this.motivation_Threshold = config.lalliance_motivation_Threshold ;
+            this.movingAverageKeep = config.lalliance_movingAverageKeep ;
+            this.convergeAttempts = config.lalliance_convergeAttempts ;
+            this.convergeSlope =  config.lalliance_convergeSlope ;
 
             %tauType = 1 - Moving Average
-            this.tauType = configuration.lalliance_tauType ;
+            this.tauType = config.lalliance_tauType ;
 
-            this.tmax = configuration.lalliance_tmax ;
-            this.tmin = configuration.lalliance_tmin ;
+            this.tmax = config.lalliance_tmax ;
+            this.tmin = config.lalliance_tmin ;
 
             %default to using only the slow impatience rate
-            this.useFast = configuration.lalliance_useFast;
+            this.useFast = config.lalliance_useFast;
 
             %Do we store taus for cooperation?
-            this.useCooperation = configuration.lalliance_useCooperation;
-            this.useCooperationLimit = configuration.lalliance_useCooperationLimit;
+            this.useCooperation = config.lalliance_useCooperation;
+            this.useCooperationLimit = config.lalliance_useCooperationLimit;
             
             %Do we automatically calculate taus?
-            this.calculateTau = configuration.lalliance_calculateTau ;
-            this.tauCounter = 0;
-            this.failureTau = configuration.lalliance_failureTau ;
-            this.updateByTaskType = configuration.lalliance_updateByTaskType ;
-            this.freq = configuration.lalliance_motiv_freq;
+            this.calculateTau = config.lalliance_calculateTau ;
+            this.failureTau = config.lalliance_failureTau ;
+            this.updateByTaskType = config.lalliance_updateByTaskType ;
+            this.motiv_freq = config.lalliance_motiv_freq;
             
             
             this.robotId = robotId;
-            this.config = configuration;
             
             %Create empty multidimensional data array
             %Rows correspond to robots
@@ -157,8 +153,8 @@ classdef LAllianceAgent < handle
             
             % disp(strcat(['created robot',num2str(robotId)]));
             this.robotCommunication.SetAgent(this,robotId);
-            this.SetAcquiescence(configuration.lalliance_acquiescence);
-            this.confidence_Factor = configuration.lalliance_confidenceFactor;
+            this.SetAcquiescence(config.lalliance_acquiescence);
+            this.confidence_Factor = config.lalliance_confidenceFactor;
             this.data(this.robotId,:,this.ti) = 700; %Assume you are the best!
             
        
@@ -674,9 +670,9 @@ classdef LAllianceAgent < handle
         function UpdateMotivation(this,rewardIndividual,state,confidence)
             this.ticks = this.ticks + 1;
             
-            if(mod(this.ticks, this.freq) == 0)
+            if(mod(this.ticks, this.motiv_freq) == 0)
                 this.ticks = 0;
-                this.Update(this.config.lalliance_motiv_freq,confidence);
+                this.Update(this.motiv_freq,confidence);
                 this.Broadcast();
             end
         end

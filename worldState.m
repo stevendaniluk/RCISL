@@ -35,7 +35,7 @@ classdef worldState < handle
     
     properties
         
-        % Time steps
+        % Time steps (NOT USED, SHOULD BE REMOVED)
         iterations = 0;
 
         % Positions [x y z]
@@ -94,38 +94,34 @@ classdef worldState < handle
         targetProperties_inital = [];        
         goalPos_inital = [];
 
-        randomPaddingSize_inital = 0;
-        randomBorderSize_inital = 0;
-        robotSize_inital = 0;
-        obstacleSize_inital = 0;
-        targetSize_inital = 0;
-        goalSize_inital = 0;
-        robotMass_inital = 0;
-        targetMass_inital = 0;
-        obstacleMass_inital = 0; 
-        WIDTH_inital = 0;  
-        HEIGHT_inital = 0; 
-        DEPTH_inital = 0;  
+        randomPaddingSize_inital = [];
+        randomBorderSize_inital = [];
+        robotSize_inital = [];
+        obstacleSize_inital = [];
+        targetSize_inital = [];
+        goalSize_inital = [];
+        robotMass_inital = [];
+        targetMass_inital = [];
+        obstacleMass_inital = []; 
+        WIDTH_inital = [];  
+        HEIGHT_inital = []; 
+        DEPTH_inital = [];  
                 
         % World parameters set by Configuration
-        randomPaddingSize = 0.5;
-        randomBorderSize = 1;
-        robotSize = 0.25/2;
-        obstacleSize = 0.5;
-        targetSize = 0.25;
-        goalSize = 1.0;
-        robotMass = 1;
-        targetMass = 1;
-        obstacleMass = 0; 
-        WIDTH = 0;  %world x
-        HEIGHT = 0; %world y
-        DEPTH = 0;  %world z
-
-        %the amount of dimensions
-        CONST_DIMENSION = 3;
+        randomPaddingSize = [];
+        randomBorderSize = [];
+        robotSize = [];
+        obstacleSize = [];
+        targetSize = [];
+        goalSize = [];
+        robotMass = [];
+        targetMass = [];
+        obstacleMass = []; 
+        WIDTH = [];  %world x
+        HEIGHT = []; %world y
+        DEPTH = [];  %world z
         
         %types in the world. Not currently used effectively
-        TYPE_OBSTACLE = 1;
         TYPE_ROBOT = 2;
         TYPE_TARGET = 3;
         
@@ -134,8 +130,8 @@ classdef worldState < handle
         
         % Configures whether or not the boxes may be 
         % 'Picked Up'
-        boxPickup = 0;
-        groupPickup = 0;
+        boxPickup = [];
+        groupPickup = [];
         
     end
     
@@ -148,7 +144,7 @@ classdef worldState < handle
         %   Loads a configuration, then signs all loaded parameters and
         %   saves all initial parameters
         
-        function this = worldState(configId)
+        function this = worldState(config)
             %TODO - Rafactor so all objects are in one array and handeled
             %at the same time. It's very silly to have three seperate
             %idendical data structures. damn you past justin!
@@ -157,22 +153,21 @@ classdef worldState < handle
             %one vector, not two.
             
             % Load configuration and assign properties
-            c = Configuration.Instance(configId);
-            this.randomPaddingSize = c.world_randomPaddingSize;
-            this.randomBorderSize = c.world_randomBorderSize;
-            this.robotSize = c.world_robotSize;
-            this.obstacleSize = c.world_obstacleSize;
-            this.targetSize = c.world_targetSize;
-            this.goalSize = c.world_goalSize;
-            this.robotMass = c.world_robotMass;
-            this.targetMass = c.world_robotMass;
-            this.obstacleMass = c.world_obstacleMass;
-            this.WIDTH = c.world_Height;
-            this.HEIGHT = c.world_Width;
-            this.DEPTH = c.world_Depth;
+            this.randomPaddingSize = config.world_randomPaddingSize;
+            this.randomBorderSize = config.world_randomBorderSize;
+            this.robotSize = config.world_robotSize;
+            this.obstacleSize = config.world_obstacleSize;
+            this.targetSize = config.world_targetSize;
+            this.goalSize = config.world_goalSize;
+            this.robotMass = config.world_robotMass;
+            this.targetMass = config.world_robotMass;
+            this.obstacleMass = config.world_obstacleMass;
+            this.WIDTH = config.world_Height;
+            this.HEIGHT = config.world_Width;
+            this.DEPTH = config.world_Depth;
                         
             % randomize all the positions and orientatons for all objects
-            this.randomizeState(c.numRobots, c.numObstacles,c.numTargets,configId);
+            this.randomizeState(config);
           
             % Save the inital configurations
             this.obstaclePos_inital =  this.obstaclePos;
@@ -206,10 +201,10 @@ classdef worldState < handle
             this.boxPickup =0;
             this.groupPickup =0;
             
-            if(c.simulation_Realism == 0)
+            if(config.simulation_Realism == 0)
                 this.boxPickup = 1;
             end
-            if(c.simulation_Realism == 2)
+            if(config.simulation_Realism == 2)
                 this.groupPickup = 1;
             end 
         end % end constructor
@@ -307,25 +302,23 @@ classdef worldState < handle
         %   
         %   Those robots are going to be so confused!   
         %
-        function randomizeState(this,numRobots, numObstacles,numTargets,configId)
+        function randomizeState(this, config)
+                        
+            this.obstaclePos = zeros(config.numObstacles,3);
+            this.obstacleOrient = [zeros(config.numObstacles,2) rand(config.numObstacles,1)*2*pi];
+            this.obstacleVelocity = zeros(config.numObstacles,3);
             
-            c = Configuration.Instance(configId);
-            
-            this.obstaclePos = zeros(numObstacles,3);
-            this.obstacleOrient = [zeros(numObstacles,2) rand(numObstacles,1)*2*pi];
-            this.obstacleVelocity = zeros(numObstacles,3);
-            
-            this.robotPos = zeros(numRobots,3);
-            this.robotOrient = zeros(numRobots,3);
-            this.robotVelocity = zeros(numRobots,3);
+            this.robotPos = zeros(config.numRobots,3);
+            this.robotOrient = zeros(config.numRobots,3);
+            this.robotVelocity = zeros(config.numRobots,3);
 
             % 
-            robotTypes = c.robot_Type;
+            robotTypes = config.robot_Type;
             
             % robotProperties [     currentTarget       rotationStep
             % mass      speedStep typeId reachId  advisorId ]
-            this.robotProperties = [zeros(numRobots,1) ones(numRobots,1)*0.5 ones(numRobots,1) ones(numRobots,2) ...
-                ones(numRobots,1)*c.robot_Reach zeros(numRobots,1)];
+            this.robotProperties = [zeros(config.numRobots,1) ones(config.numRobots,1)*0.5 ones(config.numRobots,1) ones(config.numRobots,2) ...
+                ones(config.numRobots,1)*config.robot_Reach zeros(config.numRobots,1)];
             numTypes = size(robotTypes);
             numTypes = numTypes(1);
 
@@ -339,29 +332,29 @@ classdef worldState < handle
             arr = [this.rpid_rotationStep this.rpid_mass ...
                 this.rpid_typeId this.rpid_reachId ];                        
 
-            while i <= numRobots
+            while i <= config.numRobots
                 for j=1:numTypes
-                    if(i <= numRobots)
+                    if(i <= config.numRobots)
                         this.robotProperties(i,arr) = robotTypes(j,:); 
                         i = i + 1;
                     end
                 end
             end
             
-            this.targetPos = zeros(numTargets,3);
-            this.targetOrient = [zeros(numTargets,2) rand(numTargets,1)*2*pi];
-            this.targetVelocity = zeros(numTargets,3);
+            this.targetPos = zeros(config.numTargets,3);
+            this.targetOrient = [zeros(config.numTargets,2) rand(config.numTargets,1)*2*pi];
+            this.targetVelocity = zeros(config.numTargets,3);
             
-            targetTypes = c.target_Type;
+            targetTypes = config.target_Type;
             numTypes = size(targetTypes);
             numTypes = numTypes(1);            
 
-            this.targetProperties = [zeros(numTargets,1) 0.5*ones(numTargets,1) ones(numTargets,1) zeros(numTargets,1) ones(numTargets,1)*0.5 zeros(numTargets,1) zeros(numTargets,1)];
+            this.targetProperties = [zeros(config.numTargets,1) 0.5*ones(config.numTargets,1) ones(config.numTargets,1) zeros(config.numTargets,1) ones(config.numTargets,1)*0.5 zeros(config.numTargets,1) zeros(config.numTargets,1)];
             
             i = 1;
-            while i <= numTargets
+            while i <= config.numTargets
                 for j=1:numTypes
-                    if(i <= numTargets)
+                    if(i <= config.numTargets)
  
                         this.targetProperties(i,this.tpid_weight) = targetTypes(j,2); %weight
                         this.targetProperties(i,this.tpid_type12) = targetTypes(j,3); %type
@@ -382,18 +375,18 @@ classdef worldState < handle
             %assign the random (non conflicting) locations, that meet
             %several awesome criteria
             preOffset = 0;
-            for i=1:numObstacles,        
+            for i=1:config.numObstacles,        
                 this.obstaclePos(i,:) = [randomPositions(i+preOffset,:) 0];
             end
             
-            preOffset = numObstacles;
-            for i=1:numRobots,        
+            preOffset = config.numObstacles;
+            for i=1:config.numRobots,        
                 this.robotPos(i,:) = [randomPositions(i+preOffset,:) 0];
             end
             
-            preOffset = numObstacles+numRobots;
+            preOffset = config.numObstacles+config.numRobots;
 
-            for i=1:numTargets,        
+            for i=1:config.numTargets,        
                 this.targetPos(i,:) = [randomPositions(i+preOffset,:) 0];
             end
             i = i+1;

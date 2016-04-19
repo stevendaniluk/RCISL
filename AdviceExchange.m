@@ -44,13 +44,12 @@ classdef AdviceExchange < handle
         %   
         %   
         %
-        function this = AdviceExchange(robotId,numRobots,robStrTypes,configId)
+        function this = AdviceExchange(robotId,numRobots,robStrTypes,config)
             this.robotId =robotId;
             this.numRobots = numRobots;
             this.s_qualityMetrics.Put([this.c_avgQual robotId],0);
             this.s_qualityMetrics.Put([this.c_currentQual robotId],0);
             this.s_qualityMetrics.Put([this.c_bestQual robotId],0);
-            config = Configuration.Instance(configId);
             this.eta = config.advice_eta;
             this.delta = config.advice_delta;
             this.row = config.advice_row;
