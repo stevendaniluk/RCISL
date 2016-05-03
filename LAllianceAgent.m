@@ -616,10 +616,11 @@ classdef LAllianceAgent < handle
             end            
             %figure out if our task is finished from the state
             if(taskId ~= 0)
-                [relativeTargetPos,relativeObjectPos,goalPos,borderWithWorld,robot,targetProperties] = rstate.GetCurrentState();
-                if targetProperties(taskId ,1) == 1 %if it's not finished!
+                
+                target_state = rstate.target_properties_(taskId, 1);
+                if target_state == 1 %if it's not finished!
                     this.SetTaskFinished(taskId);
-                end            
+                end          
             end
         end
         
@@ -667,7 +668,7 @@ classdef LAllianceAgent < handle
             taskId = this.GetCurrentTask();
         end
         
-        function UpdateMotivation(this,rewardIndividual,state,confidence)
+        function UpdateMotivation(this, confidence)
             this.ticks = this.ticks + 1;
             
             if(mod(this.ticks, this.motiv_freq) == 0)

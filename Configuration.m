@@ -2,26 +2,31 @@ classdef Configuration < handle
     
     properties
         
+        % Graphics Parameters
+        show_live_graphics = true;
+        show_track_graphics = false;
+                        
         % Primary Scenario Parameters
+        max_iterations = 15000;
         numRobots    = 3;
         numObstacles = 4;
         numTargets   = 3;
-        numIterations = 15000;
-        robot_Type =[ 4*pi/18   3   0.30    1; ... %strong-slow
-                      4*pi/18   2   0.40    2; ... %weak-fast
-                      4*pi/18   2   0.30    3; ... %weak-slow
-                      4*pi/18   3   0.40    4];    %strong-fast
-                     %size   %weight   %id
-        target_Type =[ 0.5      1       1; ...
-                       0.2      2       2];
-        robot_sameStrength = [1; 2; 2; 1;]; %comparative Ids for strength
+        robot_Type =[ 4*pi/18   3   0.30    1; ... 
+                      4*pi/18   2   0.40    2; ... 
+                      4*pi/18   2   0.30    3; ... 
+                      4*pi/18   3   0.40    4];    
+                           %size   %weight   %id
+        target_Type =[ 0.2      1       1; ...
+                       0.2      1       1];
+        robot_sameStrength = [1; 2; 2; 1]; %comparative Ids for strength
         robot_Reach = 1;
         
         % Action Parameters
         boxForce = 0.05;
-        rotationSize = pi/4;
-        stepSize =0.1;
-        angle = [0; 90; 180; 270];
+        action_angle = [0; 90; 180; 270];
+        num_actions = 7;
+        num_state_vrbls = 5;
+        num_state_bits = 4;
         
         % World Parameters
         world_Height = 10;
@@ -36,21 +41,33 @@ classdef Configuration < handle
         world_robotMass = 1;
         world_obstacleMass = 0;
         simulation_Realism = 0;
-
-        % CISCL Parameters
-        cisl_learningFrequency = 1;
-        cisl_TriggerDistance = 1.7;
-        cisl_decideFactor = 0;
-        cisl_MaxGridSize = 11;
         
+        % Noise and Particle Filter Parameters
+        noise_sigma = 0.1;
+        particle_filer_on = true;
+        particle_ResampleNoiseSTD = 0.02;
+        particle_ControlStd = 0.1;
+        particle_SensorStd  = 0.05;
+        particle_Number = 35;
+        particle_PruneNumber = 7;
+        
+        % Individual Learning Parameters
+        learning_iterations = 1;
+        policy = 'justins'; % Options: "greedy", "justins"
+        min_utility_threshold = 0.01;
+        item_closer_reward = 0.5;
+        item_further_reward = -0.3;
+        robot_closer_reward = 0.5;
+        robot_further_reward = -0.3;
+        return_reward = 10;
+        empty_reward_value = -0.001;
+        reward_activation_dist = 0.0;
+        reward_distance_scale = 0.17;
+                
         % Q-Learning Parameters
-        qlearning_gamma = 0.3;
-        qlearning_alphaDenom = 30;
-        qlearning_alphaPower = 1;
-        qlearning_rewardDistanceScale = 0;
-        arrBits = 20;
-        targetReward = 10;
-        actionsAmount = 7;
+        gamma = 0.3;
+        alpha_denom = 30;
+        alpha_power = 1;
         
         % L-Alliance Parameters
         lalliance_convergeAttempts = 70;
@@ -86,16 +103,7 @@ classdef Configuration < handle
         advice_delta = 0.5;
         advice_row = 1;
         advice_threshold = 0;% threshold*ourExpectedIndividualReward <= theirExpectedIndividualReward  --> take advice
-        
-        % Noise and Particle Filter Parameters
-        robot_NoiseLevel = 0;
-        particle_Used = 0;
-        particle_ResampleNoiseSTD = 0.02;
-        particle_ControlStd = 0.1;
-        particle_SensorStd  = 0.05;
-        particle_Number = 35;
-        particle_PruneNumber = 7;
-        
+                
     end
     
 end

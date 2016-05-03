@@ -1,603 +1,201 @@
-classdef robotState < handle
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % 
-    %   Class Name
-    %   
-    %   Description 
-    %   
-    %   
-    %   
-    %ROBOTSTATE
-    % a robot state is all the information a robot has about:
-    % - It's environment
-    % - its learning (parametric variables)
+classdef RobotState < handle 
+    % ROBOTSTATE - Contains all robot specific state info for one robot
     
     properties
-        %positions and orientations and types of all members relative to me
-        %robots = [];
+        config_ = [];
+        world_state_ = [];
         
-        %boundry walls relative to me
-        %my position and orientation
-        %target positions and orientations
-        %robot = [];
-        %targets = [];
-        %obstacles = [];
-        %goal = [];
-
-        id = [];
-        WorldState = [];
+        % Robot details
+        id_ = [];
+        step_size_ = [];
+        rot_size_ = [];
+        type_ = [];
+        robot_properties_ = [];
         
-        %targets_saved = [];
-        %robot_saved = [];
-        %obstacles_saved = [];
-        %goal_saved = [];
-        %borderOfWorld_saved = [];
+        % Current state variables
+        pos_ = [];
+        orient_ = [];
+        obstacle_pos_ = [];
+        target_pos_ = [];
+        goal_pos_ = [];
         
-        noiseLevel = [];
+        % State matrices
+        state_matrix_ = [];
+        prev_state_matrix_ = [];
         
-        sensor_robPos = []; 
-        sensor_robOrient = [];
-        sensor_obstaclePos = [];
-        sensor_targetPos = [];
-        sensor_goalPos = [];
-
-        sensor_millis = [];
-        sensor_targetProperties = [];
-        sensor_robotProperties = [];
+        % State variables from the previous iteration
+        prev_pos_ = [];
+        prev_orient_ = [];
+        prev_obstacle_pos_ = [];
+        prev_target_pos_ = [];
         
-        saved_sensor_robPos = []; 
-        saved_sensor_robOrient = [];
-        saved_sensor_obstaclePos = [];
-        saved_sensor_targetPos = [];
-        saved_sensor_goalPos = [];
-
-        saved_sensor_millis = [];
-        saved_sensor_targetProperties = [];
-        saved_sensor_robotProperties = [];
-
+        % Target information
+        target_id_ = [];    % [0,num_targets]
+        target_type_ = [];  % 1=light, 2=heavy
+        target_properties_ = [];
+        prev_target_id_ = [];
+        prev_target_properties_ = [];
         
-        %'CURRENT' sensor values
-        saved_sensor_current_targets = []; 
-        saved_sensor_current_obstacles = []; 
-        saved_sensor_current_goal = []; 
-        saved_sensor_current_borderOfWorld = [];  
-        saved_sensor_current_robot = []; 
-        saved_sensor_current_targetProperties = [];
-        saved_sensor_current_robotProperties = [];
-
-        sensor_current_targets = [];
-        sensor_current_obstacles= [];
-        sensor_current_goal= [];
-        sensor_current_borderOfWorld = [];
-        sensor_current_robot= [];
-        sensor_current_targetProperties= [];
-        sensor_current_robotProperties= [];
-        
-        
-        true_robPos = [];
-        true_robOrient= [];
-        true_millis = [];
-        true_obstaclePos = [];
-        true_targetPos = [];
-        true_goalPos = [];
-        true_targetProperties = [];
-        true_robotProperties = [];        
-
-        true_targets = [];
-        true_obstacles = [];
-        true_goal = [];
-        true_borderOfWorld = [];
-        true_robot = [];
-
-        saved_true_robPos = [];
-        saved_true_robOrient= [];
-        saved_true_millis = [];
-        saved_true_obstaclePos = [];
-        saved_true_targetPos = [];
-        saved_true_goalPos = [];
-        saved_true_targetProperties = [];
-        saved_true_robotProperties = [];        
-
-        saved_true_targets = [];
-        saved_true_obstacles = [];
-        saved_true_goal = [];
-        saved_true_borderOfWorld = [];
-        saved_true_robot = [];
-        
-        
-        
-        % Rows: robot id, Cols: task Choice
-        %belief_taskChoices = [];
-        useParticleFilter = [];
-        particleFilter;
-        
-        targetOld = -1;
-        %borderOfWorld = [left down right up];
-        %borderOfWorld = [0 0 0 0];
+        % Action information
+        action_id_ = [];
+        acquiescence_ = [];
+        experience_ = [];
+        reward_ = [];
+        action_label_ = [];
+                
+        % Noise/Particle filter related
+        noise_sigma_ = [];
+        particle_filer_on_ = [];
+        particle_filter_ = [];
         belief_task = [0 0];
         belief_self = [0 0 0];
-        belief_goal = [0 0];
-
-        
-        belief_distance_task = [];
-        belief_distance_self = [];
-        belief_distance_goal = [];
-        
-        
-        typeLabel = 'xx';
-        
-        newOrient = 0;
-        newVelocity = 0;
-        targetAdj = 0;
-        
-        cisl = [];
-        lastActionLabel = '';
-        i_robot;
-        
-        configuration = [];
+        belief_goal = [0 0];     
     end
     
     methods
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function this = robotState(id, WorldStateIn, config, CISL,  inst_robot)
-           %ptr = libpointer('robotState',this);
-           this.i_robot = inst_robot;
-           this.particleFilter = [ParticleFilter();ParticleFilter();ParticleFilter()];
-
-           this.cisl = CISL;
-           this.WorldState=WorldStateIn;
-           this.id = id;
+        %   Constructor
+        %
+        %   INPUTS
+        %   id = Robot ID number
+        %   world_state = WorldState object
+        %   config = Configuration object
+ 
+        function this = RobotState(id, world_state, config)
+           this.id_ = id;
+           this.config_ = config;
+           this.world_state_ = world_state;
+       
+           % Must set to zero
+           this.target_id_ = 0;
+           this.prev_target_id_ = 0;
            
-           this.configuration = config;
-           this.useParticleFilter = config.particle_Used;
-           this.noiseLevel = config.robot_NoiseLevel;
+           this.step_size_ = this.world_state_.robotProperties(this.id_, 4);
+           this.rot_size_ = this.world_state_.robotProperties(this.id_, 2);
+           
+           % Set the robot type
+           type = this.world_state_.robotProperties(this.id_, 5);
+           if(type == 1)
+                this.type_ = 'ss-';
+            elseif(type == 2)
+                this.type_ = 'wf-';
+            elseif(type == 3)
+                this.type_ = 'ws-';
+            else
+                this.type_ = 'sf-';
+            end
+           
+           this.particle_filter_ = [ParticleFilter(); ParticleFilter(); ParticleFilter()];
+           this.particle_filer_on_ = config.particle_filer_on;
+           this.noise_sigma_ = config.noise_sigma;
         end
         
+                
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function robState = GetTeamRobot(this,advisorId)
-            %rPtr = this.s_robotTeam.Get([advisorId]);
-            rob = this.i_robot.GetRobotFromTeam(advisorId);
-            robState = rob.RobotState;
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
+        %   saveState
+ 
         function  saveState(this)
-
-            this.saved_sensor_robPos = this.sensor_robPos; 
-            this.saved_sensor_robOrient = this.sensor_robOrient;
-            this.saved_sensor_obstaclePos = this.sensor_obstaclePos;
-            this.saved_sensor_targetPos = this.sensor_targetPos;
-            this.saved_sensor_goalPos = this.sensor_goalPos;
-
-            this.saved_sensor_millis = this.sensor_millis;
-            this.saved_sensor_targetProperties = this.sensor_targetProperties;
-            this.saved_sensor_robotProperties = this.sensor_robotProperties;
-        
-            %update our 'current' info
-            this.saved_sensor_current_targets = this.sensor_current_targets ;
-            this.saved_sensor_current_obstacles = this.sensor_current_obstacles;
-            this.saved_sensor_current_goal = this.sensor_current_goal;
-            this.saved_sensor_current_borderOfWorld =  this.sensor_current_borderOfWorld ;
-            this.saved_sensor_current_robot = this.sensor_current_robot;
-            this.saved_sensor_current_targetProperties = this.sensor_current_targetProperties;
-            this.saved_sensor_current_robotProperties = this.sensor_current_robotProperties;
-            
-            %--------------------------------------------
-            this.saved_true_robPos = this.true_robPos; 
-            this.saved_true_robOrient = this.true_robOrient;
-            this.saved_true_obstaclePos = this.true_obstaclePos;
-            this.saved_true_targetPos = this.true_targetPos;
-            this.saved_true_goalPos = this.true_goalPos;
-
-            this.saved_true_millis = this.true_millis;
-            this.saved_true_targetProperties = this.true_targetProperties;
-            this.saved_true_robotProperties = this.true_robotProperties;
-        
-            %update our 'current' info
-            this.saved_true_targets = this.true_targets ;
-            this.saved_true_obstacles = this.true_obstacles;
-            this.saved_true_goal = this.true_goal;
-            this.saved_true_borderOfWorld =  this.true_borderOfWorld ;
-            this.saved_true_robot = this.true_robot;
-            this.saved_true_targetProperties = this.true_targetProperties;
-            this.saved_true_robotProperties = this.true_robotProperties;
-            
-            
-            
-            
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function [targets,obstacles,goal,borderOfWorld,robot,targetProperties,robotProperties] = GetCurrentState(this)
-            targets = this.sensor_current_targets;
-            obstacles= this.sensor_current_obstacles;
-            goal = this.sensor_current_goal;
-            borderOfWorld = this.sensor_current_borderOfWorld;
-            robot = this.sensor_current_robot;
-            targetProperties= this.sensor_current_targetProperties;
-            robotProperties= this.sensor_current_robotProperties;
-            
-        end
-        
-        function [targets,obstacles,goal,borderOfWorld,robot,targetProperties,robotProperties] = GetTrueCurrentState(this)
-            targets = this.true_targets;
-            obstacles= this.true_obstacles;
-            goal = this.true_goal;
-            borderOfWorld = this.true_borderOfWorld;
-            robot = this.true_robot;
-            targetProperties= this.true_targetProperties;
-            robotProperties= this.true_robotProperties;
-            
-            
+            this.prev_pos_ = this.pos_;
+            this.prev_orient_ = this.orient_;
+            this.prev_obstacle_pos_ = this.obstacle_pos_;
+            this.prev_target_pos_ = this.target_pos_;
+            this.prev_state_matrix_ = this.state_matrix_;
+            this.prev_target_properties_ = this.target_properties_;            
         end
                 
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function [targets,obstacles,goal,borderOfWorld,robot,targetProperties,robotProperties] = GetSavedState(this)
-            targets = this.saved_sensor_current_targets;
-            obstacles= this.saved_sensor_current_obstacles;
-            goal = this.saved_sensor_current_goal;
-            borderOfWorld = this.saved_sensor_current_borderOfWorld;
-            robot = this.saved_sensor_current_robot;
-            targetProperties= this.saved_sensor_current_targetProperties;
-            robotProperties= this.saved_sensor_current_robotProperties;
+        %   update
+  
+        function update(this)
+            % Update our state from the world state
+            [robPos, robOrient, ~, obstaclePos, targetPos, goalPos, targetProperties, robotProperties] = ...
+            this.world_state_.GetSnapshot();
             
-        end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function [targets,obstacles,goal,borderOfWorld,robot,targetProperties,robotProperties] = GetTrueSavedState(this)
-            targets = this.saved_true_targets;
-            obstacles= this.saved_true_obstacles;
-            goal = this.saved_true_goal;
-            borderOfWorld = this.saved_true_borderOfWorld;
-            robot = this.saved_true_robot;
-            targetProperties= this.saved_true_targetProperties;
-            robotProperties= this.saved_true_robotProperties;
+            % Update the state variables
+            this.pos_ = robPos;
+            this.orient_ = robOrient;
+            this.obstacle_pos_ = obstaclePos;
+            this.target_pos_ = targetPos;
+            this.goal_pos_ = goalPos;
+            this.target_properties_ = targetProperties;
+            this.robot_properties_ = robotProperties;
             
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function [targets,obstacles,goal,borderOfWorld,robot,targetProperties] = ...
-                CalculateCurrentState(this)
-                        targetProperties = this.sensor_targetProperties;
-            ws = this.WorldState;
-            
-            obsPosRaw = this.sensor_obstaclePos;
-            sz = size(obsPosRaw );
-            obsOrientRaw = zeros(sz(1),3);
-
-            targetPosRaw = this.sensor_targetPos;
-            sz = size(targetPosRaw );
-            targetOrientRaw = zeros(sz(1),3);
-
-            goalPosRaw = this.sensor_goalPos;
-            
-            robotPosRaw = this.sensor_robPos(this.id,:);
-            robotOrientRaw= this.sensor_robOrient(this.id,:) ;
-            
-            robot = [robotPosRaw robotOrientRaw];
-            borderOfWorld = [robot(1) robot(2) ws.WIDTH-robot(1) ws.HEIGHT-robot(2)];
-           
-            targets = [targetPosRaw targetOrientRaw];
-            targets = bsxfun(@minus, targets,robot);
-            distance =  targets(:,1:3);
-            distance = distance.^2;
-            targets = [ sum(distance,2) targets];
-
-            %obstacles include robots
-            otherRobotsPos = this.sensor_robPos;
-            otherRobotsOrient = this.sensor_robOrient;
-            
-            %obstacles include 'other' targets
-            taskId = this.cisl.GetTask();
-            otherTargetsPos = targetPosRaw;
-            otherTargetsOrient = targetOrientRaw;
-            
-            %remove objects we should not worry about as obstacles. This
-            %includes the current robot and any obstacles
-            if(taskId > 0)
-                ID_CARRIED_BY = 4;
-                ID_CARRIED_BY_2 = 7;
-                assistRobots = targetProperties(taskId, [ID_CARRIED_BY ID_CARRIED_BY_2] );
-
-                if(sum(assistRobots  > 0,2) > 1)
-                    otherRobotsPos(assistRobots ,:) = [];
-                    otherRobotsOrient(assistRobots ,:) = [];
-                else
-                    otherRobotsPos(this.id,:) = [];
-                    otherRobotsOrient(this.id,:) = [];
-                end
-                
-                otherTargetsPos (taskId,:) = [];
-                otherTargetsOrient (taskId,:) = [];
+            % Must assign target type properly when no target is given
+            if(this.target_id_ == 0)
+                this.target_type_ = 0;
             else
-                otherRobotsPos(this.id,:) = [];
-                otherRobotsOrient(this.id,:) = [];
-                
+                % Have to manually choose the target type, should be fixed
+                this.target_type_ = this.target_properties_(this.target_id_, 3);
             end
             
-            obstacles = [obsPosRaw obsOrientRaw; otherRobotsPos otherRobotsOrient; otherTargetsPos otherTargetsOrient];
-            %obstacles = [obsPosRaw obsOrientRaw];
-            obstacles = bsxfun(@minus, obstacles,robot);
-            
-            
-            distance =  obstacles(:,1:3);
-            distance = distance.^2;
-            obstacles = [ sqrt(sum(distance,2)) obstacles];
-           
-            %this.goal = ws.GetGoalPos();
-            goal = goalPosRaw;
-            goal = goal - robot(1:3);
-            distance =  goal(1:3);
-            distance = distance.^2;
-            goal = [ sqrt(sum(distance,2)) goal];            
-
-
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   NOTE: in position arrays, the first field is NOT the distance
-        function [robPos, robOrient, millis, obstaclePos,targetPos,goalPos,targetProperties,robotProperties ] ...
-                = GetSnapshot(this)
-
-                sz = size(this.sensor_robPos);
-                %if this is our first sensor reading, update our sensors
-                % by 'reading' values from the world
-                if(sz(1) == 0)
-                    this.update();
-                end
-            
-                %return our belief of the world
-                robPos = this.sensor_robPos;
-                robOrient= this.sensor_robOrient;
-                millis = this.sensor_millis;
-                obstaclePos = this.sensor_obstaclePos;
-                targetPos = this.sensor_targetPos;
-                goalPos = this.sensor_goalPos;
-                targetProperties = this.sensor_targetProperties;
-                robotProperties = this.sensor_robotProperties;
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function [robPos, robOrient, millis, obstaclePos,targetPos,goalPos,targetProperties,robotProperties ] ...
-                = GetTrueSnapshot(this)
-
-                sz = size(this.sensor_robPos);
-                %if this is our first sensor reading, update our sensors
-                % by 'reading' values from the world
-                if(sz(1) == 0)
-                    this.update();
-                end
-            
-                %return our belief of the world
-                robPos = this.true_robPos;
-                robOrient= this.true_robOrient;
-                millis = this.true_millis;
-                obstaclePos = this.true_obstaclePos;
-                targetPos = this.true_targetPos;
-                goalPos = this.true_goalPos;
-                targetProperties = this.true_targetProperties;
-                robotProperties = this.true_robotProperties;
-        end        
-        
-        
-        function result = EvaluateConstraints(this,targetProperties,robotProperties)
-            result = 0;
-
-            %check after each iteration for this constraint
-            carriedBy = abs(targetProperties(:,4));
-            amountCarried = carriedBy - this.id;
-            amountCarried = (amountCarried == 0);
-            amountCarried = sum(amountCarried,1);
-           
-            if(amountCarried > 1)
-                disp('robotState error');
-                result=1;
-                robotProperties
-                targetProperties
-                this.id
-                error('!A robot has picked up two boxes');
-                return;
-            end
-            
-            
-            if(amountCarried ==1)
-   
-                %check after each iteration for this constraint
-                carriedByMe = carriedBy - this.id;
-                carriedByMe = (carriedByMe == 0);
-
-                 
-                [carriedIndex,ones]=find(carriedByMe,1);
-                targetId = robotProperties(this.id,1);
-                if(targetId  ~= carriedIndex)
-                    result=1;
-                    robotProperties
-                    targetProperties
-                    this.id
-                    
-                    error('!Robot Targeting a new box, but it already has one');
-                end
-
+           %Apply noise to state if requested
+           if(this.noise_sigma_ > 0)
+               this.ApplyNoise();
+               
+               % Apply particle filter to noisy data (if requested)
+               if(this.particle_filer_on_)
+                   this.ApplyParticleFilter();
+               end
+               
+               % Assign our "beliefs" about the positions of ourself, the 
+               % goal, and the targets
+               this.belief_self = [this.pos_(this.id_,1:2) this.orient_(this.id_,3)];
+               this.belief_goal = this.goal_pos_(1:2);
+               if(this.target_id_ > 0)
+                   this.belief_task = this.target_pos_(this.target_id_,1:2) ;
+               end
             end
 
+            % Calculate our state matrix
+            this.state_matrix_ = this.getStateMatrix();
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function val = update(this)
+        %   ApplyNoise
+ 
+        function ApplyNoise(this)
             
-           
-            [robPos, robOrient, millis, obstaclePos,targetPos,goalPos,targetProperties,robotProperties ] = ...
-            this.WorldState.GetSnapshot();
-
-
-            this.sensor_robPos = robPos;
-            this.sensor_robOrient= robOrient;
-            this.sensor_millis = millis;
-            this.sensor_obstaclePos = obstaclePos;
-            this.sensor_targetPos = targetPos;
-            this.sensor_goalPos = goalPos;
-            this.sensor_targetProperties = targetProperties;
-            this.sensor_robotProperties = robotProperties;
-         
+            mu = 0;
+            sigma = this.noise_sigma_;
             
-            result = this.EvaluateConstraints(targetProperties,robotProperties);
-            if( result == 1)
-                error('Terminating');
+            % Add noise to robot position
+            sz = size(this.pos_) ;
+            this.pos_ = this.pos_ + normrnd(mu,sigma,sz(1),sz(2));
             
+            % Add noise to robot orientation
+            sz = size(this.orient_(:,1:2)) ;
+            this.orient_(:,1:2) = this.orient_(:,1:2) + normrnd(mu,sigma,sz(1),sz(2));
+            
+            if(this.orient_(3) < 0)
+                this.orient_(3) = this.orient_(3) + 2*pi;
             end
             
-            %Now we update our 'truth' states
-            [targets,obstacles,goal,borderOfWorld,robot,targetProperties] = this.CalculateCurrentState();
+            % Add noise to obstacle positions
+            sz = size(this.obstacle_pos_) ;
+            this.obstacle_pos_ = this.obstacle_pos_ + normrnd(mu,sigma,sz(1),sz(2));
             
+            % Add noise to target positions
+            sz = size(this.target_pos_) ;
+            this.target_pos_ = this.target_pos_ + normrnd(mu,sigma,sz(1),sz(2));
             
-            this.true_robPos = robPos;
-            this.true_robOrient= robOrient;
-            this.true_millis = millis;
-            this.true_obstaclePos = obstaclePos;
-            this.true_targetPos = targetPos;
-            this.true_goalPos = goalPos;
-            this.true_targetProperties = targetProperties;
-            this.true_robotProperties = robotProperties;
-            
-            this.true_targets = targets;
-            this.true_obstacles = obstacles;
-            this.true_goal = goal;
-            this.true_borderOfWorld = borderOfWorld;
-            this.true_robot = robot;
-            this.true_targetProperties = targetProperties;
-                        
-            
-           
-           %Apply Noise to all the sensor values
-            if(this.noiseLevel > 0)
-                this.ApplyNoise();
-            end
-            
-            if(this.useParticleFilter >0)
-                this.ApplyParticleFilter();
-            end
-            
-            
-            taskId = this.cisl.GetTask();
-            this.belief_self = [this.sensor_robPos(this.id,1:2) this.sensor_robOrient(this.id,3)];
-            if(taskId > 0)
-                this.belief_task = this.sensor_targetPos(taskId,1:2) ;
-            end
-            this.belief_goal = this.sensor_goalPos(1:2);
-           
-            
-            % track some metrics related to particle filter performance
-            this.belief_distance_self = robPos(this.id,1:2) - this.sensor_robPos(this.id,1:2);
-            this.belief_distance_goal = goalPos(1:2) - this.sensor_goalPos(1:2);
-            if(taskId > 0)
-                this.belief_distance_task = targetPos(taskId,1:2) - this.belief_task (1:2);
-            else
-                this.belief_distance_task = [0 0];
-            end
-            
-            
-            %Now we update our 'CURRENT' state information
-            [targets,obstacles,goal,borderOfWorld,robot,targetProperties] = this.CalculateCurrentState();
-
-            this.sensor_current_targets = targets;
-            this.sensor_current_obstacles = obstacles;
-            this.sensor_current_goal = goal;
-            this.sensor_current_borderOfWorld = borderOfWorld;
-            this.sensor_current_robot = robot;
-            this.sensor_current_targetProperties = targetProperties;
-            this.sensor_current_robotProperties = robotProperties;
-            
-            
-    
-            
-            val = 1;
+            % Add noise to goal positions
+            sz = size(this.goal_pos_) ;
+            this.goal_pos_ = this.goal_pos_ + normrnd(mu,sigma,sz(1),sz(2));    
         end
-
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   ApplyParticleFilter
         %   
-        %   Description 
-        %   
-        %   
-        %   
+
         function ApplyParticleFilter(this)
-            taskId = this.cisl.GetTask();
+            taskId = this.target_id_;
             
             %if we have no task, we don't update the filter.
             %This function adjusts our sensor values for certain objects (but
@@ -609,21 +207,20 @@ classdef robotState < handle
             %   - the goal position
             %   - the xy position
            
-            rPos = this.sensor_robPos(this.id,1:2);
-            rOrient = this.sensor_robOrient(this.id,3);
+            rPos = this.pos_(this.id_,1:2);
+            rOrient = this.orient_(this.id_,3);
             
-            %rObstacle = this.sensor_obstaclePos(1:2);
             tCarriedByMe  =0;
             validMove = 1;
             
             if taskId > 0
-                tPos = this.sensor_targetPos(taskId,1:2) ;
-                tCarriedBy = this.sensor_targetProperties(taskId,4);
-                tCarriedBy2 = this.sensor_targetProperties(taskId,7);
-                rType = this.sensor_robotProperties(this.id,5);
-                tType = this.sensor_targetProperties(taskId,3);
-                rHasTeammate = this.sensor_targetProperties(taskId,4) > 0 ...
-                    && this.sensor_targetProperties(taskId,7) > 0;
+                tPos = this.target_properties_(taskId,1:2) ;
+                tCarriedBy = this.target_properties_(taskId,4);
+                tCarriedBy2 = this.target_properties_(taskId,7);
+                rType = this.robot_properties_(this.id_,5);
+                tType = this.target_properties_(taskId,3);
+                rHasTeammate = this.target_properties_(taskId,4) > 0 ...
+                    && this.target_properties_(taskId,7) > 0;
                 validMove = 1;
                 if(tType == 2) 
                     %if the box is heavy
@@ -635,7 +232,7 @@ classdef robotState < handle
                         end
                     end
                 end
-                if(tCarriedBy  == this.id || tCarriedBy2  == this.id )
+                if(tCarriedBy  == this.id_ || tCarriedBy2  == this.id_ )
                     tCarriedByMe = 1;
                 else
                     tCarriedByMe = 0;
@@ -644,212 +241,139 @@ classdef robotState < handle
                 
                 tPos = [0 0];
             end
-            tGoal = this.sensor_goalPos(1:2);
-            
-            %rPos = [1 1];
-            %tPos = [1 1];
-            %tGoal = [1 1];
-            
+            tGoal = this.goal_pos_(1:2);
             
             pfVec = [rPos rOrient; tPos 0; tGoal 0];
-            %pfBorder = [10 10 4*pi 10 10 10 10; 0 0 0 0 0 0 0];
-            pfBorderTop = [20 20 4*pi; 20 20 0; 20 20 0];
-            pfBorderBottom = [0 0 0; 0 0 0; 0 0 0];
             
             targMove = [0 0];
             selfMove = [0 0 0];
             goalMove = [0 0];
-
-            if(sum(this.targetAdj) ~= 0)
-                targMove = targMove + this.targetAdj(1:2);
-                this.targetAdj =0;
-            end
             
-            if(sum(this.newOrient) ~= 0)
-                selfMove(3) = selfMove(3) + this.newOrient(3);
-                if(selfMove(3) > 2*pi)
-                    selfMove(3) = selfMove(3) - 2*pi;
-                end
-                this.newOrient = 0;
-            end
-
-            if(sum(this.newVelocity) ~= 0 && validMove == 1)
-                %targMove = targMove - this.newVelocity(1:2);
-                %goalMove = goalMove - this.newVelocity(1:2);
-                selfMove(1:2) = this.newVelocity(1:2);
-                if(tCarriedByMe == 1)
-                    targMove = selfMove(1:2);
-                end
-                this.newVelocity = 0;
-            end
             pfAction = [selfMove; targMove 0; goalMove 0];
 
-            
-            %pfAction = 0;
-            pfSample = this.GetFilteredValues(pfVec,pfAction,pfBorderTop,pfBorderBottom,taskId);
+            pfSample = this.GetFilteredValues(pfVec, pfAction, taskId);
 
-            this.sensor_robPos(this.id,1:2) = pfSample(1,1:2);
-            this.sensor_robOrient(this.id,3) = pfVec(1,3);
+            this.pos_(this.id_,1:2) = pfSample(1,1:2);
+            this.orient_(this.id_,3) = pfVec(1,3);
             
-            %rObstacle = this.sensor_obstaclePos(1:2);
             if taskId > 0
-                this.sensor_targetPos(taskId,1:2) =  pfSample(2,1:2);
+                this.target_pos_(taskId,1:2) =  pfSample(2,1:2);
             end
             
-            this.sensor_goalPos(1:2) = pfSample(3,1:2);
-            
-        
+            this.goal_pos_(1:2) = pfSample(3,1:2);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function values = GetFilteredValues(this,reading,action,boundsTop,boundsBottom,taskId)
+        %   GetFilteredValues
+
+        function values = GetFilteredValues(this, reading, action, taskId)
             sz = size(reading);
             values = [];
             
-            numParticles = this.configuration.particle_Number;
-            pruneThreshold = this.configuration.particle_PruneNumber;
-            resampleStd = this.configuration.particle_ResampleNoiseSTD;
-            controlStd =  this.configuration.particle_ControlStd;
-            sensorStd  = this.configuration.particle_SensorStd;
+            numParticles = this.config_.particle_Number;
+            pruneThreshold = this.config_.particle_PruneNumber;
+            resampleStd = this.config_.particle_ResampleNoiseSTD;
+            controlStd =  this.config_.particle_ControlStd;
+            sensorStd  = this.config_.particle_SensorStd;
             
             for i=1:sz(1)
                 % initalize if new
-                if(this.particleFilter(i).uninitalized == 1)
-                    this.particleFilter(i).Initalize(reading(i,1:2),numParticles,pruneThreshold,resampleStd,controlStd,sensorStd  );  
+                if(this.particle_filter_(i).uninitalized == 1)
+                    this.particle_filter_(i).Initalize(reading(i,1:2),numParticles,pruneThreshold,resampleStd,controlStd,sensorStd  );  
                 % initalize if target changes
-                elseif(this.targetOld ~= taskId && i ==2)
-                    this.particleFilter(i).Initalize(reading(i,1:2),numParticles,pruneThreshold,resampleStd,controlStd,sensorStd  );  
+                elseif(this.prev_target_id_ ~= taskId && i ==2)
+                    this.particle_filter_(i).Initalize(reading(i,1:2),numParticles,pruneThreshold,resampleStd,controlStd,sensorStd  );  
                 end
                 %update beliefs
-                this.particleFilter(i).UpdateBeliefs(reading(i,1:2),action(i,1:2));
+                this.particle_filter_(i).UpdateBeliefs(reading(i,1:2),action(i,1:2));
                 %resample
-                this.particleFilter(i).Resample();
-                values = [values ; this.particleFilter(i).Sample()];
+                this.particle_filter_(i).Resample();
+                values = [values ; this.particle_filter_(i).Sample()];
             end
             
-            this.targetOld = taskId;
-
-        end
-        
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function ApplyNoise(this)
-            
-            mu = 0;
-            sigma = this.noiseLevel;
-            
-            sz = size(this.sensor_robPos) ;
-            this.sensor_robPos = this.sensor_robPos + normrnd(mu,sigma,sz(1),sz(2));
-
-            sz = size(this.sensor_robOrient(:,1:2)) ;
-            this.sensor_robOrient(:,1:2) = this.sensor_robOrient(:,1:2) + normrnd(mu,sigma,sz(1),sz(2));
-            
-            if(this.sensor_robOrient(3) < 0)
-                this.sensor_robOrient(3) = this.sensor_robOrient(3) + 2*pi;
-            end
-            
-            sz = size(this.sensor_obstaclePos) ;
-            this.sensor_obstaclePos = this.sensor_obstaclePos + normrnd(mu,sigma,sz(1),sz(2));
-
-            sz = size(this.sensor_targetPos) ;
-            this.sensor_targetPos = this.sensor_targetPos + normrnd(mu,sigma,sz(1),sz(2));
-
-            sz = size(this.sensor_goalPos) ;
-            this.sensor_goalPos = this.sensor_goalPos + normrnd(mu,sigma,sz(1),sz(2));    
-            
-        
-        
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   getStateVariables
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function SetTypeLabel(this,label)
-            this.typeLabel = label;
+        %   Returns  a mtrix with the current state variables 
+        %
+        %   State variables are:
+        %     1: Robot position
+        %     2: Robot orientation
+        %     3: target Type
+        %     4: Relative Target Position
+        %     5: Relative Goal Position
+        %     6: Relative position of closest obstacle (obstacle or wall)
             
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function val = MoveTarget(this,robotId,targetId,powerAngle)
-            %make sure distance is close enough
-            if(targetId == 0)
-                val = 1;
-                return;
-            end
+        function [state_matrix] = getStateMatrix(this)
+            % Robot position
+            robot_pos = this.pos_(this.id_, :);
             
-            %this.lastActionLabel  = strcat(this.typeLabel ,' mv t');
-            this.targetAdj = this.WorldState.MoveTarget(robotId,targetId,powerAngle);
-            this.targetAdj = this.targetAdj *0; %Since boxes are only ever picked up now, ane never pushed, we hack this value.
-            %If box PUSHING is added back in, the particle filter will have
-            %to be updated to account for box movement.
-            %this.lastActionLabel  = strcat(this.typeLabel ,' mv t (',num2Str(this.targetAdj(1)),',',num2Str(this.targetAdj(1)),')');
-            this.lastActionLabel  = strcat(this.typeLabel ,' mv t');
-           
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        %called when we would like to move an object
-        function val = MoveRobot(this,id,amount,rotation)
-            [this.newOrient this.newVelocity] = this.WorldState.MoveRobot(id,amount,rotation);
-            if(rotation ~= 0)
-                this.lastActionLabel = strcat(num2str(this.typeLabel ),' rot ');
+            % Robot position
+            robot_orient = this.orient_(this.id_, :);
+            
+            % Relative distance from robot, to target (must account for the
+            % case when no target is assigned)
+            if(this.target_id_ == 0)
+                rel_target_pos = [0, 0, 0];
+                target_type = zeros(1, 3);
             else
-                
-                this.lastActionLabel = strcat(num2str(this.typeLabel ),' mv s');
+                rel_target_pos = this.target_pos_(this.target_id_,:) - robot_pos;
+                % Have to manually choose the target type, should be fixed
+                target_type = this.target_type_*ones(1, 3);
             end
             
-            %b = this.belief_self
-            %v = this.newVelocity
+            % Realitive distance from robot, to goal point
+            rel_goal_dist = this.goal_pos_ - robot_pos;
+ 
+            % Relative distances from robot to borders
+            rel_border_pos_left = -this.pos_(1);
+            rel_border_pos_right = this.config_.world_Width - robot_pos(1);
+            rel_border_pos_bottom = -this.pos_(2);
+            rel_border_pos_top = this.config_.world_Height - robot_pos(2);
+            % Relative distances from robot to all obstacles
+            rel_obstacle_pos_x = this.obstacle_pos_(:,1) - robot_pos(1);
+            rel_obstacle_pos_y = this.obstacle_pos_(:,2) - robot_pos(2);          
+            rel_obstacle_pos_l = sqrt(rel_obstacle_pos_x.^2 + rel_obstacle_pos_y.^2);
+            % Combine them into an array
+            rel_obstacle_pos = [abs(rel_border_pos_left),   rel_border_pos_left,   0; ...
+                                abs(rel_border_pos_right),  rel_border_pos_right,  0; ...
+                                abs(rel_border_pos_bottom), 0,                     rel_border_pos_bottom; ...
+                                abs(rel_border_pos_top),    0,                     rel_border_pos_top; ...
+                                rel_obstacle_pos_l,         rel_obstacle_pos_x,    rel_obstacle_pos_y];
+            % Find index for the minimum euclidean distance
+            [~, index] = min(rel_obstacle_pos(:,1));
+            % Take the x and y distances of the closest obstacle
+            closest_obstacle_pos = [rel_obstacle_pos(index, 2:3), 0];
             
-            newPoint = [this.belief_self(1:2) 0] + this.newVelocity;
-            val = this.WorldState.ValidPoint(newPoint,this.WorldState.TYPE_ROBOT,id,0,0); 
-            
-            if(val ==0)
-                 this.lastActionLabel =  strcat(num2str(this.typeLabel ),'XXX mv');
-                 this.newVelocity = [0 0 0];
-            end
-            
-            val = 1;
-        end    
-        
-        
-        function GetHelper (this,taskId)
-            this.WorldState.AssignFreeRobot(taskId);
+            % Pack all state variables into one matrix
+            state_matrix = [robot_pos;
+                            robot_orient;
+                            target_type;
+                            rel_target_pos;
+                            rel_goal_dist;
+                            closest_obstacle_pos];
         end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   getRelTargetPositions
+        %   
+        %   Returns the relative positions of all targets. Used in
+        %   determining the confidence in L-Alliance
+        
+        function [rel_target_pos] = getRelTargetPositions(this)
+            % Relative distance from robot, to target (
+            rel_target_pos_x = this.target_pos_(:,1) - this.pos_(this.id_, 1);
+            rel_target_pos_y = this.target_pos_(:,2) - this.pos_(this.id_, 2);
+            rel_target_pos_z = this.target_pos_(:,3) - this.pos_(this.id_, 3);
+            
+            rel_target_pos = [rel_target_pos_x, rel_target_pos_y, rel_target_pos_z];
+        end
+        
     end
     
 end

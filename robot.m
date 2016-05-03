@@ -1,251 +1,170 @@
-classdef robot < handle 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % 
-    %   Class Name
-    %   
-    %   Description 
-    %   
-    %   
-    %   
-    %ROBOT Summary of this class goes here
-    %   Detailed explanation goes here
+classdef Robot < handle 
+    % ROBOT - Contains all information/capabilities for one robot
+    
+    % The Robot class is inteneded to be a standard itnerface for the
+    % Executive simulation to interact with the "robots". It contains
+    % methods for the basic robot capabilities (getAction, act, learn), 
+    % which will always need to be called by the executive simulation.
+    %
+    % One instance of Robot must be created for each robot. The Robot class
+    % contains a RobotState object for representing this robots current
+    % state (i.e. robot specific state variables), and an
+    % IndividualLearning object, which contains all learning functionality.
     
     properties
-        CISL = [];
-        state = [];
-        id = [];
-        RobotState = [];
-        lastActionId = [];
-        config = [];
-        
-        stepSize = [];
-        rotationSpeed = [];
-        ticks = 0;
-        learningFreq = [];
-        lastActionExpProfile =[];
-        %s_robotTeam = GenericList();
+        id_ = [];                   % ID number of the robot [integer]
+        config_ = [];               % Current configuration object
+        robot_state_ = [];          % RobotState (robot's state variables)
+        world_state_ = [];          % WorldState (world's state varibales)
+        individual_learning_ = [];  % Individual learning class for this robot
+        team_learning_ = [];        % Team learning class for this robot
+        action_ = [];               % The current action being performed 
+                                    % (determined by the individual learning layer)
+        iterations_ = [];           % Count of iterations performed
+        action_array_ = [];
     end
     
-    methods
+    methods (Access = public)
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   Constructor
         %   
-        %   Description 
+        %   Assigns the robot's ID, loads the configuration, and
+        %   instantiates RobotState, IndividualLearning, and TeamLearning
+        %   objects.
         %   
-        %   
-        %   
-        function this = robot(inId,config)
-            this.config = config;
-            this.id = inId;
-            this.CISL = QAL(config,inId);
-            this.learningFreq = config.cisl_learningFrequency;
-            this.lastActionExpProfile = [];
+        %   INPUTS
+        %   config = Configuration object
+        %   world_state = The current WorldState object
+ 
+        function this = Robot(id, config, world_state)
+            this.id_ = id;
+            this.config_ = config;
+            this.world_state_ = world_state;
+            this.robot_state_ = RobotState(this.id_, this.world_state_, this.config_);
+            this.individual_learning_ = IndividualLearning(config);
+            this.team_learning_ = TeamLearning(config, id);
+            this.iterations_ = 0;
         end
         
-        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   getAction
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function val = SetWorldState(this,WorldState)
-            this.RobotState = robotState(this.id, WorldState, this.config, this.CISL,this);
-            this.state = WorldState;
-            %TODO - combine all object properties into a
-            %single array.  Constants can describe
-            %the array indexes, and can be redined at will.
+        %   Checks the robots current task allocation, retrieves an
+        %   action id from the individual learning layer, the forms the
+        %   action from the action array.
+        %
+        %   All action details are set here, in the action array.
+  
+        function getAction(this)
+            %Must update first
+            this.robot_state_.update();
             
-            [robPos, robOrient, millis, obstaclePos,targetPos,goalPos,targetProperties,robotProperties ]  = this.state.GetSnapshot();
-            this.stepSize = robotProperties(this.id, 4);
-            this.rotationSpeed = robotProperties(this.id, 2);
-            typeLabel = robotProperties(this.id,5);
-
-            if(typeLabel == 1)
-                typeLabel = 'ss-';
-            elseif(typeLabel == 2)
-                typeLabel = 'wf-';
-            elseif(typeLabel == 3)
-                typeLabel = 'ws-';
-            else
-                typeLabel = 'sf-';
-            end
-            
-            this.RobotState.update();
-            %this.CISL.UpdateId(this.RobotState);
-
-            this.RobotState.SetTypeLabel(typeLabel );
-            this.CISL.SetRobotProperties(this.stepSize,this.rotationSpeed  );
-            this.CISL.Reset();
-            val = 1;
-        end
-                
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function cisl = GetCISL(this)
-            cisl = this.CISL;
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function worldState = GetWorldState(this)
-            worldState = this.state;
-        end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function robotState = GetRobotState(this)
-            robotState = this.RobotState;
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function val = Run(this)
-            %Must update before acting.
-            %disp(strcat(num2str(this.id),' ACTING '));
-            this.RobotState.update();
-
-            originalTaskId = this.CISL.GetTask();
-            [action,actionId,experienceProfile,acquiescence]= this.CISL.Act(this.RobotState);
-            afterTaskId = this.CISL.GetTask();
-            
-            this.lastActionExpProfile = experienceProfile;
+            % Get task from team learning
+            this.team_learning_.getTask(this.robot_state_);
             
             %Save, in the world, our current target ID
-            this.state.UpdateRobotTarget(this.id,this.GetTargetId()); 
-            this.state.SetRobotAdvisor(this.id,this.GetAdvisorId());
+            this.world_state_.UpdateRobotTarget(this.id_, this.robot_state_.target_id_);
             
-            this.lastActionId = actionId; 
+            % Get action if from individual learning, and set action
+            action_id = this.individual_learning_.getAction(this.robot_state_);
 
-            this.RobotState.saveState();
-            %disp(strcat(num2str(this.id),'-Get Action-',num2str(actionId)));
-            if(acquiescence > 0 )
-                %disp('Dropping Task');
-                %disp(strcat(num2str(this.id),' thinks we are dropping'));
-                this.RobotState.MoveTarget (this.id,originalTaskId,-1);
-            elseif(actionId == 0)
-                %disp(strcat(num2str(this.id),'-Moving-(',num2str(actionId),',',num2str(action(1)),',',num2str(action(2)),')'));
-                this.RobotState.MoveRobot (this.id,action(1),action(2));
-            elseif(actionId <= 3) % a locomotion action (turning or driving)
-                %disp(strcat(num2str(this.id),'-Moving-(',num2str(actionId),',',num2str(action(1)),',',num2str(action(2)),')'));
-                this.RobotState.MoveRobot (this.id,action(1),action(2));
-            elseif(actionId >3) %a move object action (if we can)
-                %disp(strcat(num2str(this.id),'-Target Get-'));
-                this.RobotState.MoveTarget (this.id,afterTaskId,action);
+            %Set action angles based on current orientation
+            orientation = this.robot_state_.orient_(3);
+            angles = this.config_.action_angle.*(pi/180);
+            angles = angles + orientation;
+            angles = mod(angles, 2*pi);
+            
+            % Form action array
+            this.action_array_ = [this.robot_state_.step_size_              0; 
+                                            0                   this.robot_state_.rot_size_;
+                                            0                  -this.robot_state_.rot_size_;
+                                  this.config_.boxForce                  angles(1);
+                                  this.config_.boxForce                  angles(2);
+                                  this.config_.boxForce                  angles(3);
+                                  this.config_.boxForce                  angles(4)];
+                        
+            % Get action elements for the action_id from the learing layer
+            this.action_ = this.action_array_(action_id,1:2);
+            
+            % Save the robot state
+            this.robot_state_.saveState();
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   act
+        %   
+        %   Will perform the corresponding action stored in
+        %   this.action_ (i.e. from the getAction method) by making the
+        %   appropriate call to the WorldState methods
+  
+        function act(this)
+            % Depending on our action ID, make the appropriate change in
+            % the world state
+            if(this.robot_state_.acquiescence_ > 0 )
+                this.world_state_.MoveTarget (this.id_, this.robot_state_.target_id_, -1);
+            elseif(this.robot_state_.action_id_ == 0)
+                this.world_state_.MoveRobot (this.id_, this.action_(1), this.action_(2));
+            elseif(this.robot_state_.action_id_ <= 3) % a locomotion action (turning or driving)
+                this.world_state_.MoveRobot (this.id_, this.action_(1), this.action_(2));
+                this.robot_state_.action_label_  = [this.robot_state_.type_ ,' mv/rot'];
+            elseif(this.robot_state_.action_id_ >3) %a move object action (if we can)
+                this.world_state_.MoveTarget(this.id_, this.robot_state_.target_id_, this.action_);
+                this.robot_state_.action_label_  = [this.robot_state_.type_ ,' mv t'];
             end
             
-            this.ticks = this.ticks + 1;
-            val = actionId;
+            this.iterations_ = this.iterations_ + 1;
         end
-        
 
-        
-        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   learn
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function tid = GetTargetId(this)
-            tid = this.CISL.GetTask();
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function rid = GetAdvisorId(this)
-            rid = 0;
-            if(this.CISL.advexc_on ==1)
-                rid = this.CISL.adviceexchange.GetCurrentAdvisor();
+        %   Activates the learning in the individua learning layer, to
+        %   learn from the current state. This should be called during each
+        %   iteration, but depending on the learnign rate dictated int he
+        %   configuration, it will decide if learning should be performed
+        %   at each iteration.
+  
+        function learn(this)
+            % TODO add learning frequency adjustment back in
+            
+            % Update, and make individual learning learn
+            if (mod(this.iterations_, this.config_.learning_iterations) == 0)
+                this.robot_state_.update();
+                this.individual_learning_.learn(this.robot_state_);
+                
+                % Update the team layer as well (not a single agent yet)
+                this.team_learning_.updateMotivation(this.robot_state_);
             end
         end
         
-        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   resetForNextRun
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function val = Reward(this)
-            experience = min(this.lastActionExpProfile);
+        %   Resets all the necessary data for performing consecutive runs,
+        %   while maintatining learning data
+        %
+        %   INPUTS
+        %   world_state = The new world state object, for the robot state
+        %                 to initialize from
+  
+        function resetForNextRun(this, world_state)
+            % Reset world and robot state variables
+            this.world_state_ = world_state;
+            this.robot_state_ = robotState(this.id_, this.world_state_, this.config_);
             
-            this.RobotState.update();
+            % Reset the learning layers
+            this.team_learning_.resetForNextRun();            
+            this.individual_learning_.resetForNextRun();
             
-            %slow learning down when we start to know everything about a
-            %certain state.... IE we are converged on a certain value
-
-            %rate = this.learningFreq + round(50*exp(experience/100 )/(100+(exp(experience/100 ))));
-            rate = this.learningFreq + round(50*exp((experience-45)/20 )/(100+(exp((experience-45)/20 ))));
-            
-            if(mod(this.ticks,rate) == 0)
-                this.CISL.LearnFrom(this.RobotState,this.lastActionId);
-            end
-            val = 1;
+            this.iterations_ = 0;
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function SetRobotTeam(this,list)
-            this.s_robotTeam  = list;
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function robo = GetRobotFromTeam(this,id)
-            robo = this.s_robotTeam.Get(id);
-        end
     end
     
 end

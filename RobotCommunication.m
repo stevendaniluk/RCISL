@@ -44,7 +44,6 @@ classdef RobotCommunication < handle
         
         function SetAgent(this,agent,id)
             if( isempty(this.agents) == 1)
-                disp('initalized');
                 for i = 1:this.config.numRobots
                     this.agents = [this.agents agent];
                 end

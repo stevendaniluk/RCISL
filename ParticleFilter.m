@@ -237,20 +237,7 @@ classdef ParticleFilter < handle
             
         end
         
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function ControlSignal(this,controlVector)
-            %do nothing now
-        end
-        
-        
+       
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   Class Name
@@ -326,18 +313,6 @@ classdef ParticleFilter < handle
             
         end
 
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function UpdateBeliefsBlind(this)
-        end
-        
 
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -354,72 +329,7 @@ classdef ParticleFilter < handle
             x = [x1 x2];
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function UnitTest(this)
-            boundsIn = [];
-            c = [];
-            initialReading = [0 0];
-            
-            p = ParticleFilter();
-            numParticles = 100;
-            pruneThreshold = 10;
-            resampleStd = 0.1;
-            controlStd = 0.01;
-            sensorStd = 0.06;
-            
-            noise = 0.00;
-            p.Initalize(initialReading,numParticles,pruneThreshold,resampleStd,controlStd,sensorStd  );  
-            
-            
-            %simulate a simple process - x moving up left
-            f = figure();
-            hold on;
-            xold = 0;
-            yold = 0;
-            x = 0;
-            y = 0;
-            
-            for i=1:50
-                pause(0.01)
-                clf;
-                xdiff = 0.2;
-                ydiff = 0.2;
-                xold = x;
-                yold = y;
-                x = x + xdiff;
-                y = y + ydiff;
-                
-                hold on;
-                plot (x, y,'o');
-
-                %p.UpdateBeliefs([x y],[xdiff ydiff]);
-                nx = x + randn(1,1)*noise;
-                ny = y + randn(1,1)*noise;
-                
-                %p.UpdateBeliefs([nx ny],[xdiff ydiff]);
-                p.UpdateBeliefs([0 0],[xdiff ydiff]);
-                p.Resample();
-                
-                X = p.beliefs;
-                %.plot (X(:,1), X(:,2),'x');
-                sam = p.Sample();
-                
-                plot (sam(1), sam(2),'O', 'color','r');
-                %plot (nx, ny,'O', 'color','y');
-                
-                axis([0 10 0 10]);
-            end
-            %hold off;
-            
-            
-        end
+        
     end
     
 end

@@ -1,30 +1,30 @@
 % Dummy code to run RCISL
 
-clear all
+clear
 clc
 
-%% Create objects required to call SimulationRun.Run
+%% Create and initialize the simulation
 
-show_plot=2;    % Show the plot during the simulation (2=true)
-
-% Form configuration
+% % Form configuration
 config = Configuration();
-
-% Create World state object
-WorldState=worldState(config);
-
-% Create robotList object
-robotsList = robot.empty(1,0);
-for i=1:config.numRobots;
-    robotsList(i,1) = robot(i,config);
-end
     
-% Create SimulationRun object
-SimulationRun=SimulationRun(config);
+% Create simulation object 
+Simulation=ExecutiveSimulation(config);
 
-%% Begin simulation
+%% Make single run
+
+% Initialize
+Simulation.initialize();
+
 tic
-iterations = SimulationRun.Run(robotsList, show_plot, WorldState);
+Simulation.run();
 disp('Mission Complete.')
-disp(['Number of iterations: ',num2str(iterations)])
+disp(['Number of iterations: ',num2str(Simulation.world_state_.iterations)])
 toc
+
+%% Make consecutive runs
+% num_runs = 2;
+% save_data = true;
+% sim_name = 'test_1';
+% 
+% Simulation.consecutiveRuns(config, num_runs, save_data, sim_name);

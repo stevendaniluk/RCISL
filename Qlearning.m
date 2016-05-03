@@ -1,178 +1,143 @@
-classdef Qlearning <handle
-    %QLEARNING Summary of this class goes here
-    %   Detailed explanation goes here
+classdef QLearning <handle
+    % QLEARNING - Performs Q-Learning given states, actions and rewards
     
-    properties
-        quality = [];
-        learnedActions = [];
-        randomActions = [];
-        gamma = [];
-        alphaDenom = [];
-        alphaPower = [];        
-        learningData = [];
-        learningDataIndex = 0;
-        actionNum = [];
+    % Contains equations for updating Q-values and the learning rate, then
+    % stores the updated values in a SparseQTable.
+    %
+    % Also keeps track of alpha, gamma, experience, quality, and reward at
+    % each iteration.
+    %
+    % A standard Q-learning update rule is used [Boutilier, 1999], with a 
+    % constant gamma, and an exponentially decreasing learning rate 
+    % dependent on the number of visitations to a state [Source Unknown].
+    
+    properties (Access = public)
+        % For storing alpha, gamma, experience, quality, and reward
+        learning_data_ = [];        % Table
+        learning_data_index_ = 0;   % Current index
+        
+        % Main Q-learning parameters
+        quality_ = [];      % Table of Q values and experience
+        gamma_ = [];        % Gamma coefficient in Q-learning update
+        alpha_denom_ = [];  % Coefficient in alpha update
+        alpha_power_ = [];  % Coefficient in alpha update
     end
     
-    methods
+    properties (Access = private)
+        
+    end
+    
+    methods (Access = public)
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function this = Qlearning(config)
-            this.gamma = config.qlearning_gamma;
-            this.alphaDenom = config.qlearning_alphaDenom;
-            this.alphaPower = config.qlearning_alphaPower;
-            this.actionNum  = config.actionsAmount;
-            this.learningData = zeros(config.numIterations,6);
-            this.quality = SparseActionHashtable(config.arrBits,config.actionsAmount);
+        %   Constructor
+        %
+        %   INPUTS
+        %   config = Configuration object
+ 
+        function this = QLearning(config)
+            % Load learning parameters from config file
+            this.gamma_ = config.gamma;
+            this.alpha_denom_ = config.alpha_denom;
+            this.alpha_power_ = config.alpha_power;
+            
+            % Form array for storing learning data
+            this.learning_data_ = zeros(config.max_iterations, 6);
+            
+            % Intiialize quality table
+            this.quality_ = SparseQTable(config.num_state_vrbls, config.num_state_bits, config.num_actions);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   learn
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function Reset(this)
-            %reset our simple tracking metric
-            %store the alpha,gamma,expereince,quality(Q) , iteration,rewd
-            this.learningData = zeros(3000,6);
-            this.learningDataIndex = 0;            
-        end
+        %   Performs Q-learning update, stores the learning data, and
+        %   updates the quality table
+        %
+        %   INPUTS
+        %   state_now =  Vector of current state variables
+        %   state_future = Vector of future state variables
+        %   action_id = Action number [1, num_actions]
+        %   reward = Reward recieved
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function Learn(this,id,idNew,actionId,reward)
-            % % % % %
-            % Get ids for quality table
-            [qualityNow,expNow] =  this.GetUtility(id,0);
-            [qualityFuture,expFuture] =  this.GetUtility(idNew,0);
-            qualityFutureMax =  max(qualityFuture);
-            expFutureMax = sum(expFuture);
-             
-            %softmax - the more expere
-            %gamma = exp(expFutureMax/100 +2)/(100+(exp(expFutureMax/100 +2)));
-                        
-            qualityCurrent = qualityNow(actionId);%
-            %alpha = 1/(1+0.01*expNow(actionId));
-            alpha = 1/(exp((expNow(actionId).^this.alphaPower)/this.alphaDenom));
-           
-            qualityUpdate = qualityCurrent + alpha*(reward + this.gamma*qualityFutureMax - qualityCurrent );
+        function learn(this, state_now, state_future, action_id, reward)
+            % Get qualities and experience from table
+            [quality_now, experience_now] =  this.quality_.getElements(state_now);
+            [quality_future, ~] =  this.quality_.getElements(state_future);
             
-            % % % % %             
-            % 
-            % Update some tracking metrics
-            %store the alpha,gamma,expereince,quality(Q) , iteration,rewd
-            this.AddToLearningData ([alpha this.gamma expNow(actionId),qualityCurrent 0 reward] );            
-
+            % Exponentially decrease learning rate with experience [Unknown]
+            alpha = 1/(exp((experience_now(action_id).^this.alpha_power_)/this.alpha_denom_));
             
-            % % % % %
-            %
-            % Update Quality
-            this.UpdateUtility(id,actionId,qualityUpdate);
+            % Standard Q-learning update rule [Boutilier, 1999]
+            quality_update = quality_now(action_id) + alpha*(reward + this.gamma_*max(quality_future) - quality_now(action_id));
+            
+            % Update tracking metrics
+            this.addToLearningData ([alpha, this.gamma_, experience_now(action_id), ...
+                                     quality_now(action_id), reward, nnz(this.quality_.table_)]);            
 
-%            this.rewardObtained = this.rewardObtained + reward;            
-%            this.decisionsMade = this.decisionsMade +1;
+            % Update quality table
+            this.updateUtility(state_now, action_id, quality_update);
             
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   getUtility
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function [quality,expe,rawQuality,lQuality] = GetUtility(this,id,randomnessDepth)
-            
-            id = double(id);
-            [quality, expe ] = this.quality.Get(id);
-            
-            quality = quality(1:this.actionNum );
-            expe = expe(1:this.actionNum );
-            rawQuality = quality;
-            
-            if(sum(quality) >= randomnessDepth)
-                this.learnedActions = this.learnedActions + 1;
-            else
-                quality = rand(this.actionNum ,1);
-                this.randomActions = this.randomActions + 1;
-            end
-            lQuality = log(quality);
+        %   Return quality and experience from table
+        %
+        %   INPUTS
+        %   state = Vector of state variables
+
+        function [quality, experience] = getUtility(this, state)
+            [quality, experience] = this.quality_.getElements(state);
         end        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Class Name
-        %   
-        %   Description 
-        %   
-        %   
-        %   
-        function val = UpdateUtility(this,id,action,value)
-            %this.quality(action).Put(id,value);
-            this.quality.Put(id,value,action);
-            val = 1;
-        end
-        
-        
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   resetLearningData
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function AddToLearningData (this,dataVector)
-            this.learningDataIndex = this.learningDataIndex +1;
-            if(this.learningDataIndex > size(this.learningData))
-                this.learningDataIndex =1;
-            end
-            %store the 
-            %[alpha, gamma, expereince, quality(Q), iteration, rewd]
-            this.learningData(this.learningDataIndex,:) = dataVector;
+        %   Resets the learning data array and index to zero 
+
+        function resetLearningData(this)
+            this.learning_data_ = zeros(size(this.learning_data_));
+            this.learning_data_index_ = 0;            
+        end
         
+    end
+    
+    methods (Access = private)
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   updateUtility
+        %   
+        %   Insert new Q value into quality table
+        %
+        %   INPUTS
+        %   state = Vector of state variables
+        %   action_id = Action number [1, num_actions]
+        %   q_value = New Q value for table
+ 
+        function updateUtility(this, state, action_id, q_value)
+            this.quality_.storeElements(state,q_value,action_id);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   Class Name
+        %   addToLearningData
         %   
-        %   Description 
-        %   
-        %   
-        %   
-        function dat = GetLearningData(this)
-            b = size(this.learningData,1);
-            i = 1;
-            while (i <= b)
-                if(this.learningData(i,1) == 0 && this.learningData(i,2) == 0 )
-                    this.learningData(i,:) = [];
-                else
-                    i = i +1;
-                end
-                
-                b = size(this.learningData,1);
-            end
-            dat = this.learningData;
+        %   Add the inputted dataVector to the learning_data_ array 
+        %
+        %   INPUTS
+        %   data_vector = Vector: [alpha, gamma, experience, quality, reward, visited states]
+        
+        function addToLearningData (this, data_vector)
+            this.learning_data_index_ = this.learning_data_index_ + 1;
+            this.learning_data_(this.learning_data_index_, :) = data_vector;
         end
+        
     end
     
 end
-
