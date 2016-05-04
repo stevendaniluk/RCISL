@@ -61,7 +61,6 @@ classdef IndividualLearning < handle
         %   action = Action to take
         
         function action_id = getAction(this, robot_state)
-            
             % Get state matrix, and convert to encoded state vector
             state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
             
@@ -82,7 +81,6 @@ classdef IndividualLearning < handle
             
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
-                        
         end
                 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -92,7 +90,6 @@ classdef IndividualLearning < handle
         %   Updates the utility values, based on the reward
         
         function learn(this, robot_state)
-            
             % Find reward
             reward = this.determineReward(robot_state);
             
@@ -147,7 +144,6 @@ classdef IndividualLearning < handle
         %                         rel_goal, rel_obstacle]
         
         function state_vector = stateMatrixToStateVector(this, state_matrix)
-            
             %   Example of representing two parameters, alpha and beta, using
             %   5 bits is shown below. Since there are 5 bits, the values
             %   for alpha and beta will be divided into 4 equal ranges, with
@@ -225,9 +221,9 @@ classdef IndividualLearning < handle
             % Assemble, and correct elements in case an are over the max
             % bit amount (shouldn't happen, but if it does we want to know)
             state_vector = [pos; target_type; rel_pos];
-            if (sum(state_vector(state_vector > (bits)^2)) ~= 0)
+            if (sum(state_vector(state_vector >= bits^2)) ~= 0)
                 warning('state_vector values greater than max allowed. Reducing to max value.');
-                state_vector(state_vector > (bits)^2) = (bits)^2;
+                state_vector(state_vector >= bits^2) = (bits^2 - 1);
             end
         end
         
@@ -245,7 +241,7 @@ classdef IndividualLearning < handle
         %   reward = Value of the reward for the previous action
         
         function reward = determineReward(this, robot_state)
-                        
+            % Set distance threshold for rewards            
             threshold = this.config_.reward_activation_dist;
             
             % First handle the case where no target is assigned first, since 
@@ -313,7 +309,6 @@ classdef IndividualLearning < handle
             
             % Record reward in robot state
             robot_state.reward_ = reward;
-
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -330,7 +325,6 @@ classdef IndividualLearning < handle
         %   action_index = The ID (index) of the selected action
         
         function action_index = Policy(this, utility_vals)
-            
             % TODO - Add something to randomize actions more if we have less
             % experience. Was done with
             % utility_vals = (utility)^(experience/some_factor)
