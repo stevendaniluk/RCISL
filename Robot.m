@@ -156,7 +156,7 @@ classdef Robot < handle
         function resetForNextRun(this, world_state)
             % Reset world and robot state variables
             this.world_state_ = world_state;
-            this.robot_state_ = robotState(this.id_, this.world_state_, this.config_);
+            this.robot_state_ = RobotState(this.id_, this.world_state_, this.config_);
             
             % Reset the learning layers
             this.team_learning_.resetForNextRun();            
