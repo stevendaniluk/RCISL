@@ -158,6 +158,9 @@ classdef Robot < handle
             this.world_state_ = world_state;
             this.robot_state_ = RobotState(this.id_, this.world_state_, this.config_);
             
+            % Update our state when created
+            this.robot_state_.update();
+            
             % Reset the learning layers
             this.team_learning_.resetForNextRun();            
             this.individual_learning_.resetForNextRun();

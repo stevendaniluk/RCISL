@@ -278,7 +278,7 @@ classdef IndividualLearning < handle
             % Useful values
             target_id = robot_state.target_id_;
             target_pos = robot_state.target_pos_(target_id,:);
-            prev_target_pos = robot_state.target_pos_(target_id,:);
+            prev_target_pos = robot_state.prev_target_pos_(target_id,:);
             target_state = robot_state.target_properties_(target_id, 1);
             prev_target_state = robot_state.prev_target_properties_(target_id, 1);
             
@@ -291,17 +291,18 @@ classdef IndividualLearning < handle
             current_robot_item_dist = sqrt(sum((target_pos - pos).^2));
             prev_robot_item_dist = sqrt(sum((prev_target_pos - prev_pos).^2));
             delta_robot_item_dist = current_robot_item_dist - prev_robot_item_dist;
-
-            if (delta_item_goal_dist < -threshold)
-                % Item hs moved closer
+            
+            % Rewards depend on if we are going to an item, or carrying one
+            if (robot_state.carrying_target_ && delta_item_goal_dist < -threshold)
+                % Item has moved closer
                 reward = this.config_.item_closer_reward;
-            elseif (delta_item_goal_dist > threshold)
-                % Items has moved further away
+            elseif (robot_state.carrying_target_ && delta_item_goal_dist > threshold)
+                % Item has moved further away
                 reward = this.config_.item_further_reward;
-            elseif (delta_robot_item_dist < -threshold)
+            elseif (~robot_state.carrying_target_ && delta_robot_item_dist < -threshold)
                 % Robot moved closer to item
                 reward = this.config_.robot_closer_reward;
-            elseif (delta_robot_item_dist > threshold)
+            elseif (~robot_state.carrying_target_ && delta_robot_item_dist > threshold)
                 % Robot moved further away from item
                 reward = this.config_.robot_further_reward;
             elseif (target_state ~= 1 && prev_target_state == 1)

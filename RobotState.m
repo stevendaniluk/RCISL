@@ -35,6 +35,7 @@ classdef RobotState < handle
         target_properties_ = [];
         prev_target_id_ = [];
         prev_target_properties_ = [];
+        carrying_target_ = [];
         
         % Action information
         action_id_ = [];
@@ -68,9 +69,10 @@ classdef RobotState < handle
            this.config_ = config;
            this.world_state_ = world_state;
        
-           % Must set to zero
+           % Must initialize appropriately
            this.target_id_ = 0;
            this.prev_target_id_ = 0;
+           this.carrying_target_ = false;
            
            this.step_size_ = this.world_state_.robotProperties(this.id_, 4);
            this.rot_size_ = this.world_state_.robotProperties(this.id_, 2);
@@ -125,14 +127,23 @@ classdef RobotState < handle
             this.target_properties_ = targetProperties;
             this.robot_properties_ = robotProperties;
             
-            % Must assign target type properly when no target is given
+            % Must assign target type and carrying status properly when no 
+            % target is given
             if(this.target_id_ == 0)
                 this.target_type_ = 0;
+                this.carrying_target_ = false;
             else
                 % Have to manually choose the target type, should be fixed
                 this.target_type_ = this.target_properties_(this.target_id_, 3);
+                
+                % Set if we are carrying our target
+                if (this.target_properties_(this.target_id_, 4) == this.id_)
+                    this.carrying_target_ = true;
+                else
+                    this.carrying_target_ = false;
+                end
             end
-            
+                        
            %Apply noise to state if requested
            if(this.noise_sigma_ > 0)
                this.ApplyNoise();
