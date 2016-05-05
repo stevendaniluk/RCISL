@@ -43,7 +43,7 @@ classdef Configuration < handle
         simulation_Realism = 0;
         
         % Noise and Particle Filter Parameters
-        noise_sigma = 0.1;
+        noise_sigma = 0.0;
         particle_filer_on = true;
         particle_ResampleNoiseSTD = 0.02;
         particle_ControlStd = 0.1;
@@ -60,7 +60,7 @@ classdef Configuration < handle
         robot_closer_reward = 0.5;
         robot_further_reward = -0.3;
         return_reward = 10;
-        empty_reward_value = -0.001;
+        empty_reward_value = 0.0;
         reward_activation_dist = 0.0;
         reward_distance_scale = 0.17;
                 
