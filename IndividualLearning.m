@@ -335,6 +335,7 @@ classdef IndividualLearning < handle
             % If all utility is lower than randomness threshold, randomize it
             if(sum(utility_vals) < this.config_.min_utility_threshold)
                 action_index = ceil(rand*7);
+                return;
             end
             
             % Make all actions with zero quality equal to
