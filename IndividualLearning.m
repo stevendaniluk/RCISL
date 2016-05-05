@@ -171,10 +171,16 @@ classdef IndividualLearning < handle
             % be adjusted to be within the bounds by at least this much
             delta = 0.0001;
             
+            % Get orientation, will be Z element, in second row
+            orient = state_matrix(2, 3);
+            orient = mod(orient, 2*pi);
+            orient_range = (2*pi)/(bits);
+            
             % Encode robot position
             % Find size of increments for position
-            x_range = width/(bits);
-            y_range = height/(bits);
+            x_range = width/(bits/2);
+            y_range = height/(bits/2);
+            
             % Extract positions from state matrix
             pos_x = state_matrix(1,1);
             pos_y = state_matrix(1,2);
@@ -188,13 +194,10 @@ classdef IndividualLearning < handle
             end
                         
             % Convert to bits
-            pos = bitshift(floor(pos_x/x_range),2) + floor(pos_y/y_range);
+            pos = bitshift(floor(orient/orient_range), 2) + bitshift(floor(pos_x/x_range), 1) + floor(pos_y/y_range);
             
             % Encode target type
             target_type = state_matrix(3,1);
-            
-            % Get orientation, will be Z element, in second row
-            orient = state_matrix(2, 3);
             
             % Find angles from x and y coords of each state
             angles = atan2(state_matrix(4:end,2), state_matrix(4:end,1));
@@ -331,7 +334,7 @@ classdef IndividualLearning < handle
             
             % If all utility is lower than randomness threshold, randomize it
             if(sum(utility_vals) < this.config_.min_utility_threshold)
-                utility_vals = rand(size(utility_vals)) * this.config_.min_utility_threshold;
+                action_index = ceil(rand*7);
             end
             
             % Make all actions with zero quality equal to
