@@ -46,6 +46,9 @@ classdef Robot < handle
             this.individual_learning_ = IndividualLearning(config);
             this.team_learning_ = TeamLearning(config, id);
             this.iterations_ = 0;
+            
+            % Update our state when created
+            this.robot_state_.update();
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -59,8 +62,8 @@ classdef Robot < handle
         %   All action details are set here, in the action array.
   
         function getAction(this)
-            %Must update first
-            this.robot_state_.update();
+            % Save the robot state before we change it
+            this.robot_state_.saveState();
             
             % Get task from team learning
             this.team_learning_.getTask(this.robot_state_);
@@ -70,7 +73,7 @@ classdef Robot < handle
             
             % Get action if from individual learning, and set action
             action_id = this.individual_learning_.getAction(this.robot_state_);
-
+            
             %Set action angles based on current orientation
             orientation = this.robot_state_.orient_(3);
             angles = this.config_.action_angle.*(pi/180);
@@ -88,9 +91,6 @@ classdef Robot < handle
                         
             % Get action elements for the action_id from the learing layer
             this.action_ = this.action_array_(action_id,1:2);
-            
-            % Save the robot state
-            this.robot_state_.saveState();
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
