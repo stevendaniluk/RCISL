@@ -315,10 +315,14 @@ classdef RobotState < handle
             % Robot position
             robot_orient = this.orient_(this.id_, :);
             
+            % Realitive distance from robot, to goal point
+            rel_goal_dist = this.goal_pos_ - robot_pos;
+            
             % Relative distance from robot, to target (must account for the
             % case when no target is assigned)
             if(this.target_id_ == 0)
-                rel_target_pos = [0, 0, 0];
+                % We want to go to the goal when we have not target
+                rel_target_pos = rel_goal_dist;
                 target_type = zeros(1, 3);
             else
                 rel_target_pos = this.target_pos_(this.target_id_,:) - robot_pos;
@@ -326,13 +330,10 @@ classdef RobotState < handle
                 target_type = this.target_type_*ones(1, 3);
             end
             
-            % Realitive distance from robot, to goal point
-            rel_goal_dist = this.goal_pos_ - robot_pos;
- 
             % Relative distances from robot to borders
-            rel_border_pos_left = -this.pos_(1);
+            rel_border_pos_left = -robot_pos(1);
             rel_border_pos_right = this.config_.world_Width - robot_pos(1);
-            rel_border_pos_bottom = -this.pos_(2);
+            rel_border_pos_bottom = -robot_pos(2);
             rel_border_pos_top = this.config_.world_Height - robot_pos(2);
             % Relative distances from robot to all obstacles
             rel_obstacle_pos_x = this.obstacle_pos_(:,1) - robot_pos(1);
