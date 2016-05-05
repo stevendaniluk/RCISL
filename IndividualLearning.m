@@ -201,8 +201,10 @@ classdef IndividualLearning < handle
             
             % Find angles from x and y coords of each state
             angles = atan2(state_matrix(4:end,2), state_matrix(4:end,1));
-            % make angles relative to the orientation
-            angles = angles + orient;
+            % Make angles relative to the orientation, plus 45 degrees, so
+            % that the quadrants are orientated in front, behind, etc.
+            angles = angles - orient + pi/bits;
+            
             % Make sure it is within [0, 2Pi]
             angles = mod(angles, 2*pi);
             
@@ -217,7 +219,7 @@ classdef IndividualLearning < handle
             if (dist > dist_range)
                 dist = dist_range - delta;
             end
-            
+
             % Convert to bits
             rel_pos = bitshift(floor(angles/angle_range),2) + floor(dist/dist_range);
             
