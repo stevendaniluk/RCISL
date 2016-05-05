@@ -23,7 +23,7 @@ function [] = Graphics(config, world_state, robots)
         hold on;
         
         % Display current iteration
-        %text(1, 9, sprintf('%d', world_state.iterations));
+        text(1, 9, sprintf('%d', world_state.iterations));
         
         % Draw the robots
         for i=1:config.numRobots
@@ -48,8 +48,8 @@ function [] = Graphics(config, world_state, robots)
             plot(arrow(:,1),arrow(:,2),'b');
             
             % Add text for robot id, type, and current action
-            %lbl = [sprintf('%d', i), ' ', robots(i).robot_state_.action_label_];
-            %text(position(i,1)+0.2, position(i,2)+0.2, lbl);
+            lbl = [sprintf('%d', i), ' ', robots(i).robot_state_.action_label_];
+            text(position(i,1)+0.2, position(i,2)+0.2, lbl);
             
             % If noise is present, plot the state estimates
             if(config.noise_sigma > 0)
