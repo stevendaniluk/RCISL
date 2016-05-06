@@ -79,6 +79,31 @@ classdef ExecutiveSimulation < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
+        %   loadUtilityTables
+        %
+        %   Promts user to select a file containing the utility tables to
+        %   be loaded, which will then be assigned to each robot in order.
+        %   
+        %   Tables must be in a single cell array.
+        
+        function loadUtilityTables(this)
+            % Ask to select the file with utility tables
+            disp('Please select the file containing the utility tables to be loaded');
+            [file_name, path_name] = uigetfile;
+            
+            q_tables = load([path_name, file_name]);
+            q_tables = q_tables.q_tables;
+            
+            for id = 1:this.num_robots_;
+                nnz(this.robots_(id,1).individual_learning_.q_learning_.quality_.table_)
+                this.robots_(id,1).individual_learning_.q_learning_.quality_.table_ = q_tables{id};
+                nnz(this.robots_(id,1).individual_learning_.q_learning_.quality_.table_)
+            end
+            disp('Utility tables loaded.');
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
         %   run
         %   
         %   Steps throuhg iterations until all tasks are complete, or the
@@ -119,16 +144,14 @@ classdef ExecutiveSimulation < handle
         %   number of times. After each run the world/robots will be reset,
         %   but all learning data will be retained.
         %
+        %   The simulation must be initialized before use
+        %
         %   INPUTS
         %   num_runs = The number of consecutive runs to be performed
         %   save_data = Boolean type to indicate if data should be saved
         %   sim_name = String with name of the test, used for saving data
         
         function consecutiveRuns(this, num_runs, save_data, sim_name)
-            % Initialize the simulation
-            this.initialize();
-            
-            % Make the runs
             for i=1:num_runs
                 tic
                 disp(['Mission ', sprintf('%d', i), ' started.'])
@@ -140,7 +163,7 @@ classdef ExecutiveSimulation < handle
                                 
                 % Save the data from this run (if desired)
                 if (save_data)
-                    this.saveData(sim_name);
+                    this.saveLearningData(sim_name);
                 end
                 
                 % Don't reset if it is the last run (data may be useful)
@@ -148,6 +171,9 @@ classdef ExecutiveSimulation < handle
                     this.resetForNextRun();
                 end
             end
+            
+            % Save our learned utility tables for each robot
+            this.saveUtilityTables(sim_name);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -169,11 +195,11 @@ classdef ExecutiveSimulation < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   saveData
+        %   saveLearningData
         %
-        %   Will save data from the simulation to the results folder. A
-        %   folder will be created with the inputted sim_name, and the
-        %   current data.
+        %   Will save learningdata from the simulation to the results 
+        %   folder. A folder will be created with the inputted sim_name, 
+        %   and the current data.
         %
         %   A cell array is saved, where:
         %       Column 1 = iterations
@@ -183,10 +209,10 @@ classdef ExecutiveSimulation < handle
         %   INPUTS
         %   sim_name = String with test name, to be appended to file name
         
-        function saveData (this, sim_name)
+        function saveLearningData (this, sim_name)
             % Create new directory if needed
-            if ~exist(['results/', [sim_name, '-', date]], 'dir')
-                mkdir('results', [sim_name, '-', date]);
+            if ~exist(['results/', sim_name], 'dir')
+                mkdir('results', sim_name);
             end
             
             % Add iterations
@@ -201,8 +227,27 @@ classdef ExecutiveSimulation < handle
             % Have to make copies of variables in order to save
             config = this.config_;
             simulation_data = this.simulation_data_;
-            save(['results/', sim_name, '-', date, '/', 'configuration'], 'config');
-            save(['results/', sim_name, '-', date, '/', 'simulation_data'], 'simulation_data');
+            save(['results/', sim_name, '/', 'configuration'], 'config');
+            save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   saveUtilityTables
+        %
+        %   Saves the utility table for each robot into a cell array
+        %
+        %   INPUTS
+        %   sim_name = String with test name, to be appended to file name
+        
+        function saveUtilityTables (this, sim_name)
+            % Add utility table for each robot to cell array
+            q_tables = cell(this.num_robots_, 1);
+            for id = 1:this.num_robots_;
+                q_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.quality_.table_;
+            end
+            save(['results/', sim_name, '/', 'q_tables'], 'q_tables');
+            disp('Utility tables saved.');
         end
         
     end
