@@ -186,10 +186,10 @@ classdef IndividualLearning < handle
             pos_y = state_matrix(1,2);
             % Make sure they are within the world limits
             % (necessary because of noise)
-            if (pos_x > width)
+            if (pos_x >= width)
                 pos_x = width - delta;
             end
-            if (pos_y > height)
+            if (pos_y >= height)
                 pos_y = height - delta;
             end
                         
@@ -214,12 +214,12 @@ classdef IndividualLearning < handle
             % Find relevant ranges for encoding angle and distance
             angle_range = (2*pi)/(bits);
             dist_range = sqrt(width^2 + height^2)/(bits);
+            
             % Make sure distance is within world bounds
             % (necessary because of noise)
-            if (dist > dist_range)
-                dist = dist_range - delta;
-            end
-
+            dist(dist >= (dist_range*bits)) = (dist_range*bits) - delta;
+            angles(angles >= (angle_range*bits)) = (angle_range*bits) - delta;
+            
             % Convert to bits
             rel_pos = bitshift(floor(angles/angle_range),2) + floor(dist/dist_range);
             
@@ -227,8 +227,8 @@ classdef IndividualLearning < handle
             % bit amount (shouldn't happen, but if it does we want to know)
             state_vector = [pos; target_type; rel_pos];
             if (sum(state_vector(state_vector >= bits^2)) ~= 0)
-                warning('state_vector values greater than max allowed. Reducing to max value.');
-                fprintf('State Vector: %d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5));
+                warning(['state_vector values greater than max allowed. Reducing to max value. State Vector: ', ...
+                         sprintf('%d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5))]);
                 state_vector(state_vector >= bits^2) = (bits^2 - 1);
             end
         end
