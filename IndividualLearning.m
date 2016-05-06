@@ -92,7 +92,7 @@ classdef IndividualLearning < handle
         function learn(this, robot_state)
             % Find reward
             reward = this.determineReward(robot_state);
-            
+                        
             % Get current and previous state vectors for Q-learning
             state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
@@ -228,6 +228,7 @@ classdef IndividualLearning < handle
             state_vector = [pos; target_type; rel_pos];
             if (sum(state_vector(state_vector >= bits^2)) ~= 0)
                 warning('state_vector values greater than max allowed. Reducing to max value.');
+                fprintf('State Vector: %d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5));
                 state_vector(state_vector >= bits^2) = (bits^2 - 1);
             end
         end
@@ -351,6 +352,27 @@ classdef IndividualLearning < handle
             if (strcmp(this.policy_, 'greedy'))
                 % Simply select the max utility
                 [~, action_index] = max(utility_vals);
+            elseif (strcmp(this.policy_, 'e-greedy'))
+                % Epsilon-Greedy Policy
+                rand_action = rand;
+                if (rand_action <= this.config_.e_greedy_epsilon)
+                    action_index = ceil(rand*this.config_.num_actions);
+                else
+                    [~, action_index] = max(utility_vals);
+                end
+            elseif (strcmp(this.policy_, 'softmax'))
+                % Softmax action selection [Girard, 2015]
+                exponents = exp(utility_vals/this.config_.softmax_temp);
+                action_prob = exponents/sum(exponents);
+                rand_action = rand;
+                for i=1:7
+                    if (rand_action < sum(action_prob(1:i)))
+                        action_index = i;
+                        break;
+                    elseif (i == 7)
+                        action_index = i;
+                    end
+                end                
             elseif (strcmp(this.policy_, 'justins'))
                 % Current policy in the simulation from Justin Girard
                 total_utility = sum(utility_vals);

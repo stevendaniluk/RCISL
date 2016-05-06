@@ -53,7 +53,6 @@ classdef Configuration < handle
         
         % Individual Learning Parameters
         learning_iterations = 1;
-        policy = 'justins'; % Options: "greedy", "justins"
         min_utility_threshold = 0.01;
         item_closer_reward = 0.5;
         item_further_reward = -0.3;
@@ -63,7 +62,12 @@ classdef Configuration < handle
         empty_reward_value = 0.0;
         reward_activation_dist = 0.0;
         reward_distance_scale = 0.17;
-                
+        
+        % Policy parameters
+        policy = 'e-greedy'; % Options: "greedy", "e-greedy", "softmax", "justins"
+        e_greedy_epsilon = 0.1;
+        softmax_temp = 0.25;
+        
         % Q-Learning Parameters
         gamma = 0.3;
         alpha_denom = 30;
