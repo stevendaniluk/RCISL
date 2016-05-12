@@ -115,17 +115,17 @@ classdef RobotState < handle
   
         function update(this)
             % Update our state from the world state
-            [robPos, robOrient, ~, obstaclePos, targetPos, goalPos, targetProperties, robotProperties] = ...
+            [robot_pos, robot_orient, obstacle_pos, target_pos, goal_pos, target_properties, robot_properties] = ...
             this.world_state_.GetSnapshot();
             
             % Update the state variables
-            this.pos_ = robPos;
-            this.orient_ = robOrient;
-            this.obstacle_pos_ = obstaclePos;
-            this.target_pos_ = targetPos;
-            this.goal_pos_ = goalPos;
-            this.target_properties_ = targetProperties;
-            this.robot_properties_ = robotProperties;
+            this.pos_ = robot_pos;
+            this.orient_ = robot_orient;
+            this.obstacle_pos_ = obstacle_pos;
+            this.target_pos_ = target_pos;
+            this.goal_pos_ = goal_pos;
+            this.target_properties_ = target_properties;
+            this.robot_properties_ = robot_properties;
             
             % Must assign target type and carrying status properly when no 
             % target is given
@@ -343,9 +343,9 @@ classdef RobotState < handle
             
             % Relative distances from robot to borders
             rel_border_pos_left = -robot_pos(1);
-            rel_border_pos_right = this.config_.world_Width - robot_pos(1);
+            rel_border_pos_right = this.config_.world_width - robot_pos(1);
             rel_border_pos_bottom = -robot_pos(2);
-            rel_border_pos_top = this.config_.world_Height - robot_pos(2);
+            rel_border_pos_top = this.config_.world_height - robot_pos(2);
             % Relative distances from robot to all obstacles
             rel_obstacle_pos_x = this.obstacle_pos_(:,1) - robot_pos(1);
             rel_obstacle_pos_y = this.obstacle_pos_(:,2) - robot_pos(2);          

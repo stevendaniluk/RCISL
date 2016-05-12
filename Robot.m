@@ -101,18 +101,18 @@ classdef Robot < handle
         %   this.action_ (i.e. from the getAction method) by making the
         %   appropriate call to the WorldState methods
   
-        function act(this)
+        function act(this, physics)
             % Depending on our action ID, make the appropriate change in
             % the world state
             if(this.robot_state_.acquiescence_ > 0 )
-                this.world_state_.MoveTarget (this.id_, this.robot_state_.target_id_, -1);
+                physics.MoveTarget (this.world_state_, this.id_, this.robot_state_.target_id_, -1);
             elseif(this.robot_state_.action_id_ == 0)
-                this.world_state_.MoveRobot (this.id_, this.action_(1), this.action_(2));
+                physics.MoveRobot (this.world_state_, this.id_, this.action_(1), this.action_(2));
             elseif(this.robot_state_.action_id_ <= 3) % a locomotion action (turning or driving)
-                this.world_state_.MoveRobot (this.id_, this.action_(1), this.action_(2));
+                physics.MoveRobot (this.world_state_, this.id_, this.action_(1), this.action_(2));
                 this.robot_state_.action_label_  = [this.robot_state_.type_ ,' mv/rot'];
             elseif(this.robot_state_.action_id_ >3) %a move object action (if we can)
-                this.world_state_.MoveTarget(this.id_, this.robot_state_.target_id_, this.action_);
+                physics.MoveTarget(this.world_state_, this.id_, this.robot_state_.target_id_, this.action_);
                 this.robot_state_.action_label_  = [this.robot_state_.type_ ,' mv t'];
             end
             

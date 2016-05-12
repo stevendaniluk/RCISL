@@ -14,7 +14,7 @@
 function [] = Graphics(config, world_state, robots)
 
     % Load world state
-    [position, orientation, ~, obstacles, targets, goal_position, targetProperties, robotProperties] = world_state.GetSnapshot();
+    [position, orientation, obstacles, targets, goal_position, targetProperties, robotProperties] = world_state.GetSnapshot();
 
     % If requested, display the live graphics during the run
     if(config.show_live_graphics)
@@ -23,7 +23,7 @@ function [] = Graphics(config, world_state, robots)
         hold on;
         
         % Display current iteration
-        text(1, 9, sprintf('%d', world_state.iterations));
+        text(1, 9, sprintf('%d', world_state.iterations_));
         
         % Draw the robots
         for i=1:config.numRobots
@@ -55,7 +55,7 @@ function [] = Graphics(config, world_state, robots)
             if(config.noise_sigma > 0)
                 % Draw the robots current belief about its own position
                 pos_belief = robots(i).robot_state_.belief_self(1:2);
-                boxPoints = GetBox(pos_belief, config.world_robotSize);
+                boxPoints = GetBox(pos_belief, config.robot_size);
                 plot(boxPoints(1,:),boxPoints(2,:),'g');
 
                 % Draw the robots current belief about its goal position
@@ -65,7 +65,7 @@ function [] = Graphics(config, world_state, robots)
 
                 % Draw the robots current belief about its target position
                 target_belief = robots(i).robot_state_.belief_task(1:2);
-                boxPoints = GetBox(target_belief, 0.5*config.world_targetSize);
+                boxPoints = GetBox(target_belief, 0.5*config.target_size);
                 plot(boxPoints(1,:),boxPoints(2,:),'b');
             end
             
@@ -91,13 +91,13 @@ function [] = Graphics(config, world_state, robots)
 
         % Draw the obstacles
         for i = 1:config.numObstacles
-            boxPoints = GetBox(obstacles(i,:), config.world_obstacleSize);
+            boxPoints = GetBox(obstacles(i,:), config.obstacle_size);
             plot(boxPoints(1,:),boxPoints(2,:),'r');
         end
 
         % Draw the targets
         for i = 1:config.numTargets
-            boxPoints = GetBox(targets(i,:), config.world_targetSize);
+            boxPoints = GetBox(targets(i,:), config.target_size);
             
             if targetProperties(i,1) == 0
                 plot(boxPoints(1,:),boxPoints(2,:),'g');
@@ -110,18 +110,18 @@ function [] = Graphics(config, world_state, robots)
         end
 
         % Draw the goal location
-        boxPoints = GetBox(goal_position, config.world_goalSize);
+        boxPoints = GetBox(goal_position, config.goal_size);
         plot(boxPoints(1,:),boxPoints(2,:),'k');
         
          % Set axis
-        axis([0 config.world_Width 0 config.world_Height]);
+        axis([0 config.world_width 0 config.world_height]);
         
         drawnow limitrate;
     end
 
 
     % If requested, plot the final robot and target tracks
-    if(config.show_track_graphics && (world_state.iterations >= config.max_iterations || world_state.GetConvergence() == 2))
+    if(config.show_track_graphics && (world_state.iterations_ >= config.max_iterations || world_state.GetConvergence() == 2))
 
         % Open a new figure
         figure

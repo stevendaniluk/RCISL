@@ -6,79 +6,60 @@ classdef WorldState < handle
     %   World State is in charge of the physical simulation
     %   it maintains the ground truth for the world,
     %   and performs all needed physics simulation
-    %   
-    % Notes (to do items summary)
-    % X show robot types on playback (masses change line thickness)
-    % X show target types
-    % X stop robot when box returned right away
-    % - pull team configuration into config file
-    % - pull random vs repeat test into config file
-    
-    % (don't do this) Physical implementation When turn, consider validity of turn
-    % X Add same phyiscal transformations for a cooperating robot
-    % X Add permission of weak robot to grip
-    % X Add filter such that the task can move if two weak robots work
-    % X together
-    % L-Alliance uses new Team Taus
-    % Individual learning uses Assisting robot info
-    % Scale reward by distance traveled
-    % Assigned robot can pass through unrelated task
-    % Advice Exchange can be turned off
-    % 7 targets
-    % Add "only cooperate if" condition
-    % Add "don't save performance if" condition
-    
-    % Individual changes - Reward for selecting a task
-    % Reward divided by the amount of cooperators (Makes it cautious)
-    % CANT have more than one robot on a task
-    % Change results label (change Cautious -> On for individual)
-    
+
     properties
         
+        config_ = [];
+        iterations_ = 0;
+        
+        % World parameters set by Configuration
+        world_width_ = [];  % World X size
+        world_height_ = []; % World Y size
+        world_depth_ = [];  % World Z size
+        
+        grid_size_ = [];                % Grid sizing for random initial positions
+        random_pos_padding_ = [];       % Padding distance between objects when randomizing world state
+        random_border_padding_ = [];    % Padding distance between objects and world borders when randomizing world state
+        
+        num_robots_ = [];               % Number of robots
+        num_targets_ = [];              % Number of tagerts
+        num_obstacles_ = [];            % Number of obstacles
+        
+        robot_size_ = [];               %
+        robot_mass_ = [];
+        
+        obstacle_size_ = [];
+        obstacle_mass_ = [];
+        
+        target_size_ = [];
+        target_mass_ = [];
+        
+        goal_size_ = [];
+                
         % Current state variables
         % One row for each robot/target/obstacle
-        robot_pos_ = [];    % [x, y, z,] positions 
-        robot_orient_ = []; % [rx, ry, rz,] angles
-        obstacle_pos_ = []; % [x, y, z,] positions
-        target_pos_ = [];   % [x, y, z,] positions
-        goal_pos_ = [];     % [x, y, z,] positions
+        robot_pos_ = [];            % [x, y, z,] positions
+        robot_orient_ = [];         % [rx, ry, rz,] angles
+        robot_vel_ = [];            % [vx, vy, vz] velocities
         
-        % State variables from the previous iteration
-        % One row for each robot/target/obstacle
-        prev_robot_pos_ = [];       % [x, y, z,] positions
-        prev_robot_orient_ = [];    % [rx, ry, rz,] angles
-        prev_obstacle_pos_ = [];    % [x, y, z,] positions
-        prev_target_pos_ = [];      % [x, y, z,] positions
-        prev_goal_pos_ = [];        % [x, y, z,] positions
+        obstacle_pos_ = [];         % [x, y, z,] positions
+        obstacle_orient_ = [];      % [rx, ry, rz,] angles
+        obstacle_vel_ = [];         % [vx, vy, vz] velocities
+        
+        target_pos_ = [];           % [x, y, z,] positions
+        target_orient_ = [];        % [rx, ry, rz,] angles
+        target_vel_ = [];           % [vx, vy, vz] velocities
+        
+        goal_pos_ = [];             % [x, y, z,] positions
         
         % Robot type (ss, sf, ws, wf), one row for each robot
         robot_type_ = [];
         
+        % Is this world all 'finished' == 1
+        converged_ = 0;
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        % Time steps (NOT USED, SHOULD BE REMOVED)
-        iterations = 0;
-
-        % Positions [x y z]
-        robotPos = [];
-        obstaclePos = [];
-        targetPos = [];
-        goalPos = [];
-
-        % Orientations [rx ry rz]
-        robotOrient = [];
-        obstacleOrient = [];
-        targetOrient = [];  
-        goalOrient = [];
-
-        % Velocities [vx vy vz]
-        robotVelocity = [];
-        obstacleVelocity = [];
-        targetVelocity = [];
-        goalVelocity = [];
-        
-
         % Robot Properties array and indicies 
         robotProperties = [];
         rpid_currentTarget = 1;
@@ -95,54 +76,7 @@ classdef WorldState < handle
         tpid_carriedBy = 4;
         tpid_size = 5;
         tpid_lastRobotToCarry = 6;
-
-        % Is this world all 'finished' == 1
-        converged = 0;
-        
-        % The 'inital' properties are used to reset the world
-        % after a simulation is performed
-        robotPos_inital = [];
-        robotVelocity_inital = [];
-        robotOrient_inital = [];
-        robotProperties_inital = [];
-        
-        obstaclePos_inital = [];
-        obstacleVelocity_inital = [];
-        obstacleOrient_inital = [];
-
-        targetPos_inital = [];
-        targetVelocity_inital = [];
-        targetOrient_inital = [];        
-        targetProperties_inital = [];        
-        goalPos_inital = [];
-
-        randomPaddingSize_inital = [];
-        randomBorderSize_inital = [];
-        robotSize_inital = [];
-        obstacleSize_inital = [];
-        targetSize_inital = [];
-        goalSize_inital = [];
-        robotMass_inital = [];
-        targetMass_inital = [];
-        obstacleMass_inital = []; 
-        WIDTH_inital = [];  
-        HEIGHT_inital = []; 
-        DEPTH_inital = [];  
                 
-        % World parameters set by Configuration
-        randomPaddingSize = [];
-        randomBorderSize = [];
-        robotSize = [];
-        obstacleSize = [];
-        targetSize = [];
-        goalSize = [];
-        robotMass = [];
-        targetMass = [];
-        obstacleMass = []; 
-        WIDTH = [];  %world x
-        HEIGHT = []; %world y
-        DEPTH = [];  %world z
-        
         %types in the world. Not currently used effectively
         TYPE_ROBOT = 2;
         TYPE_TARGET = 3;
@@ -167,234 +101,226 @@ classdef WorldState < handle
         %   saves all initial parameters
         
         function this = WorldState(config)
+            this.config_ = config;
             
-            % Load configuration and assign properties
-            this.randomPaddingSize = config.world_randomPaddingSize;
-            this.randomBorderSize = config.world_randomBorderSize;
-            this.robotSize = config.world_robotSize;
-            this.obstacleSize = config.world_obstacleSize;
-            this.targetSize = config.world_targetSize;
-            this.goalSize = config.world_goalSize;
-            this.robotMass = config.world_robotMass;
-            this.targetMass = config.world_robotMass;
-            this.obstacleMass = config.world_obstacleMass;
-            this.WIDTH = config.world_Height;
-            this.HEIGHT = config.world_Width;
-            this.DEPTH = config.world_Depth;
-                        
-            % randomize all the positions and orientatons for all objects
-            this.randomizeState(config);
-          
-            % Save the inital configurations
-            this.obstaclePos_inital =  this.obstaclePos;
-            this.obstacleOrient_inital  = this.obstacleOrient ;
-            this.obstacleVelocity_inital  = this.obstacleVelocity ;
-            this.robotPos_inital  =  this.robotPos;
-            this.robotOrient_inital  = this.robotOrient;
-            this.robotVelocity_inital  = this.robotVelocity;
-            this.robotProperties_inital = this.robotProperties;
-            this.targetPos_inital  =  this.targetPos;
-            this.targetOrient_inital  = this.targetOrient ;
-            this.targetVelocity_inital  = this.targetVelocity;
-            this.targetProperties_inital = this.targetProperties;
-            this.goalPos_inital  = this.goalPos;
-            this.randomPaddingSize_inital = this.randomPaddingSize;
-            this.randomBorderSize_inital = this.randomBorderSize;
-            this.robotSize_inital = this.robotSize;
-            this.obstacleSize_inital = this.obstacleSize;
-            this.targetSize_inital = this.targetSize;
-            this.goalSize_inital = this.goalSize;
-            this.robotMass_inital = this.robotMass;
-            this.targetMass_inital = this.targetMass;
-            this.obstacleMass_inital = this.obstacleMass; 
-            this.WIDTH_inital = this.WIDTH;  %world x
-            this.HEIGHT_inital = this.HEIGHT; %world y
-            this.DEPTH_inital = this.DEPTH;  %world z
-
+            % Load configuration
+            this.world_width_ = config.world_width;
+            this.world_height_ = config.world_height;
+            this.world_depth_ = config.world_depth;
+            this.grid_size_ = config.grid_size;
+            this.random_pos_padding_ = config.random_pos_padding;
+            this.random_border_padding_ = config.random_border_padding;
+            this.num_robots_ = config.numRobots;
+            this.num_targets_ = config.numTargets;
+            this.num_obstacles_ = config.numObstacles;
+            this.robot_size_ = config.robot_size;
+            this.robot_mass_ = config.robot_mass;
+            this.obstacle_size_ = config.obstacle_size;
+            this.obstacle_mass_ = config.obstacle_mass;
+            this.target_size_ = config.target_size;
+            this.target_mass_ = config.target_mass;
+            this.goal_size_ = config.goal_size;
+            
+            % Assign all robot and target properties
+            this.assignProperties();
+                                 
+            % Randomize the positions and orientatons for all objects
+            this.randomizeState();
+            
             % set the realism level accordingly
             % at the first realism level, we let the boxes be 'picked up'
             % by a robot. At later sim levels this is not the case.
-            this.boxPickup =0;
-            this.groupPickup =0;
-            
             if(config.simulation_Realism == 0)
                 this.boxPickup = 1;
+            else
+                this.boxPickup =0;
             end
             if(config.simulation_Realism == 2)
                 this.groupPickup = 1;
+            else
+                this.groupPickup =0;
             end 
-        end % end constructor
-
-        
+        end
+                
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   reset
+        %   assignProperties
         %   
-        %   If it is needed, the world can be reset
-        %   the inital properties for the world
-        %   will be recovered.
-        %
-        %   This function allows the entire simulation to be run many 
-        %   times under different utility functions
-        %
-        function reset(this)
-            this.iterations = 0;
-            this.obstaclePos =  this.obstaclePos_inital;
-            this.obstacleOrient  = this.obstacleOrient_inital ;
-            this.obstacleVelocity  = this.obstacleVelocity_inital ;
+        %   Assigns all robot and target properties according to the arrays
+        %   formed in the configuration
+        
+        function assignProperties (this)
+            % Form robot properties array
+            this.robotProperties = [zeros(this.num_robots_, 1), ...
+                ones(this.num_robots_, 1)*0.5, ...
+                ones(this.num_robots_, 1), ...
+                ones(this.num_robots_, 2), ...
+                ones(this.num_robots_, 1)*this.config_.robot_Reach, ...
+                zeros(this.num_robots_, 1)];
             
-            this.robotPos  =  this.robotPos_inital;
-            this.robotOrient  = this.robotOrient_inital ;
-            this.robotVelocity  = this.robotVelocity_inital ;
-            this.robotProperties = this.robotProperties_inital;
+            % Form target properties array
+            this.targetProperties = [zeros(this.num_targets_, 1), ...
+                0.5*ones(this.num_targets_, 1), ...
+                ones(this.num_targets_, 1), ...
+                zeros(this.num_targets_, 1), ...
+                ones(this.num_targets_, 1)*0.5, ...
+                zeros(this.num_targets_, 1), ...
+                zeros(this.num_targets_, 1)];
             
-            this.targetPos  =  this.targetPos_inital;
-            this.targetOrient  = this.targetOrient_inital ;
-            this.targetVelocity = this.targetVelocity_inital;
-            this.targetProperties = this.targetProperties_inital;
-            this.converged = 0;
-            this.goalPos  = this.goalPos_inital;       
+            % Get how many types of robots have been defined
+            robotTypes = this.config_.robot_Type;
+            [num_robot_types, ~] = size(robotTypes);
+            
+            properties_indices = [this.rpid_rotationStep this.rpid_mass ...
+                this.rpid_typeId this.rpid_reachId ];
+            
+            % Loop through each robot and assign properties
+            for i=1:this.num_robots_
+                % Loop back to first type, if there aren't enough defined
+                if (i > num_robot_types)
+                    type_index = mod(i, num_robot_types);
+                else
+                    type_index = i;
+                end
+                this.robotProperties(i, properties_indices) = robotTypes(type_index, :);
+            end
+            
+            % Get how many types of targets have been defined
+            targetTypes = this.config_.target_Type;
+            [num_target_types, ~] = size(targetTypes);
+            
+            % Loop through each target and assign properties
+            for i=1:this.num_targets_
+                % Loop back to first type, if there aren't enough defined
+                if (i > num_target_types)
+                    type_index = mod(i, num_target_types);
+                else
+                    type_index = i;
+                end
+                this.targetProperties(i, this.tpid_size) = targetTypes(type_index, 1);      % Size
+                this.targetProperties(i, this.tpid_weight) = targetTypes(type_index, 2);    % Weight
+                this.targetProperties(i, this.tpid_type12) = targetTypes(type_index, 3);    % Type
+            end
         end
-
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   randomizeState
         %   
-        %   Shuffle all of the world objects so the environment
-        %   is all crazy and wacky.
-        %   
-        %   Those robots are going to be so confused!   
-        %
-        function randomizeState(this, config)
+        %   Begin to form random positions by discritizing the world,
+        %   getting all the unique positions, then selecting enough
+        %   positions that are valid, and do not violate the random
+        %   position padding dictated in the configuration
+
+        function randomizeState(this)
+            % Must initialize velocity, since it is not randomly set
+            this.obstacle_vel_ = zeros(this.num_obstacles_, 3);
+            this.robot_vel_ = zeros(this.num_robots_, 3);
+            this.target_vel_ = zeros(this.num_targets_, 3);
+            
+            % Total potential positions
+            num_x_pos = (this.world_width_ - 2*this.random_border_padding_)/this.grid_size_ - 1;
+            num_y_pos = (this.world_height_ - 2*this.random_border_padding_)/this.grid_size_ - 1;
+            
+            % Vectors of each potential positions in each direction
+            x_grid = linspace(this.random_border_padding_, (this.world_width_ - this.random_border_padding_), num_x_pos);
+            y_grid = linspace(this.random_border_padding_, (this.world_height_ - this.random_border_padding_), num_y_pos);
+            
+            % Total amount of valid positions we need
+            num_positions = this.num_robots_ + this.num_targets_ + this.num_obstacles_ + 1;
+            
+            % Form empty arrays
+            positions = zeros(num_x_pos * num_y_pos, 3);
+            valid_positions = zeros(num_positions, 3);
+            
+            % Put all potential position combinations in an ordered array
+            for i=1:num_x_pos
+                for j=1:num_y_pos
+                    positions((i-1)*num_y_pos + j, 1) = x_grid(i);
+                    positions((i-1)*num_y_pos + j, 2) = y_grid(j);
+                end
+            end
+            
+            valid_positions_found = false;
+            
+            while (~valid_positions_found)
+                % Take random permutations of positions in each direction
+                random_positions = positions(randperm(num_x_pos * num_y_pos), :);
+                
+                % Loop through assigning random positions, while checking if any new random
+                % positions conflict with old ones.
+                index = 1;
+                valid_positions(index,:) = random_positions(index,:);
+                
+                for i=1:num_positions
+                    % If we've checked all positions, break and generate
+                    % new ones
+                    if (index > num_x_pos*num_y_pos)
+                        break;
+                    end
+                    
+                    % Loop through random positions until one is valid                                        
+                    position_valid = false;
+                    while(~position_valid)
+                        % Separation distance
+                        x_delta_dist = abs(valid_positions(1:i, 1) - random_positions(index, 1));
+                        y_delta_dist = abs(valid_positions(1:i, 2) - random_positions(index, 2));
+                        % Check the violations
+                        x_violations = x_delta_dist < this.random_pos_padding_;
+                        y_violations = y_delta_dist < this.random_pos_padding_;
+                        % Get instances where there are x and y violations
+                        violations = x_violations.*y_violations;
                         
-            this.obstaclePos = zeros(config.numObstacles,3);
-            this.obstacleOrient = [zeros(config.numObstacles,2) rand(config.numObstacles,1)*2*pi];
-            this.obstacleVelocity = zeros(config.numObstacles,3);
-            
-            this.robotPos = zeros(config.numRobots,3);
-            this.robotOrient = zeros(config.numRobots,3);
-            this.robotVelocity = zeros(config.numRobots,3);
-
-            % 
-            robotTypes = config.robot_Type;
-            
-            % robotProperties [     currentTarget       rotationStep
-            % mass      speedStep typeId reachId  advisorId ]
-            this.robotProperties = [zeros(config.numRobots,1) ones(config.numRobots,1)*0.5 ones(config.numRobots,1) ones(config.numRobots,2) ...
-                ones(config.numRobots,1)*config.robot_Reach zeros(config.numRobots,1)];
-            numTypes = size(robotTypes);
-            numTypes = numTypes(1);
-
-            %rpid_currentTarget = 1;
-            %rpid_rotationStep = 2;
-            %rpid_mass = 3;
-            %rpid_typeId = 4;
-            %rpid_reachId = 5;            
-            
-            i = 1;
-            arr = [this.rpid_rotationStep this.rpid_mass ...
-                this.rpid_typeId this.rpid_reachId ];                        
-
-            while i <= config.numRobots
-                for j=1:numTypes
-                    if(i <= config.numRobots)
-                        this.robotProperties(i,arr) = robotTypes(j,:); 
-                        i = i + 1;
+                        if (sum(violations) == 0)
+                            position_valid = true;
+                            % Save our valid position
+                            valid_positions(i,:) = random_positions(index, :);
+                        end
+                        
+                        index = index + 1;
+                        % If we've checked all positions, break and generate
+                        % new ones
+                        if (index > num_x_pos*num_y_pos)
+                            break;
+                        end
+                    end
+                    % If we've checked all positions, break and generate
+                    % new ones
+                    if (index > num_x_pos*num_y_pos)
+                        break;
                     end
                 end
-            end
-            
-            this.targetPos = zeros(config.numTargets,3);
-            this.targetOrient = [zeros(config.numTargets,2) rand(config.numTargets,1)*2*pi];
-            this.targetVelocity = zeros(config.numTargets,3);
-            
-            targetTypes = config.target_Type;
-            numTypes = size(targetTypes);
-            numTypes = numTypes(1);            
-
-            this.targetProperties = [zeros(config.numTargets,1) 0.5*ones(config.numTargets,1) ones(config.numTargets,1) zeros(config.numTargets,1) ones(config.numTargets,1)*0.5 zeros(config.numTargets,1) zeros(config.numTargets,1)];
-            
-            i = 1;
-            while i <= config.numTargets
-                for j=1:numTypes
-                    if(i <= config.numTargets)
- 
-                        this.targetProperties(i,this.tpid_weight) = targetTypes(j,2); %weight
-                        this.targetProperties(i,this.tpid_type12) = targetTypes(j,3); %type
-                        this.targetProperties(i,this.tpid_size) = targetTypes(j,1); %size
-                        i = i + 1;
-                    end
+                
+                % Only finish if we have enough positions, and haven't
+                % surpassed the index
+                if ((i == num_positions) && (index <= num_x_pos*num_y_pos))
+                    valid_positions_found = true;
                 end
-            end
-
+            end            
             
-            this.goalPos = [0 0 0];
+            % Assign the random positions to robots, targets, obstacles, 
+            % and the goal, as well as random orientations                  
+            index = 1;
+            this.robot_pos_ = valid_positions(index:(index + this.num_robots_ - 1), :);
+            this.robot_orient_ = [zeros(this.num_robots_, 2), rand(this.num_robots_, 1)*2*pi];
             
+            index = index + this.num_robots_;
+            this.target_pos_ = valid_positions(index:(index + this.num_targets_ - 1), :);
+            this.target_orient_ = [zeros(this.num_targets_, 2) rand(this.num_targets_, 1)*2*pi];
             
-            % Get random positions
-            objectRadius = 0.5 + this.randomPaddingSize;
-
-            slotH = floor( (this.WIDTH - this.randomBorderSize*2)/ (objectRadius+this.randomPaddingSize));
-            slotV = floor((this.HEIGHT - this.randomBorderSize*2)/ (objectRadius+this.randomPaddingSize));
-
-            positions = zeros(slotH*slotV,2);
-
-            x = 1;
-            hor= randperm(slotH);
-            for i=1:slotH,
-                ver = randperm(slotV)';
-                for j=1:slotV,
-                    positions(x,:) =  [hor(i) ver(j)];
-                    x= x+ 1;
-                end
-            end
+            index = index + this.num_targets_;
+            this.obstacle_pos_ = valid_positions(index:(index + this.num_obstacles_ - 1), :);
+            this.obstacle_orient_ = [zeros(this.num_obstacles_, 2) rand(this.num_obstacles_, 1)*2*pi];
             
-            posRandom =  zeros(slotH*slotV,2);
-
-            for z=1:3,
-                order = randperm(length(1:(slotH*slotV)))';
-                for i=1:length(order),
-                    posRandom(i,:) = positions(order(i),:);    
-                end
-                positions = posRandom;
-            end
-            
-            positions = positions.*(objectRadius+this.randomPaddingSize);
-            positions = bsxfun(@plus,positions,[this.randomBorderSize this.randomBorderSize]);
-            randomPositions = positions;
-            % end random positions
-            
-            
-            
-            
-            %assign the random (non conflicting) locations, that meet
-            %several awesome criteria
-            preOffset = 0;
-            for i=1:config.numObstacles,        
-                this.obstaclePos(i,:) = [randomPositions(i+preOffset,:) 0];
-            end
-            
-            preOffset = config.numObstacles;
-            for i=1:config.numRobots,        
-                this.robotPos(i,:) = [randomPositions(i+preOffset,:) 0];
-            end
-            
-            preOffset = config.numObstacles+config.numRobots;
-
-            for i=1:config.numTargets,        
-                this.targetPos(i,:) = [randomPositions(i+preOffset,:) 0];
-            end
-            i = i+1;
-            this.goalPos = [randomPositions(i+preOffset,:) 0];
+            index = index + this.num_obstacles_;
+            this.goal_pos_ = valid_positions(index, :);
         end
-        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   SetRobotAdvisor
         %   
-        %   Description 
+        %   For advice exchange (not used yet) 
 
         function SetRobotAdvisor(this,robotId,advisorId)
             this.robotProperties(robotId,7) = advisorId;
@@ -407,413 +333,9 @@ classdef WorldState < handle
         %   Have all the foraging targets been returned?
  
         function conv = GetConvergence(this)
-            conv = this.converged;
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   GetRobotOrient
-        %   
-        %   Orientation of the robot
-  
-        function val = GetRobotOrient(this,id )
-           val = this.robotOrient(id,:);
-        end        
-        
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   ValidPoint
-        %   
-        %   Test if a new point is valid, in terms of collision,
-        %   if the object with the current id and type is taken
-        %   and moved toward the newPoint.
-  
-        function valid = ValidPoint(this,newPoint,type,id,doCollide,partnerId)
-            %find the size to be used
-            myRobot1 = 0;
-            myRobot2 = 0;
-            
-            if type == 1
-                mySize = this.obstacleSize;
-                myVelocity = this.obstacleVelocity(id,:);
-                myPos = this.obstaclePos(id,:);
-                myMass = this.obstacleMass;
-                myStrength = 1;
-                
-            elseif type == 2
-                mySize = this.robotSize;
-                myVelocity = this.robotVelocity(id,:);
-                myPos = this.robotPos(id,:);
-                myMass = this.robotMass;
-                myStrength = this.robotProperties(id,3);
-                
-            else %type == 3
-                mySize = this.targetSize;
-                myVelocity = this.targetVelocity(id,:);
-                myPos = this.targetPos(id,:);
-                myMass = this.targetMass;
-                myStrength = 1;
-
-                if(this.groupPickup == 1)
-                    myRobot1 = this.targetProperties(id,this.ID_CARRIED_BY);
-                    myRobot2 = this.targetProperties(id,this.ID_CARRIED_BY_2);
-                end
-                
-            end
-            
-            %Test against world boundaries
-            if newPoint(1) - mySize < 0; valid=0; return; end;
-            if newPoint(2) - mySize < 0; valid=0; return; end;
-            if newPoint(3) < 0; valid=0; return; end;
-            
-            if newPoint(1) + mySize > this.WIDTH; valid=0; return; end;
-            if newPoint(2) + mySize > this.HEIGHT; valid=0; return; end;
-            if newPoint(3)  > this.DEPTH; valid=0; return; end;
-            
-            %Test against Obstacles
-            obsDist = bsxfun(@minus,this.obstaclePos, newPoint);
-            if  type == 1 ; obsDist(id,:) = [100 100 100]; end; 
-            obsDist = obsDist(:,1).^2 + obsDist(:,2).^2 + obsDist(:,3).^2;
-            obsDist = sqrt(obsDist);
-            [minDist,closestObstacleId] = min(obsDist);
-
-            %Test against Robots (other robots)
-            robDist = bsxfun(@minus,this.robotPos, newPoint);
-            if(partnerId > 0)
-                robDist(partnerId,:)  = robDist(partnerId,:) + 400;
-            end
-            
-            if(this.groupPickup == 1)
-                %dont consider bumping into attached robots
-                if(myRobot1 > 0)
-                    robDist(myRobot1,:)  = robDist(myRobot1,:) + 200;
-                end
-                if(myRobot2 > 0)
-                    robDist(myRobot2,:)  = robDist(myRobot2,:) + 300;
-                end
-            end
-            
-            if type==2 ; robDist(id,:) = [100 100 100]; end;
-            robDist = robDist(:,1).^2 + robDist(:,2).^2 + robDist(:,3).^2;
-            robDist = sqrt(robDist);
-            [minDistRobot,closestRobotId] = min(robDist);
-
-            %Test against Targets
-            targetDist = bsxfun(@minus,this.targetPos, newPoint);
-            if  type == 3 ; targetDist(id,:) = [100 100 100]; end; 
-
-            %next lines "moves" targets that are returned.
-            targetDist = bsxfun(@plus,targetDist, (abs(this.targetProperties(:,1)).*100));
-
-            %next lines "moves" targets that are being carried.
-            if(this.boxPickup == 1 || this.groupPickup == 1)
-                targetDist = bsxfun(@plus,targetDist, (abs(this.targetProperties(:,this.ID_CARRIED_BY)).*100));
-
-            end
-            if(this.groupPickup == 1) 
-                targetDist = bsxfun(@plus,targetDist, (abs(this.targetProperties(:,this.ID_CARRIED_BY_2)).*100));                
-            end            
-            
-            targetDist = targetDist(:,1).^2 + targetDist(:,2).^2 + targetDist(:,3).^2;
-            targetDist = sqrt(targetDist);
-            [minTargetDist,closestTargetId] = min(targetDist) ;            
-            
-            if minDist < mySize + this.obstacleSize
-                valid = 0;
-                %closestId = find(obsDist, minDist, 'first');
-
-                %preform a collision and update the velocities
-                physicsArray1 = [this.obstaclePos(closestObstacleId,:) this.obstacleVelocity(closestObstacleId,:) this.obstacleSize this.obstacleMass];
-                physicsArray2 = [myPos myVelocity mySize myMass];
-                [physicsArray1,physicsArray2] = this.Collide(physicsArray1,physicsArray2);   
-                if (doCollide == 1)
-                    this.obstaclePos(closestObstacleId,:) = physicsArray1(1:3);
-                    this.obstacleVelocity(closestObstacleId,:) = physicsArray1(4:6);
-                end
-                myPos = physicsArray2(1:3);
-                myVelocity = physicsArray2(4:6);
-                return;
-            end
-            
-            if minDistRobot < mySize + this.robotSize
-                valid = 0;
-                %closestId = find(robDist, minDistRobot, 'first');
-
-                %preform a collision and update the velocities
-                physicsArray1 = [this.robotPos(closestRobotId,:) this.robotVelocity(closestRobotId,:) this.robotSize this.robotMass];
-                physicsArray2 = [myPos myVelocity mySize myMass];
-                [physicsArray1,physicsArray2] = this.Collide(physicsArray1,physicsArray2);
-                if(doCollide == 1)
-                    this.robotPos(closestRobotId,:) = physicsArray1(1:3);
-                    this.robotVelocity(closestRobotId,:) = physicsArray1(4:6);
-                end
-                myPos = physicsArray2(1:3);
-                myVelocity = physicsArray2(4:6);
-            
-                return;
-            end
-            
-            if minTargetDist < mySize + this.targetSize
-                valid = 0;
-                %closestId = find(targetDist, minTargetDist, 'first');
-                
-                %preform a collision and update the velocities
-                boxMass = this.targetProperties(closestTargetId,2);
-                
-                %Alter weights so a weak robot can't budge a heavy box
-                robotType = this.robotProperties(id,5);
-                boxType = this.targetProperties(closestTargetId,3);
-                if(boxType == 2) 
-                    %if the box is heavy
-                    if(robotType == 2 || robotType == 3) 
-                        %And you are weak, and can't budge it
-                        valid = 0;
-                        return;    
-                    end
-                end
-
-                physicsArray1 = [this.targetPos(closestTargetId,:) this.targetVelocity(closestTargetId,:) this.targetSize boxMass];
-                physicsArray2 = [myPos myVelocity mySize myMass*myStrength];
-                [physicsArray1,physicsArray2] = this.Collide(physicsArray1,physicsArray2);
-                if(doCollide == 1)
-                    this.targetPos(closestTargetId,:) = physicsArray1(1:3);
-                    this.targetVelocity(closestTargetId,:) = physicsArray1(4:6);
-                end
-                myPos = physicsArray2(1:3);
-                myVelocity = physicsArray2(4:6);
-                
-                return;
-            end
-            valid = 1;
-            
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Collide
-        %   
-        %   Collide a set of two similar objects
-  
-        function [phyResult1,phyResult2]= Collide(this,physicsArray1,physicsArray2)
-            %first lets get complete vectors
-            pa1 = physicsArray1;
-            pa2 = physicsArray2;
-            %first lets find the vector between them, from 1->2
-            b = pa2(1:3) - pa1(1:3);
-            
-            if(sum(b,2) == 0)
-                b = [1 0 0];
-            end
-            
-            %velocities and mass
-            v1 = pa1(4:6);
-            v2 = pa2(4:6);
-            m1 = pa1(8);
-            m2 = pa2(8);
-            if(m1 == 0)
-                m1 = 10000;
-            end
-            if(m2 == 0)
-                m2 = 10000;
-            end
-
-            b = b(:)./sqrt(b(1)^2 + b(2) ^2 + b(3) ^2);
-
-            v1a = ((v1*b)*b)';
-            v1b = v1 - v1a;
-
-            v2a = ((v2*b)*b)';
-            v2b = v2 - v2a;
-
-            vf1a = ((m1 -  m2).*v1a + 2*(m2.*v2a))./(m1+m2);
-
-            vf2a = ((m2 -  m1).*v2a + 2*(m1.*v1a))./(m1+m2);
-            vf1 = vf1a+ v1b;
-            vf2 = vf2a+ v2b;
-            if(m1 == 0)
-                vf1 = 0;
-            end
-            if(m2 == 0)
-                vf2 = 0;
-            end
-            
-            phyResult1 = [physicsArray1(1:3) vf1 physicsArray1(7:8)];
-            phyResult2 = [physicsArray2(1:3) vf2 physicsArray2(7:8)];
-
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   AssignRobot
-        %   
-        %   Assign a certain robot to a specific task
-        %           
-        function AssignFreeRobot(this,targetId)
-            freeRobots = this.robotProperties(:,1) == 0;
-            
-            [amount,index] = max(freeRobots);
-            if(amount >0)
-                if(this.robotProperties(index(1),1) == 0)
-                    this.UpdateRobotTarget(index(1),targetId);
-                end
-            end
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   MoveTarget
-        %   
-        %   Apply power, given by a robot, to a target
-        %   in a certain direction, relative to the robot,
-        %   all using a certain powerAngle (distance, angle).
-  
-        function targetVelocity = MoveTarget(this,robotId,targetId,powerAngle)
-            
-            %make sure distance is close enough
-            if(targetId == 0)
-                return;
-            end
-            
-            %TODO - code these
-            if(powerAngle >= -10 )
-                       -10;   % target closest box
-                       -20;   % target second closest box
-                       -30;   % grip a box
-                       -40;   % stop gripping a box / targeting a box
-            end
-
-            %make sure distance is close enough
-            if(targetId == 0)
-                targetVelocity = [0 0 0];
-                return;
-            end
-            
-            robotType = this.robotProperties(robotId,5);
-            boxType = this.targetProperties(targetId,3);
-            
-            if( this.groupPickup ==0)
-                if(boxType == 2) 
-                    % heavy box
-                    if(robotType == 2 || robotType == 3)
-                        %weak robot
-                        targetVelocity = [0 0 0];
-                        return;    
-                    end
-                end
-            end
-            
-            posDiff = this.robotPos(robotId,:) - this.targetPos(targetId,:);
-            posDiff = sqrt(posDiff.^2);
-            posDiff = sum(posDiff);
-            robotReach = this.robotProperties(robotId,6);
-            
-            if(posDiff <= robotReach)
-                if(this.boxPickup == 1)
-                    if(powerAngle == -1) %if we are dropping the box
-                        this.targetProperties(targetId,this.ID_CARRIED_BY) = 0;
-                    else
-                        this.targetProperties(targetId,this.ID_CARRIED_BY) = robotId;
-                    end
-                    
-                elseif(this.groupPickup == 1)
-                    %If we are not gripping the box:
-                    if(powerAngle ~= -1) 
-                        
-                        if(this.targetProperties(targetId,this.ID_CARRIED_BY_2) ~= robotId)
-                            if(this.targetProperties(targetId,this.ID_CARRIED_BY) == 0)
-                                this.targetProperties(targetId,this.ID_CARRIED_BY) = robotId; %grip slot 1
-                            else
-                                if(this.targetProperties(targetId,this.ID_CARRIED_BY) ~= robotId)
-                                    if(this.targetProperties(targetId,this.ID_CARRIED_BY_2) == 0)
-                                        this.targetProperties(targetId,this.ID_CARRIED_BY_2) = robotId; %slot 2
-                                    end
-                                end
-                            end
-                        end
-
-                    else
-                        %disp([strcat(num2str(robotId),' dropping task: ',num2str(targetId))])
-                        if (this.targetProperties(targetId,this.ID_CARRIED_BY) == robotId)  
-                            this.targetProperties(targetId,this.ID_CARRIED_BY) = 0;
-                        end
-                        if (this.targetProperties(targetId,this.ID_CARRIED_BY_2) == robotId)  
-                            this.targetProperties(targetId,this.ID_CARRIED_BY_2) = 0;
-                        end
-                        % Move away 
-                        newPos = this.targetPos(targetId,1:3);
-                        if(this.ValidPoint(newPos+ [0.5 0.5 0],this.TYPE_ROBOT,robotId,0,0))
-                            this.robotPos(robotId,1:3) = newPos+ [0.5 0.5 0];
-                        elseif(this.ValidPoint(newPos+ [-0.5 0.5 0],this.TYPE_ROBOT,robotId,0,0))
-                            this.robotPos(robotId,1:3) = newPos+ [-0.5 0.5 0];
-                        elseif(this.ValidPoint(newPos+ [0.5 -0.5 0],this.TYPE_ROBOT,robotId,0,0))
-                            this.robotPos(robotId,1:3) = newPos+ [0.5 -0.5 0];
-                        elseif(this.ValidPoint(newPos+ [-0.5 -0.5 0],this.TYPE_ROBOT,robotId,0,0))
-                            this.robotPos(robotId,1:3) = newPos+ [-0.5 -0.5 0];
-                        end
-                        
-                        
-                    end
-                else
-                    
-                    targetMass = this.targetProperties(targetId,2);
-                    robotStrength = this.robotProperties(robotId,3);
-                    amount = powerAngle(1);
-                    angle = powerAngle(2);
-                    amount = amount*robotStrength/targetMass;
-                    addVelocity = [amount*cos(angle ) amount*sin(angle ) 0];
-
-                    this.targetVelocity(targetId,:) = addVelocity;
-                end
-            end
-            
-            targetVelocity = this.targetVelocity(targetId,:);
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   MoveRobot
-        %   
-        %   Move the robot forward a certain amount and with a
-        %   certain amount of rotation.
-  
-        function MoveRobot(this, id, distance, rotation)
-            
-            % Add rotation ot orentation, and convert to be within [0,2Pi] 
-            newOrient =[ 0 0 mod(this.robotOrient(id,3) + rotation, 2*pi)];
-            
-            %find a new velocity
-            addVelocity = [distance*cos(newOrient(3)) distance*sin(newOrient(3)) 0];
-            currentVelocity = this.robotVelocity(id,:);
-            
-            %increase velocity up to a maximum instantly
-            for i=1:2
-                %if we are going very slow, or backwards, speed up as much
-                %as possible
-                if abs(currentVelocity(i) + addVelocity(i)) <= abs(addVelocity(i))
-                    currentVelocity(i) = currentVelocity(i) + addVelocity(i);
-                %if we are going slower than our max, and can use a boost -
-                %go to max speed
-                elseif abs(currentVelocity(i) + addVelocity(i)) > abs(addVelocity(i)) && ...
-                    abs(currentVelocity(i)) < abs(addVelocity(i))
-                    currentVelocity(i) = addVelocity(i) ;
-                end
-            end
-            
-            % Assign the new position and orientation
-            this.robotOrient(id,:) = newOrient;
-            this.robotVelocity(id,:) = currentVelocity;
-            
-            % Find new point, and check if its valid
-            new_point = this.robotPos(id,:);
-            valid = this.ValidPoint(new_point, this.TYPE_ROBOT, id, 0, 0);
-            
-        end 
-        
-        
+            conv = this.converged_;
+        end       
+                                
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   UpdateRobotTarget
@@ -827,9 +349,6 @@ classdef WorldState < handle
                 assigned = this.robotProperties(:,1) == targetId;
                 totalOnTask = sum(assigned);
                 if(totalOnTask >2)
-                    disp('assigned')
-                    disp('id')
-                    disp('targetId')
                     disp('Too many robots on a task!');
                     %rolled back gracefully
                     this.robotProperties(id,1) = 0;
@@ -837,8 +356,7 @@ classdef WorldState < handle
                     this.targetProperties(targetId,this.tpid_lastRobotToCarry) = id;
                 end
             end
-        end % end UpdateRobotTarget
-        
+        end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -846,24 +364,18 @@ classdef WorldState < handle
         %   
         %   Get a copy of the entire world.
   
-        function [robPos, robOrient, iterations, obstaclePos,targetPos,goalPos,targetProperties,robotProperties ] ...
+        function [robot_pos, robot_orient,obstacle_pos, target_pos, goal_pos, target_properties, robot_properties ] ...
                 = GetSnapshot(this)
-            robPos = this.robotPos;
-            robOrient = this.robotOrient;
-            obstaclePos = this.obstaclePos;
-            targetPos = this.targetPos;
-            iterations = this.iterations;
-            goalPos = this.goalPos;
-            targetProperties = this.targetProperties;
-            robotProperties = this.robotProperties;
-        end % end GetSnapshot
+            robot_pos = this.robot_pos_;
+            robot_orient = this.robot_orient_;
+            obstacle_pos = this.obstacle_pos_;
+            target_pos = this.target_pos_;
+            goal_pos = this.goal_pos_;
+            target_properties = this.targetProperties;
+            robot_properties = this.robotProperties;
+        end
         
-
-
-        
-
-        
-    end% end methods
+    end
     
-end% end classdef
+end
 

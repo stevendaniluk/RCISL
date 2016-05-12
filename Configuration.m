@@ -20,7 +20,7 @@ classdef Configuration < handle
                        0.2      1       1];
         robot_sameStrength = [1; 2; 2; 1]; %comparative Ids for strength
         robot_Reach = 1;
-        
+                
         % Action Parameters
         boxForce = 0.05;
         action_angle = [0; 90; 180; 270];
@@ -29,17 +29,19 @@ classdef Configuration < handle
         num_state_bits = 4;
         
         % World Parameters
-        world_Height = 10;
-        world_Width  = 10;
-        world_Depth  = 0;
-        world_randomPaddingSize = 0;
-        world_randomBorderSize = 0.1;
-        world_robotSize = 0.125;
-        world_obstacleSize = 0.5;
-        world_targetSize = 0.25;
-        world_goalSize = 1;
-        world_robotMass = 1;
-        world_obstacleMass = 0;
+        world_height = 10;
+        world_width  = 10;
+        world_depth  = 0;
+        grid_size = 0.5;
+        random_pos_padding = 1.0;
+        random_border_padding = 1.0;
+        robot_size = 0.125;
+        robot_mass = 1;
+        obstacle_size = 0.5;
+        obstacle_mass = 0;
+        target_size = 0.25;
+        target_mass = 1;
+        goal_size = 1;
         simulation_Realism = 0;
         
         % Noise and Particle Filter Parameters

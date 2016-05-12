@@ -164,8 +164,8 @@ classdef IndividualLearning < handle
             % Find bits are required to represent state values and action
             bits = this.config_.num_state_bits;
             
-            width = this.config_.world_Height;
-            height = this.config_.world_Width;
+            width = this.config_.world_height;
+            height = this.config_.world_width;
             
             % In case an values are outside the world bounds, they need to
             % be adjusted to be within the bounds by at least this much

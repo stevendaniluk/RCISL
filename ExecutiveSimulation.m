@@ -114,12 +114,12 @@ classdef ExecutiveSimulation < handle
         
         function run(this)            
             % Step through iterations
-            while (this.world_state_.iterations < this.max_iterations_ && this.world_state_.GetConvergence() < 2)
+            while (this.world_state_.iterations_ < this.max_iterations_ && this.world_state_.GetConvergence() < 2)
                 for i=1:this.num_robots_
                     % Get the action for this robot
                     this.robots_(i,1).getAction();
                     % Make the action for this robot
-                    this.robots_(i,1).act();
+                    this.robots_(i,1).act(this.physics_);
                     % Run one cycle of world physics
                     this.physics_.runCycle(this.world_state_);
                     % Make this robot learn from its action
@@ -129,7 +129,7 @@ classdef ExecutiveSimulation < handle
                 % Display live graphics, if requested in configuration
                 Graphics(this.config_, this.world_state_, this.robots_);
                 
-                this.world_state_.iterations = this.world_state_.iterations + 1;
+                this.world_state_.iterations_ = this.world_state_.iterations_ + 1;
             end % end while 
             
             % Call graphics for displaying tracks, if requested in configuration
@@ -157,7 +157,7 @@ classdef ExecutiveSimulation < handle
                 disp(['Mission ', sprintf('%d', i), ' started.'])
                 this.run();
                 disp(['Mission ', sprintf('%d', i), ' complete.'])
-                disp(['Number of iterations: ',sprintf('%d', this.world_state_.iterations)])
+                disp(['Number of iterations: ',sprintf('%d', this.world_state_.iterations_)])
                 toc
                 disp(' ');
                                 
@@ -217,7 +217,7 @@ classdef ExecutiveSimulation < handle
             
             % Add iterations
             [rows, ~] = size(this.simulation_data_);
-            this.simulation_data_{rows + 1, 1} = this.world_state_.iterations;
+            this.simulation_data_{rows + 1, 1} = this.world_state_.iterations_;
             
             % Add learning data for each robot
             for id = 1:this.num_robots_;
