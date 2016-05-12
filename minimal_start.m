@@ -19,7 +19,7 @@ Simulation.initialize();
 tic
 Simulation.run();
 disp('Mission Complete.')
-disp(['Number of iterations: ',num2str(Simulation.world_state_.iterations)])
+disp(['Number of iterations: ',num2str(Simulation.world_state_.iterations_)])
 toc
 
 %% Make consecutive runs
