@@ -1,18 +1,7 @@
 classdef LAllianceAgent < handle
-    %LALLIANCEAGENT Summary of this class goes here
+    % LALLIANCEAGENT Summary of this class goes here
     %   The agent class stores beliefs about other agent performance
     %   and decides when to take over tasks
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %QUESTIONS
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %Future commits
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %Comments
-    %Comment out Id's
     
     properties
         %Each of the following 11 parameters will form an nxm matrix, and
@@ -20,49 +9,31 @@ classdef LAllianceAgent < handle
         %Values are assigned to each parameter name to index data[] pages
         data = [];
         
-        %Tau's: Average trial time (time robot i lets pass without
-        %recieving message from teammate)
-        ti = 1;
+        ti = 1;     % Tau's: Average trial time (time robot i lets pass without
+                    % recieving message from teammate)
+                    
+        mi = 2;     % Motivation: Each robots motivation towards each task
+                    % [0,Theta]
+                    
+        pi = 3;     % Impatience Rate: Each robots impatiance towards each task
         
-        %Motivation: Each robots motivation towards each task
-        %[0,Theta]
-        mi = 2;
+        ai = 4;     % Aquiescence: Each robots acquiesence towards each task
+                    % Binary [0,1] 0=Keep, 1=Aquiesce
+                    
+        si = 5;     % Psi: time currently on each task, [s11 .. sij ... s1M; ...]
         
-        %Impatience Rate: Each robots impatiance towards each task
-        pi = 3;
-                
-        %Aquiescence: Each robots acquiesence towards each task
-        %Binary [0,1]
-        %0=Keep, 1=Aquiesce
-        ai = 4;
+        di = 6;     % Delta: Maximum allowed time on each task
         
-        %Psi: time currently on each task, [s11 .. sij ... s1M; ...]
-        si = 5;
+        ji = 7;     % Task Assignment: What task each robot is assigned to
+                    % Binary [0,1] 0=Not assigned, 1=Assigned
+        ui = 8;     % Task Completion, as percieved by each agent
+                    % Binary [0,1] 0=Not Completed, 1=Completed
         
-        %Delta: Maximum allowed time on each task
-        di = 6;
-        
-        %Task Assignment: What task each robot is assigned to
-        %Binary [0,1]
-        %0=Not assigned, 1=Assigned
-        ji = 7;
+        fi = 9;     % Did we finish a task this epoch? [u11 .. uij ... u1M;...]
 
-        %Task Completion, as percieved by each agent
-        %Binary [0,1]
-        %0=Not Completed, 1=Completed
-        ui = 8;
+        vi = 10;    % Did we finishe a task this epoch? [u11 .. uij ... u1M;...]
         
-        %Did we finish a task this epoch? [u11 .. uij ... u1M;...]
-        fi = 9;
-
-        %Did we finishe a task this epoch? [u11 .. uij ... u1M;...]
-        vi = 10;
-        
-        %are we currently cooperating? A flag
-        ci = 11;
-        
-        
-        
+        ci = 11;    % Are we currently cooperating? A flag
         
         robotId = [];    %Integer [1,n]
         n = [];          %number of robots
@@ -92,7 +63,6 @@ classdef LAllianceAgent < handle
         useCooperation = [];
         useCooperationLimit = [];
         
-        
         %Do we automatically calculate taus?
         calculateTau = [];
         tauCounter = 0;
@@ -101,12 +71,13 @@ classdef LAllianceAgent < handle
         updateByTaskType = [];
         ticks = 0;
         motiv_freq = [];
-        
-        
-
     end
     
     methods
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   Constructor
+        
         function this= LAllianceAgent(config,robotId)
             %Configure robot communication
             this.robotCommunication = RobotCommunication.Instance(config);
@@ -122,7 +93,6 @@ classdef LAllianceAgent < handle
             this.convergeAttempts = config.lalliance_convergeAttempts ;
             this.convergeSlope =  config.lalliance_convergeSlope ;
 
-            %tauType = 1 - Moving Average
             this.tauType = config.lalliance_tauType ;
 
             this.tmax = config.lalliance_tmax ;
@@ -141,7 +111,6 @@ classdef LAllianceAgent < handle
             this.updateByTaskType = config.lalliance_updateByTaskType ;
             this.motiv_freq = config.lalliance_motiv_freq;
             
-            
             this.robotId = robotId;
             
             %Create empty multidimensional data array
@@ -150,33 +119,80 @@ classdef LAllianceAgent < handle
             %Pages correspond to the number of ALLIANCE parameters
             this.data = zeros(this.n, this.m, 11);      
            
-            
-            % disp(strcat(['created robot',num2str(robotId)]));
             this.robotCommunication.SetAgent(this,robotId);
             this.SetAcquiescence(config.lalliance_acquiescence);
             this.confidence_Factor = config.lalliance_confidenceFactor;
             this.data(this.robotId,:,this.ti) = 700; %Assume you are the best!
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   StartEpochChooseTask
+        %   
+        %   Choose a task :)
+        
+        function StartEpochChooseTask(this, rstate)
+            %Update our task properties
+            this.UpdateTaskProperties(rstate);
+            this.ChooseTask();
+            this.Broadcast();
+        end
+  
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   GetCurrentTask
+        %   
+        %   Choose a task :)
+                   
+        function taskId = GetTask(this,rstate)
+            %Update our task properties
+            this.UpdateTaskProperties(rstate);
+            taskId = this.GetCurrentTask();
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   UpdateMotivation
+        
+        function UpdateMotivation(this, confidence)
+            this.ticks = this.ticks + 1;
             
-       
+            if(mod(this.ticks, this.motiv_freq) == 0)
+                this.ticks = 0;
+                this.Update(this.motiv_freq,confidence);
+                this.Broadcast();
+            end
         end
-        %%
-        function this= SetAcquiescence(this,acin)
-            this.data(this.robotId,:,this.di) = acin;
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   SetAcquiescence
+        
+        function this= SetAcquiescence(this, acquiescence)
+            this.data(this.robotId, :, this.di) = acquiescence;
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   Broadcast
+        
         function Broadcast(this)
             this.robotCommunication.SendMessageToAgents(this.robotId,this.data(this.robotId,:,:));
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   BroadcastGeneral
+        
         function BroadcastGeneral(this,robotRange, taskRange, flagRange,value)
             this.robotCommunication.SendGeneralMessageToAgents(robotRange,taskRange,flagRange,value);
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   ImpatienceReset
+        
         function ImpatienceReset(this,taskRange)
-            %old singular implementation;
-            %robots = 1:size(this.data,1);
-            %robots(this.robotId) = []; %Don't reset you own impatience
-            
             robots = [];
             robotsAssigned = sum(this.data(:,taskRange,this.ji),2) <= 0;
             for i=1:size(robotsAssigned,1)
@@ -187,27 +203,28 @@ classdef LAllianceAgent < handle
             
             this.BroadcastGeneral(robots, taskRange, this.mi,0);
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   AcceptPerformanceInformation
+        
         function AcceptPerformanceInformation(this,agentId,data)
-            this.data(agentId,:,:) = data;
+            this.data(agentId, :, :) = data;
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   AcceptGeneralPerformanceInformation
+        
         function  AcceptGeneralPerformanceInformation(this,robotRange,taskRange,flagRange,value)
             this.data(robotRange,taskRange,flagRange) = value;
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   Reset
+        
         function Reset(this)
-            %We might have failed last round,
-            if ( sum(this.data(this.robotId,:,this.ji),2) ~= 0)
-                if(this.calculateTau ==1)
-                    %disp('failed a task');
-                    %[amount,index] = max(this.data(this.robotId,:,this.ji),[],2);
-                    %this.UpdateTau(index(1), this.failureTau);
-                    %this.data(this.robotId,index(1),this.vi) = this.data(this.robotId,index(1),this.vi) + 1;
-                    
-                end
-            end
-            
             this.tauCounter = 0;
             this.data(this.robotId,:,this.mi) = 0; % have no intrinsic motivation
             this.data(this.robotId,:,this.ji) = 0; % not assigned to any boxes
@@ -215,13 +232,13 @@ classdef LAllianceAgent < handle
             this.data(this.robotId,:,this.si) = 0; % not assigned to any boxes
             this.data(this.robotId,:,this.ui) = 0; % have not finished any tasks
             this.data(this.robotId,:,this.ci) = 0; % have not finished any tasks
-            
             this.Broadcast();
-            %this.data(this.robotId,:,this.fi) = 0; % have not finished any tasks
-            
-            
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   CalculateImpatience
+        
         function CalculateImpatience(this,confidence)
             %slow impatience rate
             if(nargin < 2)
@@ -267,30 +284,14 @@ classdef LAllianceAgent < handle
                 notBestAtTask = 1- amBestAtTask;
                 %now we select the best value by constructing a gating
                 %array:
-           %     this.data(:,1,this.vi)
-           %      [ fsr.*amBestAtTask.*haveDoneTask;...
-           %        fmr.*notBestAtTask.*haveDoneTask;...
-           %         sr.*(1-haveDoneTask)]
                 slower1 = (fsr < 0);
                 slower2 = (fmr < 0);
                 slower3 = (fsr < 0);
 
-                
-                
                 slower2 = slower2+slower3;
                 if((sum(sum(slower1,1),2) > 0) || (sum(sum(slower2,1),2) > 0))
-                    myTau
-                    this.tmax
-                    this.tmin
-                    maxTau
-                    minTau
-                    scale
-                    sr
-                    fsr
-                    fmr
                     error('fast rates slower than slow rates!')
                 end
-           
            
                 this.data(this.robotId,:,this.pi)  = ...
                     fsr.*amBestAtTask.*haveDoneTask + ...
@@ -301,19 +302,23 @@ classdef LAllianceAgent < handle
                 this.data(this.robotId,:,this.pi)  = sr;
             end
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   Update
+        %
+        %   Determines the acquiescence towards each task by finding for
+        %   which tasks has the robot been enagaged longer than the max
+        %   time allowed. This is then saved to acquiescence property.
+        
         function Update(this,delta,confidence)
             
             if(this.calculateTau == 1)
-                this.tauCounter = this.tauCounter  + delta;
-                %disp(strcat(num2str(this.robotId),' > updating. . . ',num2str(this.tauCounter)));
-                
+                this.tauCounter = this.tauCounter  + delta;                
             end
             
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % Acquiescence 
-            % update PSI, which is a count of how long we have engaged a
-            % task. 
+            % Acquiescence: update PSI, which is a count of how long we 
+            % have engaged a task 
             this.data(this.robotId,:,this.si) = (this.data(this.robotId,:,this.si) + delta).*this.data(this.robotId,:,this.ji); 
             % Update Acquiescence
             AcquiescenceAllowed = this.data(this.robotId,:,this.di) > 0;
@@ -321,8 +326,6 @@ classdef LAllianceAgent < handle
             Acquiescence = AcquiescenceAllowed .*AcquiescenceShould .*this.data(this.robotId,:,this.ji);
             this.data(this.robotId,:,this.ai) = Acquiescence ;
             
-            
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Impatience And Motivation 
             this.CalculateImpatience(confidence);
 
@@ -332,7 +335,6 @@ classdef LAllianceAgent < handle
             % Taus grow at different rates, cooperation tau is double
             % effort
             % taus while not gripped are double as well
-            
             
             %Create gating factor for motivation update.
             %Checks that task j is still incomplete, no other task j is
@@ -357,31 +359,25 @@ classdef LAllianceAgent < handle
             motiv = (motiv_past + impatience.*delta).*gating;
             %save motivation
             this.data(this.robotId,:,this.mi) = motiv;
-            
-            
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   ChooseTask
+        
         function ChooseTask(this)
-            
-            %preDat is for debugging task assignment at the end of the
-            %function
-            preDat = this.data(this.robotId,:,this.ji);
-            
-            
+
             if(this.useCooperation==1 && this.useCooperationLimit == 1)
                 twoOnTasks = sum(this.data(:,:,this.ji),1);
                 twoOnTasks = twoOnTasks > 1;
                 coopingOnTasks = twoOnTasks .*this.data(this.robotId,:,this.ji);
 
                 if(sum(coopingOnTasks ) > 0)
-                    [amount,index] = max(coopingOnTasks,[],2);
+                    [~,index] = max(coopingOnTasks,[],2);
                     this.data(this.robotId,index(1),this.ci) = 1;
-                    %disp('am cooperating');
                 end
             end
-            if(sum( this.data(this.robotId,:,this.ji),1) == 0)
-                %disp('choosing')
-                
+            if(sum( this.data(this.robotId,:,this.ji),1) == 0)                
                 if(this.calculateTau == 1)
                     this.tauCounter = 0;
                 end
@@ -417,7 +413,6 @@ classdef LAllianceAgent < handle
                     needHelp = sum(needHelp ,1);
                     %the key line:
                     taskFree = needHelp.*taskFree + (sum(this.data(:,:,this.ji),1)==0); 
-                     
                 end                
                 
                 %A filter - we only assign ourselves to tasks that are not
@@ -428,7 +423,7 @@ classdef LAllianceAgent < handle
                 actual_motiv  = actual_motiv  - this.motivation_Threshold;
 
                 [amount,index] = max(actual_motiv,[],1);
-                [amount2,index2] = max(amount,[],2);
+                [~,index2] = max(amount,[],2);
                 % take the task if you are the most motivated, and have
                 % reached the threshold. Otherwise, the next agent will
                 % likely take it when it chooses tasks.
@@ -436,22 +431,12 @@ classdef LAllianceAgent < handle
                 bestTask = index2(1);
                 
                 if((index(bestTask ) == this.robotId) && (amount(bestTask) > 0))
-            %    amount
-            %    index
-            %    amount2    
-            %    index2
-                    %disp('task taken!')
-                    
                     %assign a task
                     this.data(this.robotId,bestTask,this.ji) = 1;
                     
                     %Reset all other motivation toward our task
                     this.ImpatienceReset(bestTask);
-                    %disp(strcat(num2str(this.robotId),' took a task!'));
-                    %index(bestTask )
                 end
-                
-                
             else
                 %So we have a task, but should we still work toward it?
                 if(sum(this.data(this.robotId,:,this.ji),2) > 1)
@@ -464,75 +449,68 @@ classdef LAllianceAgent < handle
                 assignedToFinishedTask = taskAssignment.*finishedTasks;
 
                 if(sum(assignedToFinishedTask,2) > 0)
-                    %disp('ass2fin2');
                     this.FinishTask();
                 end
                 
                 if(sum(acquiescnece,2) > 0)
                     this.GiveUpTask();
-                    
                 end
-                
             end
-            
-            %postDat = preDat - this.data(this.robotId,:,this.ji);
-            
-            %if(abs(sum(postDat,2)) > 0)
-                %disp(strcat(num2str(this.robotId),' > chose a Task'))
-                %preDat
-                %this.data(this.robotId,:,this.ji)
-            %end
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   SetTaskFinished
+        
         function SetTaskFinished(this,taskId)
             %Set the task as finished, over all agents
             this.BroadcastGeneral(1:size(this.data,1), taskId, this.ui,1);
-            
             %Then do some cleanup
-            %disp('ass2fin3');
             this.FinishTask();
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   FinishTask
+        
         function FinishTask(this)
-                %disp('assigned to a finished task! Im done!');
-                % just disengage from all tasks
-                    %disp('assigned to a finished task! Im done!');
-                [amount,index] = max(this.data(this.robotId,:,this.ji),[],2);
-                if(amount(1) > 0)
-                    if(this.calculateTau == 1)
-                        %numPre = this.data(this.robotId,index(1),this.ti);
-                        this.UpdateTau(index(1),this.tauCounter);
-                        %disp(strcat(['(',num2str(this.robotId),num2str(index(1)),')>',...
-                        %     ' updating tau, because I finished ',num2str(numPre),' fast as',num2str(this.tauCounter), ...
-                        %    ' with myTau: ',num2str(this.data(this.robotId,index(1),this.ti))]));
-
-                        this.tauCounter = 0;
-                    end
-
-                    assignedTasksFinishedTasks = this.data(this.robotId,:,this.ui).*this.data(this.robotId,:,this.ji);
-                    this.data(this.robotId,:,this.vi) = this.data(this.robotId,:,this.vi) + assignedTasksFinishedTasks;
-                    %this.data(this.robotId,:,this.fi) = this.data(this.robotId,:,this.fi) + assignedTasksFinishedTasks;
-                    this.data(this.robotId,:,this.ji) = this.data(this.robotId,:,this.ji) .*0;     
-
-                    this.Broadcast();
+            % just disengage from all tasks
+            [amount,index] = max(this.data(this.robotId,:,this.ji),[],2);
+            if(amount(1) > 0)
+                if(this.calculateTau == 1)
+                    this.UpdateTau(index(1),this.tauCounter);
+                    this.tauCounter = 0;
                 end
-        end
-        %%
-        function GiveUpTask(this)
-                %disp('Time to acquiescnece from this task. I suck!!');
-                [amount,index] = max(this.data(this.robotId,:,this.ji),[],2);
-                if(this.calculateTau ==1)
-                   this.UpdateTau(index(1), this.failureTau);
-                end
-                this.data(this.robotId,index(1),this.vi) = this.data(this.robotId,index(1),this.vi) + 1;                    
+                
+                assignedTasksFinishedTasks = this.data(this.robotId,:,this.ui).*this.data(this.robotId,:,this.ji);
+                this.data(this.robotId,:,this.vi) = this.data(this.robotId,:,this.vi) + assignedTasksFinishedTasks;
                 this.data(this.robotId,:,this.ji) = this.data(this.robotId,:,this.ji) .*0;
-                this.data(this.robotId,:,this.ci) = 0;
-                % Once you acquiesce a task, leave it forever
-                this.data(this.robotId,:,this.ai) = 0;
-                this.data(this.robotId,index(1),this.mi) = 0;
-            
+                
+                this.Broadcast();
+            end
         end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   GiveUpTask
+        
+        function GiveUpTask(this)
+            [~,index] = max(this.data(this.robotId,:,this.ji),[],2);
+            if(this.calculateTau ==1)
+                this.UpdateTau(index(1), this.failureTau);
+            end
+            this.data(this.robotId,index(1),this.vi) = this.data(this.robotId,index(1),this.vi) + 1;
+            this.data(this.robotId,:,this.ji) = this.data(this.robotId,:,this.ji) .*0;
+            this.data(this.robotId,:,this.ci) = 0;
+            % Once you acquiesce a task, leave it forever
+            this.data(this.robotId,:,this.ai) = 0;
+            this.data(this.robotId,index(1),this.mi) = 0;
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   taskId
+        
         function taskId = GetCurrentTask(this)
             taskId = 0;
             taskAssignment = this.data(this.robotId,:,this.ji);
@@ -541,7 +519,6 @@ classdef LAllianceAgent < handle
             assignedToFinishedTask = taskAssignment.*finishedTasks;
 
             if(sum(assignedToFinishedTask,2) > 0)
-                %disp('ass2fin');
                 this.FinishTask();
             end
 
@@ -549,20 +526,17 @@ classdef LAllianceAgent < handle
                 this.GiveUpTask();
             end
 
-            
             [number,index] = max(this.data(this.robotId,:,this.ji));
             if(number > 0)
                 taskId = index(1);
             end
-         
         end
-        %%
-        function SetTau(this,taskId,number)
-            this.data(this.robotId,taskId,this.ti) = number;
-        end
-        %%
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   UpdateTau
+        
         function UpdateTau(this,taskId,number)
-            
             %how many times we have worked with a task, and tracked it's
             %tau
             if(this.useCooperation==1 && this.useCooperationLimit == 1)
@@ -583,8 +557,6 @@ classdef LAllianceAgent < handle
                         taskId = [taskId ;i];
                     end
                 end
-                %disp('updating taus');
-                %taskId 
             end
             
             if(this.tauType == 1)
@@ -593,22 +565,25 @@ classdef LAllianceAgent < handle
                 
                 
             elseif(this.tauType == 2)
-                    v = this.data(this.robotId,taskId,this.vi);
-                    tau = this.data(this.robotId,taskId,this.ti); 
-                    %use a decay rate, to help ignore terrible performance
-
-                    pos = this.convergeAttempts/2;
-                    beta = (exp(this.convergeSlope*(v-pos))...
-                        ./(1+exp(this.convergeSlope*(v-pos))));
-                    %update out task times, and our averages
-                    learnRate = 1./(v./5+1);
-                    tau = beta.*(tau + learnRate.*(number - tau) + 0) ;
-                    %[this.data(this.robotId,taskId,this.ti) beta tau v]
-                    this.data(this.robotId,taskId,this.ti) = tau;
+                v = this.data(this.robotId,taskId,this.vi);
+                tau = this.data(this.robotId,taskId,this.ti);
+                %use a decay rate, to help ignore terrible performance
+                
+                pos = this.convergeAttempts/2;
+                beta = (exp(this.convergeSlope*(v-pos))...
+                    ./(1+exp(this.convergeSlope*(v-pos))));
+                %update out task times, and our averages
+                learnRate = 1./(v./5+1);
+                tau = beta.*(tau + learnRate.*(number - tau) + 0) ;
+                this.data(this.robotId,taskId,this.ti) = tau;
             end
         end
-        %%
-        function UpdateTaskProperties(this,rstate)
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   UpdateTaskProperties
+        
+        function UpdateTaskProperties(this,robot_state)
             taskId = 0;
             [number,index] = max(this.data(this.robotId,:,this.ji));
             if(number > 0)
@@ -616,69 +591,13 @@ classdef LAllianceAgent < handle
             end            
             %figure out if our task is finished from the state
             if(taskId ~= 0)
-                
-                target_state = rstate.target_properties_(taskId, 1);
-                if target_state == 1 %if it's not finished!
+                target_state = robot_state.target_properties_(taskId, 1);
+                if target_state == 1 %if it's finished!
                     this.SetTaskFinished(taskId);
                 end          
             end
         end
-        
-        %INTERFACE METHODS
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   GetTeamLearningData
-        %   
-        %   Return the maximum and minimum taus.
-        %   This is meerely longest and shortest task
-        %   completion time
-        %   [task1_min task1_max   task2_min task2_max]
-        
-        %%       
-        function dataReturn = GetLearningData(this)
-            val1 = this.data(this.robotId,1,this.ti);
-            val2 = this.data(this.robotId,2,this.ti);
-            dataReturn = [val1 val1 val2 val2];
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   StartEpochChooseTask
-        %   
-        %   Choose a task :)
-        
-        %%           
-        function StartEpochChooseTask(this, rstate)
-            %Update our task properties
-            this.UpdateTaskProperties(rstate);
-            this.ChooseTask();
-            this.Broadcast();
-        end
-  
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   GetCurrentTask
-        %   
-        %   Choose a task :)
-        %           
-        function taskId = GetTask(this,rstate)
-            %Update our task properties
-            this.UpdateTaskProperties(rstate);
-            taskId = this.GetCurrentTask();
-        end
-        
-        function UpdateMotivation(this, confidence)
-            this.ticks = this.ticks + 1;
-            
-            if(mod(this.ticks, this.motiv_freq) == 0)
-                this.ticks = 0;
-                this.Update(this.motiv_freq,confidence);
-                this.Broadcast();
-            end
-        end
-        
-        
+                
     end
     
 end
