@@ -60,8 +60,7 @@ classdef TeamLearning < handle
             rel_target_pos = sqrt(rel_target_pos);
             
             % This was implemented, but not sure why yet
-            step_size = this.config_.robot_Type(this.id_, 3);
-            rel_target_pos = rel_target_pos / step_size;
+            rel_target_pos = rel_target_pos / robot_state.step_size_;
             
             % L-Alliance expects a row vector
             rel_target_pos = rel_target_pos';
