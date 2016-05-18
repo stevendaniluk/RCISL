@@ -23,8 +23,6 @@ classdef RobotCommunication < handle
         %   
         function inst = Instance(configuration)
             if(isempty(RobotCommunication.s_instance.config) == 1)
-                %RobotCommunication.s_instance = RobotCommunication();
-            %    RobotCommunication.s_instance.config = configuration;
                 RobotCommunication.s_instance.SetConfig(configuration);
             end
             inst = RobotCommunication.s_instance;
@@ -37,8 +35,6 @@ classdef RobotCommunication < handle
         end
         
         function SetConfig(this,config)
-            %disp('called ME');
-            
             this.config = config;
         end
         
