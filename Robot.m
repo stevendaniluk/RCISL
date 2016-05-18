@@ -17,7 +17,6 @@ classdef Robot < handle
         robot_state_ = [];          % RobotState (robot's state variables)
         world_state_ = [];          % WorldState (world's state varibales)
         individual_learning_ = [];  % Individual learning class for this robot
-        team_learning_ = [];        % Team learning class for this robot
         action_ = [];               % The current action being performed 
                                     % (determined by the individual learning layer)
         iterations_ = [];           % Count of iterations performed
@@ -44,7 +43,6 @@ classdef Robot < handle
             this.world_state_ = world_state;
             this.robot_state_ = RobotState(this.id_, this.world_state_, this.config_);
             this.individual_learning_ = IndividualLearning(config);
-            this.team_learning_ = TeamLearning(config, id);
             this.iterations_ = 0;
             
             % Update our state when created
@@ -64,9 +62,6 @@ classdef Robot < handle
         function getAction(this)
             % Save the robot state before we change it
             this.robot_state_.saveState();
-            
-            % Get task from team learning
-            this.team_learning_.getTask(this.robot_state_);
             
             %Save, in the world, our current target ID
             this.world_state_.UpdateRobotTarget(this.id_, this.robot_state_.target_id_);
@@ -136,9 +131,6 @@ classdef Robot < handle
             if (mod(this.iterations_, this.config_.learning_iterations) == 0)
                 this.robot_state_.update();
                 this.individual_learning_.learn(this.robot_state_);
-                
-                % Update the team layer as well (not a single agent yet)
-                this.team_learning_.updateMotivation(this.robot_state_);
             end
         end
         
@@ -161,8 +153,7 @@ classdef Robot < handle
             % Update our state when created
             this.robot_state_.update();
             
-            % Reset the learning layers
-            this.team_learning_.resetForNextRun();            
+            % Reset the learning layer
             this.individual_learning_.resetForNextRun();
             
             this.iterations_ = 0;

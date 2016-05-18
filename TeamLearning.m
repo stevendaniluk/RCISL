@@ -4,9 +4,9 @@ classdef TeamLearning < handle
     % Currently merely a wrapper for LAllianceAgent
     
     properties
-        id_ = [];
         config_ = [];
         l_alliance_ = [];
+        iterations_ = [];
     end
     
     methods
@@ -15,64 +15,74 @@ classdef TeamLearning < handle
         % 
         %   Constructor
         %   
-        %   INPUTS
+        %   INPUTS:
         %   config = Configuration object
-        %   robot_id = Id number for this robot
         
-        function this = TeamLearning (config, robot_id)
+        function this = TeamLearning (config)
             this.config_ = config;
-            this.id_ = robot_id;
-            this.l_alliance_ = LAllianceAgent(this.config_, this.id_);
+            this.l_alliance_ = LAlliance(this.config_);
+            this.iterations_ = 0;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   getTask
+        %   getTasks
         %   
-        %   Calls upon L-Alliance to get a task ID, then assigns that id to
-        %   this robot's robot_state
+        %   Calls upon L-Alliance to select the task, then stores in the
+        %   RobotState for each robot
         %
-        %   INPUTS
-        %   robot_state = RobotState object for this robot
+        %   INPUTS:
+        %   robots = Array of robot objects
         
-        function getTask(this, robot_state)
-            % Save the old task
-            robot_state.prev_target_id_ = robot_state.target_id_;
-            
-            this.l_alliance_.UpdateTaskProperties(robot_state);
-            this.l_alliance_.ChooseTask();
-            this.l_alliance_.Broadcast();
-            robot_state.target_id_ = this.l_alliance_.GetCurrentTask();
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   UpdateMotivation
-        %   
-        %   Calls UpdateMotivation method from LAllianceAgent class, with
-        %   the relative target positions
-        %
-        %   INPUTS
-        %   robot_state = RobotState object for this robot
-        
-        function updateMotivation(this, robot_state) 
-            % Get relative target positions, and convert to euclidean
-            % distance
-            rel_target_pos = robot_state.getRelTargetPositions();
-            rel_target_pos = rel_target_pos.^2;
-            rel_target_pos = sum(rel_target_pos, 2);
-            rel_target_pos = sqrt(rel_target_pos);
-            
-            % This was implemented, but not sure why yet
-            rel_target_pos = rel_target_pos / robot_state.step_size_;
-            
-            % L-Alliance expects a row vector
-            rel_target_pos = rel_target_pos';
-            
-            if(this.config_.lalliance_useDistance == 0)
-                rel_target_pos = rel_target_pos.*0;
+        function getTasks(this, robots)
+            for i = 1:length(robots)
+                % Save the old task
+                robots(i,1).robot_state_.prev_target_id_ = robots(i,1).robot_state_.target_id_;
+                
+                % Recieve the updated task, and assign it
+                this.l_alliance_.ChooseTask(robots(i,1).robot_state_.id_);
+                robots(i,1).robot_state_.target_id_ = this.l_alliance_.GetCurrentTask(robots(i,1).robot_state_.id_);
             end
-            this.l_alliance_.UpdateMotivation(rel_target_pos);
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
+        %   learn
+        %   
+        %   Updates all task properties, and when necessary it will update
+        %   the motivation of each robot towards the task
+        %
+        %   INPUTS:
+        %   robots = Array of robot objects
+        
+        function learn(this, robots)
+            this.iterations_ = this.iterations_ + 1;
+            
+            for i = 1:length(robots)
+                % Update task states
+                this.l_alliance_.UpdateTaskProperties(robots(i,1).robot_state_);
+                
+                % Update the motivation if necessary
+                if (mod(this.iterations_, this.config_.lalliance_motiv_freq) == 0)                    
+                    % Get relative target positions, and convert to euclidean
+                    % distance
+                    rel_target_pos = robots(i,1).robot_state_.getRelTargetPositions();
+                    rel_target_pos = rel_target_pos.^2;
+                    rel_target_pos = sum(rel_target_pos, 2);
+                    rel_target_pos = sqrt(rel_target_pos);
+                    
+                    % This was implemented, but not sure why yet
+                    rel_target_pos = rel_target_pos / robots(i,1).robot_state_.step_size_;
+                    
+                    % L-Alliance expects a row vector
+                    rel_target_pos = rel_target_pos';
+                    
+                    if(this.config_.lalliance_useDistance == 0)
+                        rel_target_pos = rel_target_pos.*0;
+                    end
+                    this.l_alliance_.UpdateMotivation(robots(i,1).robot_state_.id_, rel_target_pos);
+                end
+            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

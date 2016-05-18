@@ -28,6 +28,7 @@ classdef ExecutiveSimulation < handle
         sim_time_ = [];         % Duration of each simulation
         physics_ = [];          % Physics object, responsible for making changes in the worldstate
         simulation_data_ = [];  % Cells for saving certain metrics about each run
+        team_learning_ = [];
     end
     
     methods (Access = public)
@@ -67,6 +68,9 @@ classdef ExecutiveSimulation < handle
             for id = 1:this.num_robots_;
                 this.robots_(id,1) = Robot(id, this.config_, this.world_state_);
             end
+            
+            % Create the team learning
+            this.team_learning_ = TeamLearning(this.config_);
             
             %Initialize physics engine
             this.physics_ = Physics(this.config_);
@@ -115,6 +119,12 @@ classdef ExecutiveSimulation < handle
         function run(this)            
             % Step through iterations
             while (this.world_state_.iterations_ < this.max_iterations_ && this.world_state_.GetConvergence() < 2)
+                
+                % Update tasks from team learning
+                this.team_learning_.getTasks(this.robots_);
+                % Update and learn from task allocation
+                this.team_learning_.learn(this.robots_);
+                
                 for i=1:this.num_robots_
                     % Get the action for this robot
                     this.robots_(i,1).getAction();
@@ -130,7 +140,7 @@ classdef ExecutiveSimulation < handle
                 Graphics(this.config_, this.world_state_, this.robots_);
                 
                 this.world_state_.iterations_ = this.world_state_.iterations_ + 1;
-            end % end while 
+            end 
             
             % Call graphics for displaying tracks, if requested in configuration
             Graphics(this.config_, this.world_state_, this.robots_);
@@ -186,6 +196,9 @@ classdef ExecutiveSimulation < handle
         function resetForNextRun (this)
             % Create a new world state
             this.world_state_=WorldState(this.config_);
+            
+            % Reset the team learning layer
+            this.team_learning_.resetForNextRun();
             
             % Reset the robots
             for id = 1:this.num_robots_;
