@@ -31,3 +31,26 @@ sim_name = 'test';
 %Simulation.loadUtilityTables();
 
 Simulation.consecutiveRuns(num_runs, save_data, sim_name);
+
+%% Run consecutive simulations with X runs
+num_sims = 10;
+num_runs = 300;
+save_data = true;
+sim_name_base = 'test';
+
+for i=1:num_sims    
+    % Form configuration
+    config = Configuration();
+    % Create simulation object
+    Simulation=ExecutiveSimulation(config);
+    % Initialize
+    Simulation.initialize();
+    
+    % Form sim name
+    sim_name = [sim_name_base, sprintf('%d', i)];
+    
+    % Make runs
+    Simulation.consecutiveRuns(num_runs, save_data, sim_name);
+end
+
+

@@ -177,11 +177,8 @@ classdef WorldState < handle
             % Loop through each robot and assign properties
             for i=1:this.num_robots_
                 % Loop back to first type, if there aren't enough defined
-                if (i > num_robot_types)
-                    type_index = mod(i, num_robot_types);
-                else
-                    type_index = i;
-                end
+                type_index = mod((i - 1), num_robot_types) + 1;
+
                 this.robotProperties(i, properties_indices) = robotTypes(type_index, :);
             end
             
@@ -192,11 +189,8 @@ classdef WorldState < handle
             % Loop through each target and assign properties
             for i=1:this.num_targets_
                 % Loop back to first type, if there aren't enough defined
-                if (i > num_target_types)
-                    type_index = mod(i, num_target_types);
-                else
-                    type_index = i;
-                end
+                type_index = mod((i - 1), num_target_types) + 1;
+
                 this.targetProperties(i, this.tpid_size) = targetTypes(type_index, 1);      % Size
                 this.targetProperties(i, this.tpid_weight) = targetTypes(type_index, 2);    % Weight
                 this.targetProperties(i, this.tpid_type12) = targetTypes(type_index, 3);    % Type
