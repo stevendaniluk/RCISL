@@ -36,9 +36,13 @@ classdef TeamLearning < handle
         %   robot_state = RobotState object for this robot
         
         function getTask(this, robot_state)
+            % Save the old task
             robot_state.prev_target_id_ = robot_state.target_id_;
-            this.l_alliance_.StartEpochChooseTask(robot_state);
-            robot_state.target_id_ = this.l_alliance_.GetTask(robot_state);
+            
+            this.l_alliance_.UpdateTaskProperties(robot_state);
+            this.l_alliance_.ChooseTask();
+            this.l_alliance_.Broadcast();
+            robot_state.target_id_ = this.l_alliance_.GetCurrentTask();
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
