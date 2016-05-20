@@ -448,7 +448,7 @@ classdef LAlliance < handle
             % Find the assigned task id
             [~, task_id] = find(this.data(robot_id, :, this.ji));
             if(this.calculateTau ==1)
-                this.UpdateTau(task_id, this.failureTau);
+                this.UpdateTau(robot_id, task_id, this.failureTau);
             end
             
             % Increment the vi counter
