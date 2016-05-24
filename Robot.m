@@ -100,7 +100,7 @@ classdef Robot < handle
             % Depending on our action ID, make the appropriate change in
             % the world state
             if(this.robot_state_.acquiescence_ > 0 )
-                physics.MoveTarget (this.world_state_, this.id_, this.robot_state_.target_id_, -1);
+                physics.MoveTarget (this.world_state_, this.id_, this.robot_state_.prev_target_id_, -1);
             elseif(this.robot_state_.action_id_ == 0)
                 physics.MoveRobot (this.world_state_, this.id_, this.action_(1), this.action_(2));
             elseif(this.robot_state_.action_id_ <= 3) % a locomotion action (turning or driving)

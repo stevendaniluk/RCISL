@@ -76,27 +76,15 @@ classdef Configuration < handle
         alpha_power = 1;
         
         % L-Alliance Parameters
-        lalliance_convergeAttempts = 70;
-        lalliance_convergeSlope = 0.15;
-        lalliance_useDistance = 1;
-        lalliance_calculateTau = 1; %Do we automatically calculate taus?
-        lalliance_tmax = 6000;
-        lalliance_tmin = 5800;
-        lalliance_failureTau = 3000;
-        lalliance_acquiescence = 1500;
-        lalliance_confidenceFactor = 10;
-        lalliance_useCooperationLimit = 0;
-        lalliance_useFast = 1; %default to using only the slow impatience rate
-        lalliance_useCooperation = 0; %Do we store taus for cooperation?
-        lalliance_motiv_freq = 15;
-        lalliance_theta = 5;
-        lalliance_motivation_Threshold = 0.0001;
-        lalliance_movingAverageKeep = 0.6;
-        lalliance_tauType = 1; %tauType = 1 - Moving Average
-        %Amount of task types, and if we learn about each TASK or it's TYPE
-        % (it's intractable to assume each task as independent)
-        lalliance_updateByTaskType = 1;
-        la_epochMax = 300;
+        motiv_freq = 15;            % Frequency at which motivation updates
+        max_task_time = 1000;       % Maximum time on task before acquescing
+        theta = 0.01;               % Motivation threshold
+        min_delay = 1;              % Minimum idle time
+        max_delay = 50;             % Maximum idle time
+        trial_time_update = 'recursive_stochastic'; % Options: "moving_average", "recursive_stochastic"
+        stochastic_update_theta2 = 0.9; % Coefficient for stochastic update
+        stochastic_update_theta3 = 1.0; % Coefficient for stochastic update
+        stochastic_update_theta4 = 2.5; % Coefficient for stochastic update
         
         % Advice Exchange Parameters
         advexc_on = 0;

@@ -6,6 +6,8 @@ classdef TeamLearning < handle
     properties
         config_ = [];
         l_alliance_ = [];
+        num_robots_ = [];               % Number of robots
+        num_targets_ = [];              % Number of targets
         iterations_ = [];
     end
     
@@ -21,6 +23,8 @@ classdef TeamLearning < handle
         function this = TeamLearning (config)
             this.config_ = config;
             this.l_alliance_ = LAlliance(this.config_);
+            this.num_robots_ = config.numRobots;
+            this.num_targets_ = config.numTargets;
             this.iterations_ = 0;
         end
         
@@ -35,13 +39,13 @@ classdef TeamLearning < handle
         %   robots = Array of robot objects
         
         function getTasks(this, robots)
-            for i = 1:length(robots)
+            for i = 1:this.num_robots_
                 % Save the old task
                 robots(i,1).robot_state_.prev_target_id_ = robots(i,1).robot_state_.target_id_;
                 
                 % Recieve the updated task, and assign it
-                this.l_alliance_.ChooseTask(robots(i,1).robot_state_.id_);
-                robots(i,1).robot_state_.target_id_ = this.l_alliance_.GetCurrentTask(robots(i,1).robot_state_.id_);
+                this.l_alliance_.chooseTask(robots(i,1).robot_state_.id_);
+                robots(i,1).robot_state_.target_id_ = this.l_alliance_.getCurrentTask(robots(i,1).robot_state_.id_);
             end
         end
         
@@ -58,29 +62,14 @@ classdef TeamLearning < handle
         function learn(this, robots)
             this.iterations_ = this.iterations_ + 1;
             
-            for i = 1:length(robots)
+            for i = 1:this.num_robots_
                 % Update task states
-                this.l_alliance_.UpdateTaskProperties(robots(i,1).robot_state_);
+                this.l_alliance_.updatetaskProperties(robots(i,1).robot_state_);
                 
                 % Update the motivation if necessary
-                if (mod(this.iterations_, this.config_.lalliance_motiv_freq) == 0)                    
-                    % Get relative target positions, and convert to euclidean
-                    % distance
-                    rel_target_pos = robots(i,1).robot_state_.getRelTargetPositions();
-                    rel_target_pos = rel_target_pos.^2;
-                    rel_target_pos = sum(rel_target_pos, 2);
-                    rel_target_pos = sqrt(rel_target_pos);
-                    
-                    % This was implemented, but not sure why yet
-                    rel_target_pos = rel_target_pos / robots(i,1).robot_state_.step_size_;
-                    
-                    % L-Alliance expects a row vector
-                    rel_target_pos = rel_target_pos';
-                    
-                    if(this.config_.lalliance_useDistance == 0)
-                        rel_target_pos = rel_target_pos.*0;
-                    end
-                    this.l_alliance_.UpdateMotivation(robots(i,1).robot_state_.id_, rel_target_pos);
+                if (mod(this.iterations_, this.config_.motiv_freq) == 0)                    
+                    this.l_alliance_.updateImpatience(robots(i,1).robot_state_.id_);
+                    this.l_alliance_.updateMotivation(robots(i,1).robot_state_.id_);
                 end
             end
         end
@@ -90,10 +79,10 @@ classdef TeamLearning < handle
         %   resetForNextRun
         %
         %   Resets all the necessary data for performing consecutive runs,
-        %   while maintatining learnign data
+        %   while maintatining learning data
         
         function resetForNextRun(this)
-            this.l_alliance_.Reset();
+            this.l_alliance_.reset();
         end
         
     end
