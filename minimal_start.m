@@ -14,6 +14,9 @@ Simulation=ExecutiveSimulation(config);
 % Initialize
 Simulation.initialize();
 
+% Option to load utility tables
+%Simulation.loadUtilityTables();
+
 %% Make single run
 
 tic
@@ -26,9 +29,6 @@ toc
 num_runs = 50;
 save_data = true;
 sim_name = 'test';
-
-% Option to load utility tables
-%Simulation.loadUtilityTables();
 
 Simulation.consecutiveRuns(num_runs, save_data, sim_name);
 
@@ -52,5 +52,3 @@ for i=1:num_sims
     % Make runs
     Simulation.consecutiveRuns(num_runs, save_data, sim_name);
 end
-
-

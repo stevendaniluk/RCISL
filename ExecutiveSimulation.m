@@ -99,9 +99,7 @@ classdef ExecutiveSimulation < handle
             q_tables = q_tables.q_tables;
             
             for id = 1:this.num_robots_;
-                nnz(this.robots_(id,1).individual_learning_.q_learning_.quality_.table_)
                 this.robots_(id,1).individual_learning_.q_learning_.quality_.table_ = q_tables{id};
-                nnz(this.robots_(id,1).individual_learning_.q_learning_.quality_.table_)
             end
             disp('Utility tables loaded.');
         end
