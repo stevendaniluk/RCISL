@@ -324,9 +324,16 @@ classdef WorldState < handle
         % 
         %   GetConvergence
         %   
-        %   Have all the foraging targets been returned?
+        %   Check if all the items have been returned to the goal area
  
         function conv = GetConvergence(this)
+            num_returned = sum(this.targetProperties(:,this.tpid_isReturned));
+            
+            if num_returned == this.num_targets_
+                this.converged_ = true;
+            else
+                this.converged_ = false;
+            end
             conv = this.converged_;
         end       
                                 

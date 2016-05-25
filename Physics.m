@@ -1,8 +1,6 @@
 classdef Physics
     %PHYSICS - Responsible for all physics in RCISL simulation
-    
-    % HAS NOT BEEN REVIEWED YET
-    
+        
     properties
         config_ = [];
     end
@@ -15,27 +13,7 @@ classdef Physics
         function this = Physics(config)
             this.config_ = config;
         end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   runCycle
-        %   
-        %   Run one cycle of the physics engine.
-  
-        function runCycle(this, world_state)
-            
-            numTargets = this.config_.numTargets;
-            % Check if all targets have been returned
-            targetsReturned = sum(world_state.targetProperties(:,1));
-            if targetsReturned == numTargets
-                world_state.converged_ = world_state.converged_ +1;
-                if(world_state.converged_ > 2)
-                    world_state.converged_ = 2;
-                end
-            end
-            
-        end
-        
+                
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   interact

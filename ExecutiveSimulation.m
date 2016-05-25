@@ -116,7 +116,7 @@ classdef ExecutiveSimulation < handle
         
         function run(this)            
             % Step through iterations
-            while (this.world_state_.iterations_ < this.max_iterations_ && this.world_state_.GetConvergence() < 2)
+            while (this.world_state_.iterations_ < this.max_iterations_ && ~this.world_state_.GetConvergence())
                 
                 % Update tasks from team learning
                 this.team_learning_.getTasks(this.robots_);
@@ -131,9 +131,6 @@ classdef ExecutiveSimulation < handle
                     % Make this robot learn from its action
                     this.robots_(i,1).learn();
                 end
-                
-                % Run one cycle of world physics
-                this.physics_.runCycle(this.world_state_);
 
                 % Display live graphics, if requested in configuration
                 Graphics(this.config_, this.world_state_, this.robots_);
