@@ -21,10 +21,8 @@ classdef Configuration < handle
         robot_sameStrength = [1; 2; 2; 1]; %comparative Ids for strength
         robot_Reach = 1;
                 
-        % Action Parameters
-        boxForce = 0.05;
-        action_angle = [0; 90; 180; 270];
-        num_actions = 7;
+        % Action and State Parameters
+        num_actions = 5;
         num_state_vrbls = 5;
         num_state_bits = 4;
         

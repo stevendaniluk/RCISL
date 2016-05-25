@@ -74,8 +74,6 @@ classdef IndividualLearning < handle
             % We hack that action into the framework
             robot_state.acquiescence_ = 0;
             if(robot_state.target_id_ ~= robot_state.prev_target_id_ && robot_state.target_id_ == 0)
-                %override default action to be "drop box" action.
-                action_id = 7; %This is the drop action
                 robot_state.acquiescence_ = 1;
             end
             
@@ -338,7 +336,7 @@ classdef IndividualLearning < handle
             
             % If all utility is lower than randomness threshold, randomize it
             if(sum(utility_vals) < this.config_.min_utility_threshold)
-                action_index = ceil(rand*7);
+                action_index = ceil(rand*this.config_.num_actions);
                 return;
             end
             
@@ -365,11 +363,11 @@ classdef IndividualLearning < handle
                 exponents = exp(utility_vals/this.config_.softmax_temp);
                 action_prob = exponents/sum(exponents);
                 rand_action = rand;
-                for i=1:7
+                for i=1:this.config_.num_actions
                     if (rand_action < sum(action_prob(1:i)))
                         action_index = i;
                         break;
-                    elseif (i == 7)
+                    elseif (i == this.config_.num_actions)
                         action_index = i;
                     end
                 end                
@@ -389,6 +387,7 @@ classdef IndividualLearning < handle
                     end
                 end
             end
+
         end
         
     end

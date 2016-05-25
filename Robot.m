@@ -69,21 +69,13 @@ classdef Robot < handle
             % Get action if from individual learning, and set action
             action_id = this.individual_learning_.getAction(this.robot_state_);
             
-            %Set action angles based on current orientation
-            orientation = this.robot_state_.orient_(3);
-            angles = this.config_.action_angle.*(pi/180);
-            angles = angles + orientation;
-            angles = mod(angles, 2*pi);
-            
             % Form action array
             this.action_array_ = [this.robot_state_.step_size_              0; 
-                                            0                   this.robot_state_.rot_size_;
-                                            0                  -this.robot_state_.rot_size_;
-                                  this.config_.boxForce                  angles(1);
-                                  this.config_.boxForce                  angles(2);
-                                  this.config_.boxForce                  angles(3);
-                                  this.config_.boxForce                  angles(4)];
-                        
+                                  -this.robot_state_.step_size_             0;
+                                            0                    this.robot_state_.rot_size_;
+                                            0                   -this.robot_state_.rot_size_;
+                                            0                               0];
+            
             % Get action elements for the action_id from the learing layer
             this.action_ = this.action_array_(action_id,1:2);
         end
@@ -100,15 +92,13 @@ classdef Robot < handle
             % Depending on our action ID, make the appropriate change in
             % the world state
             if(this.robot_state_.acquiescence_ > 0 )
-                physics.MoveTarget (this.world_state_, this.id_, this.robot_state_.prev_target_id_, -1);
-            elseif(this.robot_state_.action_id_ == 0)
-                physics.MoveRobot (this.world_state_, this.id_, this.action_(1), this.action_(2));
-            elseif(this.robot_state_.action_id_ <= 3) % a locomotion action (turning or driving)
+                physics.interact (this.world_state_, this.id_, this.robot_state_.prev_target_id_, -1);
+            elseif(this.robot_state_.action_id_ <= 4)
                 physics.MoveRobot (this.world_state_, this.id_, this.action_(1), this.action_(2));
                 this.robot_state_.action_label_  = [this.robot_state_.type_ ,' mv/rot'];
-            elseif(this.robot_state_.action_id_ >3) %a move object action (if we can)
-                physics.MoveTarget(this.world_state_, this.id_, this.robot_state_.target_id_, this.action_);
-                this.robot_state_.action_label_  = [this.robot_state_.type_ ,' mv t'];
+            else
+                physics.interact(this.world_state_, this.id_, this.robot_state_.target_id_, 0);
+                this.robot_state_.action_label_  = [this.robot_state_.type_ ,' inter'];
             end
             
             this.iterations_ = this.iterations_ + 1;

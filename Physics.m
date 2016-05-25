@@ -23,22 +23,8 @@ classdef Physics
         %   Run one cycle of the physics engine.
   
         function runCycle(this, world_state)
-
-            %see if a box is magically returned
-            targetDistanceToGoal = bsxfun(@minus,world_state.target_pos_,world_state.goal_pos_);
-            targetDistanceToGoal = targetDistanceToGoal.^2;
-            targetDistanceToGoal = sum(targetDistanceToGoal,2);
-            targetDistanceToGoal = sqrt(targetDistanceToGoal);
-            targetDistanceToGoalBarrier = targetDistanceToGoal - (world_state.target_size_ + world_state.goal_size_);
             
             numTargets = this.config_.numTargets;
-            for i = 1:numTargets
-                if(targetDistanceToGoalBarrier(i) < -world_state.target_size_)
-                    world_state.targetProperties(i, world_state.tpid_isReturned) = 1;
-                    world_state.targetProperties(i, world_state.tpid_carriedBy) = 0;
-                end
-            end
-            
             % Check if all targets have been returned
             targetsReturned = sum(world_state.targetProperties(:,1));
             if targetsReturned == numTargets
@@ -52,41 +38,56 @@ classdef Physics
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   MoveTarget
-        %   
-        %   Apply power, given by a robot, to a target
-        %   in a certain direction, relative to the robot,
-        %   all using a certain powerAngle (distance, angle).
+        %   interact
+        %
+        %   Makes a robot interact with an item. If the robot is already
+        %   carring an item, it will drop it. Otherwise, if it is close
+        %   enough to the taget item it will pick it up.
+        %
+        %   INPUTS:
+        %   world_state = WorldState object
+        %   robot_id = ID number of robot to move
+        %   target_id = ID number of assigned target
+        %   acquiescence = If the robot should be forced to drop the item
   
-        function MoveTarget(~, world_state, robotId, targetId, powerAngle)
-            % Only move a target if the robot has a target
-            if(targetId == 0)
-                return;
-            end
-            
-            posDiff = world_state.robot_pos_(robotId,:) - world_state.target_pos_(targetId,:);
-            posDiff = sqrt(posDiff.^2);
-            posDiff = sum(posDiff);
-            robotReach = world_state.robotProperties(robotId,6);
-            
-            if(posDiff <= robotReach)
-                if(powerAngle == -1)
+        function interact(~, world_state, robot_id, target_id, acquiescence)
+            % Only proceed if the robot has a target
+            if(target_id ~= 0)
+                % Which robot is carrying the target item
+                carrying_robot = world_state.targetProperties(target_id, world_state.tpid_carriedBy);
+                
+                % If we are carrying or requested to acquiesce, drop the
+                % item. Otherwise, try to pick it up.
+                if (carrying_robot == robot_id || acquiescence == -1)
                     % Drop the box
-                    world_state.targetProperties(targetId,world_state.tpid_carriedBy) = 0;
+                    world_state.targetProperties(target_id, world_state.tpid_carriedBy) = 0;
                 else
-                    % Pick up the box
-                    world_state.targetProperties(targetId,world_state.tpid_carriedBy) = robotId;
+                    % Check proximity
+                    posDiff = world_state.robot_pos_(robot_id,:) - world_state.target_pos_(target_id,:);
+                    posDiff = sqrt(posDiff.^2);
+                    posDiff = sum(posDiff);
+                    robotReach = world_state.robotProperties(robot_id,6);
+                    
+                    % Pick up the item of close enough
+                    if(posDiff <= robotReach)
+                        world_state.targetProperties(target_id,world_state.tpid_carriedBy) = robot_id;
+                    end
                 end
             end
-                                    
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   MoveRobot
         %   
-        %   Move the robot forward a certain amount and with a
-        %   certain amount of rotation.
+        %   Moves a robot (and its item if it is carrying one) the
+        %   inputted distance and rotation
+        %
+        %   INPUTS:
+        %   world_state = WorldState object
+        %   robot_id = ID number of robot to move
+        %   distance = Distance to move
+        %   rotation = Angle to rotate
   
         function MoveRobot(this, world_state, robot_id, distance, rotation)
             % Can assign the new orientation, since it will always be valid
@@ -122,17 +123,26 @@ classdef Physics
                         
                         % Move box if appropriate
                         if (carrying_item && can_carry)
+                            % Assign position and velocities
                             world_state.target_pos_(target_id,:) = new_pos;
                             world_state.target_vel_(target_id,:) = new_vel;
+                            
+                            % Check proximity of target to goal
+                            target_dist_to_goal = world_state.goal_pos_ - world_state.target_pos_(target_id, :);
+                            target_dist_to_goal = sqrt(sum(target_dist_to_goal.^2));
+                            
+                            % Mark as returned if close enough
+                            if ((target_dist_to_goal + world_state.target_size_) < world_state.goal_size_)
+                                world_state.targetProperties(target_id, world_state.tpid_isReturned) = 1;
+                                world_state.targetProperties(target_id, world_state.tpid_carriedBy) = 0;
+                            end
                         else
                             world_state.target_vel_(target_id,:) = 0;
                         end
                     end
-                    
                 else
                     world_state.robot_vel_(robot_id,:) = 0;
                 end
-                
             end
         end
         
