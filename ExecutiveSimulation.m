@@ -169,12 +169,12 @@ classdef ExecutiveSimulation < handle
                 this.run();
                 disp(['Mission ', sprintf('%d', i), ' complete.'])
                 disp(['Number of iterations: ',sprintf('%d', this.world_state_.iterations_)])
-                toc
+                time = toc;
                 disp(' ');
                                 
                 % Save the data from this run (if desired)
                 if (save_data)
-                    this.saveLearningData(sim_name);
+                    this.saveLearningData(sim_name, time);
                 end
                 
                 % Don't reset if it is the last run (data may be useful)
@@ -216,26 +216,28 @@ classdef ExecutiveSimulation < handle
         %   and the current data.
         %
         %   A cell array is saved, where:
-        %       Column 1 = iterations
-        %       Columns 2:end = Individual learning data [alpha, gamma, 
-        %                       experience, quality, reward, visited states]
+        %       Column 1 = Iterations
+        %       Column 2 = Time
+        %       Column 3:end = Individual learning data [alpha, gamma, 
+        %                      experience, quality, reward, visited states]
         %
         %   INPUTS
         %   sim_name = String with test name, to be appended to file name
         
-        function saveLearningData (this, sim_name)
+        function saveLearningData (this, sim_name, time)
             % Create new directory if needed
             if ~exist(['results/', sim_name], 'dir')
                 mkdir('results', sim_name);
             end
             
-            % Add iterations
+            % Add iterations and time
             [rows, ~] = size(this.simulation_data_);
             this.simulation_data_{rows + 1, 1} = this.world_state_.iterations_;
+            this.simulation_data_{rows + 1, 2} = time;
             
             % Add learning data for each robot
             for id = 1:this.num_robots_;
-                this.simulation_data_{rows + 1, id + 1} = this.robots_(id,1).individual_learning_.q_learning_.learning_data_;
+                this.simulation_data_{rows + 1, id + 2} = this.robots_(id,1).individual_learning_.q_learning_.learning_data_;
             end
             
             % Have to make copies of variables in order to save
