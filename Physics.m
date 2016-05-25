@@ -23,106 +23,36 @@ classdef Physics
         %   Run one cycle of the physics engine.
   
         function runCycle(this, world_state)
-            %deal with inst velocity
-            %next lines "moves" targets that are being carried.
-        
-            %apply friction
-            decay = 0;
+            
+            % Move robots
             numRobots = this.config_.numRobots;
             for i=1:numRobots
+                % Find new position
                 newPos = world_state.robot_pos_(i,:) + world_state.robot_vel_(i,:);
-                
-                carrierOther = 0;
-                carrierMe = 0;
-                
-                if(world_state.groupPickup == 1 && world_state.robotProperties(i,1)> 0)
-                    tid = world_state.robotProperties(i,1);
-                    % assign the current robot and helper
-                    if(world_state.targetProperties(tid,world_state.ID_CARRIED_BY) ==i)
-                        carrierMe =world_state.targetProperties(tid,world_state.ID_CARRIED_BY) ;
-                        carrierOther =world_state.targetProperties(tid,world_state.ID_CARRIED_BY_2) ;
-                    else
-                        carrierMe =world_state.targetProperties(tid,world_state.ID_CARRIED_BY_2) ;
-                        carrierOther =world_state.targetProperties(tid,world_state.ID_CARRIED_BY) ;
-                    end
-                end
-                
-                if this.ValidPoint(world_state, newPos,world_state.TYPE_ROBOT,i,1,carrierOther) == 1 
-
-                    if(world_state.groupPickup == 1 && world_state.robotProperties(i,1)> 0)
-                        
-                        weakPushingStrong = 0;
-                        
-                        if(carrierMe > 0)
-                        % If you have a box, we want to know if you are weak
-                        % pushing a heavy box
-                            robotType = world_state.robotProperties(carrierMe,5);
-                            boxType = world_state.targetProperties(tid ,3);
-                            if(boxType == 2) 
-                                %if the box is heavy
-                                if(robotType == 2 || robotType == 3) 
-                                    %And you are weak, and can't budge it
-                                    weakPushingStrong = 1;
-                                end
-                            end
-                        end
-
-                        
-                        if(carrierMe == i)
-                                %apparently, the the box position is valid
-                                if(carrierOther == 0)
-                                    if(weakPushingStrong==0)
-                                        world_state.target_pos_(world_state.robotProperties(i,1),:) = newPos + [0.01 0.01 0];
-                                        world_state.robot_pos_(i,:) = newPos;
-                                    end
-                                else
-                                    %Move helper, if we have one
-                                    world_state.target_pos_(world_state.robotProperties(i,1),:) = newPos + [0.01 0.01 0];                                         
-                                    world_state.robot_pos_(i,:) = newPos;
-                                    world_state.robot_pos_(carrierOther,:) = newPos;
-                                end
-                            
-                        else
-                             world_state.robot_pos_(i,:) = newPos;
-                        end
-                    else
-                        world_state.robot_pos_(i,:) = newPos;
-                    end
-                    
-                end                
-                world_state.robot_vel_(i,:) = world_state.robot_vel_(i,:)*decay;
+                % Only move if the position is valid      
+                if this.validPoint(world_state, newPos,world_state.TYPE_ROBOT,i,1,0) == 1 
+                    world_state.robot_pos_(i,:) = newPos;
+                end  
+                % Zero the velocity
+                world_state.robot_vel_(i,:) = 0;
             end
             
+            % Move targets
             numTargets = this.config_.numTargets;
-            if(world_state.groupPickup == 0)
-                for i=1:numTargets
-                    newPos = world_state.target_pos_(i,:) + world_state.target_vel_(i,:);
-                    if(world_state.boxPickup == 1 )
-                        if(world_state.targetProperties(i,world_state.ID_CARRIED_BY) ~= 0)
-                            robId = world_state.targetProperties(i,world_state.ID_CARRIED_BY);
-                            newPos = world_state.robot_pos_(robId,:) + [0.01 0.01 0];
-                            world_state.target_pos_(i,:) = newPos;
-                        end
-                        
-                    end
-                    
-                    if(world_state.groupPickup == 1 )
-                        %only test for collision if you are NOT being
-                        %carried, otherwise it's a waste of time
-                        if(world_state.targetProperties(i,world_state.ID_CARRIED_BY) == 0 ...
-                                && world_state.targetProperties(i,world_state.ID_CARRIED_BY_2) == 0)
-                            if this.ValidPoint(world_state, newPos,world_state.TYPE_TARGET,i,1,0) == 1
-                                world_state.target_pos_(i,:) = newPos;
-                            end
-                        end
-                    else
-                        if this.ValidPoint(world_state, newPos,world_state.TYPE_TARGET,i,1,0) == 1
-                            world_state.target_pos_(i,:) = newPos;
-                        end
-                        
-                    end
-                    world_state.target_vel_(i,:) = world_state.target_vel_(i,:)*decay;
+            for i=1:numTargets
+                newPos = world_state.target_pos_(i,:) + world_state.target_vel_(i,:);
+                if(world_state.targetProperties(i,world_state.ID_CARRIED_BY) ~= 0)
+                    robId = world_state.targetProperties(i,world_state.ID_CARRIED_BY);
+                    newPos = world_state.robot_pos_(robId,:) + [0.01 0.01 0];
+                    world_state.target_pos_(i,:) = newPos;
                 end
+                
+                
+                if this.validPoint(world_state, newPos,world_state.TYPE_TARGET,i,1,0) == 1
+                    world_state.target_pos_(i,:) = newPos;
+                end
+                
+                world_state.target_vel_(i,:) = 0;
             end
             
             %see if a box is magically returned
@@ -134,22 +64,18 @@ classdef Physics
             i = 1;
             numTargets = size(targetDistanceToGoal,1);
             
-            %targetDistanceToGoalBarrier(2)
             while i <= numTargets
                 if(targetDistanceToGoalBarrier(i) < -world_state.target_size_)
                     world_state.targetProperties(i) = 1;
                     %if the box is being carried, we drop it here.
                     if(world_state.boxPickup == 1 || world_state.groupPickup == 1)
                         world_state.targetProperties(i,world_state.ID_CARRIED_BY) = 0;
-                    end    
-                    if(world_state.groupPickup == 1)
-                        world_state.targetProperties(i,world_state.ID_CARRIED_BY_2) = 0;
-                    end    
-                    
+                    end      
                 end
                 i = i + 1;
             end
             
+            % Check if all targets have been returned
             targetsReturned = sum(world_state.targetProperties(:,1));
             if targetsReturned == numTargets
                 world_state.converged_ = world_state.converged_ +1;
@@ -199,44 +125,7 @@ classdef Physics
                     else
                         world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) = robotId;
                     end
-                    
-                elseif(world_state.groupPickup == 1)
-                    %If we are not gripping the box:
-                    if(powerAngle ~= -1) 
-                        
-                        if(world_state.targetProperties(targetId,world_state.ID_CARRIED_BY_2) ~= robotId)
-                            if(world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) == 0)
-                                world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) = robotId; %grip slot 1
-                            else
-                                if(world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) ~= robotId)
-                                    if(world_state.targetProperties(targetId,world_state.ID_CARRIED_BY_2) == 0)
-                                        world_state.targetProperties(targetId,world_state.ID_CARRIED_BY_2) = robotId; %slot 2
-                                    end
-                                end
-                            end
-                        end
-
-                    else
-                        if (world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) == robotId)  
-                            world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) = 0;
-                        end
-                        if (world_state.targetProperties(targetId,world_state.ID_CARRIED_BY_2) == robotId)  
-                            world_state.targetProperties(targetId,world_state.ID_CARRIED_BY_2) = 0;
-                        end
-                        % Move away 
-                        newPos = world_state.target_pos_(targetId,1:3);
-                        if(this.ValidPoint(world_state, newPos+ [0.5 0.5 0],world_state.TYPE_ROBOT,robotId,0,0))
-                            world_state.robot_pos_(robotId,1:3) = newPos+ [0.5 0.5 0];
-                        elseif(this.ValidPoint(world_state, newPos+ [-0.5 0.5 0],world_state.TYPE_ROBOT,robotId,0,0))
-                            world_state.robot_pos_(robotId,1:3) = newPos+ [-0.5 0.5 0];
-                        elseif(this.ValidPoint(world_state, newPos+ [0.5 -0.5 0],world_state.TYPE_ROBOT,robotId,0,0))
-                            world_state.robot_pos_(robotId,1:3) = newPos+ [0.5 -0.5 0];
-                        elseif(this.ValidPoint(world_state, newPos+ [-0.5 -0.5 0],world_state.TYPE_ROBOT,robotId,0,0))
-                            world_state.robot_pos_(robotId,1:3) = newPos+ [-0.5 -0.5 0];
-                        end
-                    end
                 else
-                    
                     targetMass = world_state.targetProperties(targetId,2);
                     robotStrength = world_state.robotProperties(robotId,3);
                     amount = powerAngle(1);
@@ -285,19 +174,19 @@ classdef Physics
             
             % Find new point, and check if its valid
             new_point = world_state.robot_pos_(id,:);
-            valid = this.ValidPoint(world_state, new_point, world_state.TYPE_ROBOT, id, 0, 0);
+            valid = this.validPoint(world_state, new_point, world_state.TYPE_ROBOT, id, 0, 0);
             
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
-        %   ValidPoint
+        %   validPoint
         %   
         %   Test if a new point is valid, in terms of collision,
         %   if the object with the current id and type is taken
         %   and moved toward the newPoint.
   
-        function valid = ValidPoint(this, world_state, newPoint,type,id,doCollide,partnerId)
+        function valid = validPoint(this, world_state, newPoint,type,id,doCollide,partnerId)
             %find the size to be used
             myRobot1 = 0;
             myRobot2 = 0;
@@ -349,6 +238,7 @@ classdef Physics
             
             %Test against Obstacles
             obsDist = bsxfun(@minus,world_state.obstacle_pos_, newPoint);
+            
             if  type == 1 ; obsDist(id,:) = [100 100 100]; end; 
             obsDist = obsDist(:,1).^2 + obsDist(:,2).^2 + obsDist(:,3).^2;
             obsDist = sqrt(obsDist);
