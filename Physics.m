@@ -23,56 +23,20 @@ classdef Physics
         %   Run one cycle of the physics engine.
   
         function runCycle(this, world_state)
-            
-            % Move robots
-            numRobots = this.config_.numRobots;
-            for i=1:numRobots
-                % Find new position
-                newPos = world_state.robot_pos_(i,:) + world_state.robot_vel_(i,:);
-                % Only move if the position is valid      
-                if this.validPoint(world_state, newPos,world_state.TYPE_ROBOT,i,1,0) == 1 
-                    world_state.robot_pos_(i,:) = newPos;
-                end  
-                % Zero the velocity
-                world_state.robot_vel_(i,:) = 0;
-            end
-            
-            % Move targets
-            numTargets = this.config_.numTargets;
-            for i=1:numTargets
-                newPos = world_state.target_pos_(i,:) + world_state.target_vel_(i,:);
-                if(world_state.targetProperties(i,world_state.ID_CARRIED_BY) ~= 0)
-                    robId = world_state.targetProperties(i,world_state.ID_CARRIED_BY);
-                    newPos = world_state.robot_pos_(robId,:) + [0.01 0.01 0];
-                    world_state.target_pos_(i,:) = newPos;
-                end
-                
-                
-                if this.validPoint(world_state, newPos,world_state.TYPE_TARGET,i,1,0) == 1
-                    world_state.target_pos_(i,:) = newPos;
-                end
-                
-                world_state.target_vel_(i,:) = 0;
-            end
-            
+
             %see if a box is magically returned
             targetDistanceToGoal = bsxfun(@minus,world_state.target_pos_,world_state.goal_pos_);
             targetDistanceToGoal = targetDistanceToGoal.^2;
             targetDistanceToGoal = sum(targetDistanceToGoal,2);
             targetDistanceToGoal = sqrt(targetDistanceToGoal);
             targetDistanceToGoalBarrier = targetDistanceToGoal - (world_state.target_size_ + world_state.goal_size_);
-            i = 1;
-            numTargets = size(targetDistanceToGoal,1);
             
-            while i <= numTargets
+            numTargets = this.config_.numTargets;
+            for i = 1:numTargets
                 if(targetDistanceToGoalBarrier(i) < -world_state.target_size_)
-                    world_state.targetProperties(i) = 1;
-                    %if the box is being carried, we drop it here.
-                    if(world_state.boxPickup == 1 || world_state.groupPickup == 1)
-                        world_state.targetProperties(i,world_state.ID_CARRIED_BY) = 0;
-                    end      
+                    world_state.targetProperties(i, world_state.tpid_isReturned) = 1;
+                    world_state.targetProperties(i, world_state.tpid_carriedBy) = 0;
                 end
-                i = i + 1;
             end
             
             % Check if all targets have been returned
@@ -95,22 +59,9 @@ classdef Physics
         %   all using a certain powerAngle (distance, angle).
   
         function MoveTarget(~, world_state, robotId, targetId, powerAngle)
-            %make sure distance is close enough
+            % Only move a target if the robot has a target
             if(targetId == 0)
                 return;
-            end
-            
-            robotType = world_state.robotProperties(robotId,5);
-            boxType = world_state.targetProperties(targetId,3);
-            
-            if( world_state.groupPickup ==0)
-                if(boxType == 2) 
-                    % heavy box
-                    if(robotType == 2 || robotType == 3)
-                        %weak robot
-                        return;    
-                    end
-                end
             end
             
             posDiff = world_state.robot_pos_(robotId,:) - world_state.target_pos_(targetId,:);
@@ -119,23 +70,15 @@ classdef Physics
             robotReach = world_state.robotProperties(robotId,6);
             
             if(posDiff <= robotReach)
-                if(world_state.boxPickup == 1)
-                    if(powerAngle == -1) %if we are dropping the box
-                        world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) = 0;
-                    else
-                        world_state.targetProperties(targetId,world_state.ID_CARRIED_BY) = robotId;
-                    end
+                if(powerAngle == -1)
+                    % Drop the box
+                    world_state.targetProperties(targetId,world_state.tpid_carriedBy) = 0;
                 else
-                    targetMass = world_state.targetProperties(targetId,2);
-                    robotStrength = world_state.robotProperties(robotId,3);
-                    amount = powerAngle(1);
-                    angle = powerAngle(2);
-                    amount = amount*robotStrength/targetMass;
-                    addVelocity = [amount*cos(angle ) amount*sin(angle ) 0];
-
-                    world_state.target_vel_(targetId,:) = addVelocity;
+                    % Pick up the box
+                    world_state.targetProperties(targetId,world_state.tpid_carriedBy) = robotId;
                 end
             end
+                                    
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -145,37 +88,52 @@ classdef Physics
         %   Move the robot forward a certain amount and with a
         %   certain amount of rotation.
   
-        function MoveRobot(this, world_state, id, distance, rotation)
+        function MoveRobot(this, world_state, robot_id, distance, rotation)
+            % Can assign the new orientation, since it will always be valid
+            new_orient =[ 0 0 mod(world_state.robot_orient_(robot_id,3) + rotation, 2*pi)];
+            world_state.robot_orient_(robot_id,:) = new_orient;
             
-            % Add rotation ot orentation, and convert to be within [0,2Pi] 
-            newOrient =[ 0 0 mod(world_state.robot_orient_(id,3) + rotation, 2*pi)];
-            
-            %find a new velocity
-            addVelocity = [distance*cos(newOrient(3)) distance*sin(newOrient(3)) 0];
-            currentVelocity = world_state.robot_vel_(id,:);
-            
-            %increase velocity up to a maximum instantly
-            for i=1:2
-                %if we are going very slow, or backwards, speed up as much
-                %as possible
-                if abs(currentVelocity(i) + addVelocity(i)) <= abs(addVelocity(i))
-                    currentVelocity(i) = currentVelocity(i) + addVelocity(i);
-                %if we are going slower than our max, and can use a boost -
-                %go to max speed
-                elseif abs(currentVelocity(i) + addVelocity(i)) > abs(addVelocity(i)) && ...
-                    abs(currentVelocity(i)) < abs(addVelocity(i))
-                    currentVelocity(i) = addVelocity(i) ;
+            % Only perform position calculations if necessary
+            if(distance ~= 0)
+                % Find velocity
+                new_vel = [distance*cos(new_orient(3)) distance*sin(new_orient(3)) 0];
+                % Find new position
+                new_pos = world_state.robot_pos_(robot_id,:) + new_vel;
+                
+                % Only move if its valid
+                if this.validPoint(world_state, new_pos, world_state.TYPE_ROBOT, robot_id, 1, 0) == 1
+                    world_state.robot_pos_(robot_id,:) = new_pos;
+                    world_state.robot_vel_(robot_id,:) = new_vel;
+                    
+                    % Only move target if the robot has one
+                    target_id = world_state.robotProperties(robot_id, world_state.rpid_currentTarget);
+                    if (target_id ~= 0)
+                        % Check if robot is carrying item
+                        carrying_item = world_state.targetProperties(target_id, world_state.tpid_carriedBy) == robot_id;
+                        
+                        % Check if robot is capable of moving the item
+                        robot_type = world_state.robotProperties(robot_id, 5);
+                        box_type = world_state.targetProperties(target_id, 3);
+                        if (((box_type == 2) && (robot_type == 1) || box_type == 1))
+                            can_carry = true;
+                        else
+                            can_carry = false;
+                        end
+                        
+                        % Move box if appropriate
+                        if (carrying_item && can_carry)
+                            world_state.target_pos_(target_id,:) = new_pos;
+                            world_state.target_vel_(target_id,:) = new_vel;
+                        else
+                            world_state.target_vel_(target_id,:) = 0;
+                        end
+                    end
+                    
+                else
+                    world_state.robot_vel_(robot_id,:) = 0;
                 end
+                
             end
-            
-            % Assign the new position and orientation
-            world_state.robot_orient_(id,:) = newOrient;
-            world_state.robot_vel_(id,:) = currentVelocity;
-            
-            % Find new point, and check if its valid
-            new_point = world_state.robot_pos_(id,:);
-            valid = this.validPoint(world_state, new_point, world_state.TYPE_ROBOT, id, 0, 0);
-            
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
