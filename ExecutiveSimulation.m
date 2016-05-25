@@ -130,11 +130,12 @@ classdef ExecutiveSimulation < handle
                     this.robots_(i,1).getAction();
                     % Make the action for this robot
                     this.robots_(i,1).act(this.physics_);
-                    % Run one cycle of world physics
-                    this.physics_.runCycle(this.world_state_);
                     % Make this robot learn from its action
                     this.robots_(i,1).learn();
                 end
+                
+                % Run one cycle of world physics
+                this.physics_.runCycle(this.world_state_);
 
                 % Display live graphics, if requested in configuration
                 Graphics(this.config_, this.world_state_, this.robots_);
