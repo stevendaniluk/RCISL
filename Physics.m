@@ -202,8 +202,8 @@ classdef Physics
             % Don't check against items being carried or returned
             returned_items = (world_state.targetProperties(:,1) ~= 0);
             carried_items = (world_state.targetProperties(:,world_state.ID_CARRIED_BY) ~= 0);
-            target_dist(returned_items, :) = [];
-            target_dist(carried_items, :) = [];
+            void_items = (returned_items + carried_items)~= 0;
+            target_dist(void_items, :) = [];
             
             if(~isempty(target_dist))
                 target_dist = sqrt(target_dist(:,1).^2 + target_dist(:,2).^2 + target_dist(:,3).^2);
