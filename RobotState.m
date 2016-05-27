@@ -39,7 +39,6 @@ classdef RobotState < handle
         
         % Action information
         action_id_ = [];
-        acquiescence_ = [];
         experience_ = [];
         reward_ = [];
         action_label_ = [];

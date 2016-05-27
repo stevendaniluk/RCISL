@@ -86,18 +86,27 @@ classdef Robot < handle
         %   
         %   Will perform the corresponding action stored in
         %   this.action_ (i.e. from the getAction method) by making the
-        %   appropriate call to the WorldState methods
+        %   appropriate call to the Physics methods
   
         function act(this, physics)
-            % Depending on our action ID, make the appropriate change in
-            % the world state
-            if(this.robot_state_.acquiescence_ > 0 )
-                physics.interact (this.world_state_, this.id_, this.robot_state_.prev_target_id_, -1);
+            % Depending on the action ID, make the appropriate action
+            if(this.robot_state_.target_id_ ~= this.robot_state_.prev_target_id_ && this.robot_state_.target_id_ == 0)
+                % Force robot to drop item if task allocation requests
+                force_drop = true;
+                physics.interact (this.world_state_, this.id_, this.robot_state_.prev_target_id_, force_drop);
             elseif(this.robot_state_.action_id_ <= 4)
+                % Move in the direction specified by action
                 physics.MoveRobot (this.world_state_, this.id_, this.action_(1), this.action_(2));
-                this.robot_state_.action_label_  = [this.robot_state_.type_ ,' mv/rot'];
+                % Add action tag for graphics
+                if(this.robot_state_.action_id_ <= 2)
+                    this.robot_state_.action_label_  = [this.robot_state_.type_ ,' move'];
+                else
+                    this.robot_state_.action_label_  = [this.robot_state_.type_ ,' rot'];
+                end
             else
-                physics.interact(this.world_state_, this.id_, this.robot_state_.target_id_, 0);
+                % Drop, or try to pick up item
+                force_drop = false;
+                physics.interact(this.world_state_, this.id_, this.robot_state_.target_id_, force_drop);
                 this.robot_state_.action_label_  = [this.robot_state_.type_ ,' inter'];
             end
             

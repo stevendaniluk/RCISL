@@ -70,13 +70,6 @@ classdef IndividualLearning < handle
             % Select action with policy
             action_id = this.Policy(quality); 
             
-            % Kind of a hack for L-Alliance, if it forces us to drop a task
-            % We hack that action into the framework
-            robot_state.acquiescence_ = 0;
-            if(robot_state.target_id_ ~= robot_state.prev_target_id_ && robot_state.target_id_ == 0)
-                robot_state.acquiescence_ = 1;
-            end
-            
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
         end

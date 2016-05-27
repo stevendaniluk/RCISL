@@ -28,15 +28,15 @@ classdef Physics
         %   target_id = ID number of assigned target
         %   acquiescence = If the robot should be forced to drop the item
   
-        function interact(~, world_state, robot_id, target_id, acquiescence)
+        function interact(~, world_state, robot_id, target_id, force_drop)
             % Only proceed if the robot has a target
             if(target_id ~= 0)
                 % Which robot is carrying the target item
                 carrying_robot = world_state.targetProperties(target_id, world_state.tpid_carriedBy);
                 
-                % If we are carrying or requested to acquiesce, drop the
+                % If we are carrying or requested to force drop, drop the
                 % item. Otherwise, try to pick it up.
-                if (carrying_robot == robot_id || acquiescence == -1)
+                if (carrying_robot == robot_id || force_drop)
                     % Drop the box
                     world_state.targetProperties(target_id, world_state.tpid_carriedBy) = 0;
                 else
