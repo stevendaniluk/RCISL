@@ -25,6 +25,7 @@ classdef Configuration < handle
         num_actions = 5;
         num_state_vrbls = 5;
         num_state_bits = 4;
+        backup_fractional_speed = 0.3;
         
         % World Parameters
         world_height = 10;

@@ -45,6 +45,14 @@ classdef Robot < handle
             this.individual_learning_ = IndividualLearning(config);
             this.iterations_ = 0;
             
+            % Form the action array
+            this.action_array_ = ... 
+                  [this.robot_state_.step_size_                                                  0; 
+                  -this.robot_state_.step_size_*this.config_.backup_fractional_speed             0;
+                              0                    this.robot_state_.rot_size_;
+                              0                   -this.robot_state_.rot_size_;
+                              0                               0];
+            
             % Update our state when created
             this.robot_state_.update();
         end
@@ -68,13 +76,6 @@ classdef Robot < handle
             
             % Get action if from individual learning, and set action
             action_id = this.individual_learning_.getAction(this.robot_state_);
-            
-            % Form action array
-            this.action_array_ = [this.robot_state_.step_size_              0; 
-                                  -this.robot_state_.step_size_             0;
-                                            0                    this.robot_state_.rot_size_;
-                                            0                   -this.robot_state_.rot_size_;
-                                            0                               0];
             
             % Get action elements for the action_id from the learing layer
             this.action_ = this.action_array_(action_id,1:2);
