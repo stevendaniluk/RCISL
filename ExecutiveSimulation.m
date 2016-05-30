@@ -130,12 +130,12 @@ classdef ExecutiveSimulation < handle
                     this.robots_(i,1).act(this.physics_);
                     % Make this robot learn from its action
                     this.robots_(i,1).learn();
+                    % Increment worldstate iterations
+                    this.world_state_.iterations_ = this.world_state_.iterations_ + 1;
                 end
 
                 % Display live graphics, if requested in configuration
                 Graphics(this.config_, this.world_state_, this.robots_);
-                
-                this.world_state_.iterations_ = this.world_state_.iterations_ + 1;
             end 
             
             % Call graphics for displaying tracks, if requested in configuration
