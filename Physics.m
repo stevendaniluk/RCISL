@@ -209,9 +209,10 @@ classdef Physics
                 target_dist = sqrt(target_dist(:,1).^2 + target_dist(:,2).^2 + target_dist(:,3).^2);
                 [min_target_dist, closest_target] = min(target_dist) ;
                 
-                % Check if the robot is at the same position as an item
+                % Check if the robot is within the boundaries of the item
                 % (for cases when it drops an item)
-                coincident = sum(world_state.robot_pos_(robot_id,:) - world_state.target_pos_(closest_target,:)) == 0;
+                coincident = world_state.robot_pos_(robot_id,:) - world_state.target_pos_(closest_target,:);
+                coincident = sqrt(sum(coincident.^2)) < world_state.target_size_;
                 
                 % Check for collision with targets (must allow for the case
                 % when a robot drops an item, making the distance zero)
