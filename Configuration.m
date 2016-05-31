@@ -65,9 +65,9 @@ classdef Configuration < handle
         reward_distance_scale = 0.17;
         
         % Policy parameters
-        policy = 'e-greedy'; % Options: "greedy", "e-greedy", "softmax", "justins"
+        policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
         e_greedy_epsilon = 0.1;
-        softmax_temp = 0.25;
+        softmax_temp = 0.05;
         
         % Q-Learning Parameters
         gamma = 0.3;
