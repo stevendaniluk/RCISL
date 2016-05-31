@@ -40,14 +40,10 @@ classdef Physics
   
         function interact(~, world_state, robot_id, target_id, force_drop)
             % Only proceed if the robot has a target
-            if(target_id ~= 0)
-                % Which robot is carrying the target item
-                carrying_robot = world_state.targetProperties(target_id, world_state.tpid_carriedBy);
-                
-                % If we are carrying or requested to force drop, drop the
-                % item. Otherwise, try to pick it up.
-                if (carrying_robot == robot_id || force_drop)
-                    % Drop the box
+            if(target_id ~= 0)                
+                % If requested to force drop, drop the item
+                if (force_drop)
+                    % Drop the item
                     world_state.targetProperties(target_id, world_state.tpid_carriedBy) = 0;
                 else
                     % Check proximity
