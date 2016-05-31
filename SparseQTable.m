@@ -32,7 +32,8 @@ classdef SparseQTable < handle
         state_bits_ = [];        % Bits required to express state values
         action_bits_ = [];       % Bits required to exress action number
         table_size_ = [];        % Length of Q-table
-        table_ = [];             % Sparse array  of Q-values
+        q_table_ = [];           % Sparse array  of Q-values
+        exp_table_ = [];         % Sparse array  of experience values
     end
     
     methods (Access = public)
@@ -58,8 +59,9 @@ classdef SparseQTable < handle
             % Calculate table size for all possible combinations
             this.table_size_ = 2^(this.num_state_vrbls_ * this.state_bits_ + this.action_bits_);
             
-            % Create sparse Q table
-            this.table_ = sparse(this.table_size_, 2);
+            % Create sparse Q and experience table
+            this.q_table_ = sparse(this.table_size_, 1);
+            this.exp_table_ = sparse(this.table_size_, 1);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -84,11 +86,11 @@ classdef SparseQTable < handle
             
             % Retrieve quality and experience, and convert to full vectors 
             % (since they may be sparse)
-            quality = this.table_(key, 1);
+            quality = this.q_table_(key);
             quality = full(quality);
-            experience = this.table_(key, 2);
+            
+            experience = this.exp_table_(key);
             experience = full(experience);
-
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -106,9 +108,10 @@ classdef SparseQTable < handle
             % Find corresponding row in table
             key= this.getKey(state_vector, action_id);
             % Increment experience
-            experience = this.table_(key, 2) + 1;
+            experience = this.exp_table_(key) + 1;
             % Insert new data
-            this.table_(key, 1:2) = [quality, experience];
+            this.q_table_(key) = quality;
+            this.exp_table_(key) = experience;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -118,7 +121,8 @@ classdef SparseQTable < handle
         %   Reset the table to an empty sparse array
         
         function reset(this)
-            this.table_ = sparse(this.table_size_, 2);
+            this.q_table_ = sparse(this.table_size_, 1);
+            this.exp_table_ = sparse(this.table_size_, 1);
         end
         
     end

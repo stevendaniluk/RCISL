@@ -92,16 +92,20 @@ classdef ExecutiveSimulation < handle
         
         function loadUtilityTables(this)
             % Ask to select the file with utility tables
-            disp('Please select the file containing the utility tables to be loaded');
+            disp('Please select the utility tables to be loaded');
             [file_name, path_name] = uigetfile;
-            
             q_tables = load([path_name, file_name]);
-            q_tables = q_tables.q_tables;
+            
+            % Ask to select the file with experience tables
+            disp('Please select the experience tables to be loaded');
+            [file_name, path_name] = uigetfile;
+            exp_tables = load([path_name, file_name]);
             
             for id = 1:this.num_robots_;
-                this.robots_(id,1).individual_learning_.q_learning_.quality_.table_ = q_tables{id};
+                this.robots_(id,1).individual_learning_.q_learning_.quality_.q_table_ = q_tables.q_tables(:, id);
+                this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_ = exp_tables.exp_tables(:, id);
             end
-            disp('Utility tables loaded.');
+            disp('Utility and experience tables loaded.');
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -74,7 +74,7 @@ classdef QLearning <handle
             
             % Update tracking metrics
             this.addToLearningData ([alpha, this.gamma_, experience_now(action_id), ...
-                                     quality_now(action_id), reward, nnz(this.quality_.table_)]);            
+                                     quality_now(action_id), reward, nnz(this.quality_.q_table_)]);            
 
             % Update quality table
             this.updateUtility(state_now, action_id, quality_update);
