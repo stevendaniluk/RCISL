@@ -202,13 +202,12 @@ classdef Physics
             target_dist(void_items, :) = [];
             
             if(~isempty(target_dist))
-                target_dist = sqrt(target_dist(:,1).^2 + target_dist(:,2).^2 + target_dist(:,3).^2);
-                [min_target_dist, closest_target] = min(target_dist) ;
+                euclidean_target_dist = sqrt(target_dist(:,1).^2 + target_dist(:,2).^2 + target_dist(:,3).^2);
+                [min_target_dist, closest_target] = min(euclidean_target_dist) ;
                 
                 % Check if the robot is within the boundaries of the item
                 % (for cases when it drops an item)
-                coincident = world_state.robot_pos_(robot_id,:) - world_state.target_pos_(closest_target,:);
-                coincident = sqrt(sum(coincident.^2)) < world_state.target_size_;
+                coincident = sqrt(sum(target_dist(closest_target, :).^2)) <= world_state.target_size_;
                 
                 % Check for collision with targets (must allow for the case
                 % when a robot drops an item, making the distance zero)
