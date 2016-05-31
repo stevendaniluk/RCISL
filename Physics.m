@@ -179,7 +179,16 @@ classdef Physics
             % Get distances to other robots (must remove this robot from
             % array of distances)
             robot_dist = bsxfun(@minus,world_state.robot_pos_, new_point);
-            robot_dist(robot_id, :) = [];
+            
+            % Must ignore robots in the goal area
+            dist_from_goal = bsxfun(@minus, world_state.robot_pos_, world_state.goal_pos_);
+            dist_from_goal = sqrt(dist_from_goal(:,1).^2 + dist_from_goal(:,2).^2);
+            void_robots = dist_from_goal < world_state.goal_size_;
+            
+            % Also ignore this robot for collisions
+            void_robots(robot_id, 1) = true;
+            
+            robot_dist(void_robots, :) = [];
             
             if(~isempty(robot_dist))
                 robot_dist = sqrt(robot_dist(:,1).^2 + robot_dist(:,2).^2 + robot_dist(:,3).^2);
