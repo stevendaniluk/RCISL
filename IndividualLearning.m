@@ -364,21 +364,9 @@ classdef IndividualLearning < handle
                         action_index = i;
                     end
                 end                
-            elseif (strcmp(this.policy_, 'justins'))
-                % Current policy in the simulation from Justin Girard
-                total_utility = sum(utility_vals);
-                actionSelect = total_utility*rand(); %pick a number
-                i = 0;
-                action_index =1;
-                num = 0;
-                while (num < actionSelect)
-                    i = i+1;
-                    num = num + utility_vals(i);
-                    if num > actionSelect
-                        action_index = i;
-                        break;
-                    end
-                end
+            else
+                error(['No policy matching ', this.policy_, ... 
+                       '. Options are "greedy", "e-greedy", or "softmax"']);
             end
 
         end
