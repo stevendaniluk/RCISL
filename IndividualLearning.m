@@ -23,8 +23,15 @@ classdef IndividualLearning < handle
         config_ = [];                   % Current configuration object
         q_learning_ = [];               % QLearning object
         policy_ = [];                   % The policy being used
-        min_utility_threshold_ = [];    % Minimum utility for policy (from config)
         learning_iterations_ = [];      % Counter for how many times learning is performed
+        random_actions_ = [];           % Counter for number of random actions
+        learned_actions_ = [];          % Counter for number of learned actions
+        softmax_temp_min_ = [];         % Coefficient for softmax policy temp
+        softmax_temp_max_ = [];         % Coefficient for softmax policy temp
+        softmax_temp_transition_ = [];  % Coefficient for softmax policy temp
+        softmax_temp_slope_ = [];       % Coefficient for softmax policy temp
+        look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
+        temp_ = 0;
     end
     
     methods (Access = public)
@@ -41,10 +48,16 @@ classdef IndividualLearning < handle
         
         function this = IndividualLearning(config)
             this.config_ = config;
-            this.policy_ = config.policy;
-            this.min_utility_threshold_ = config.min_utility_threshold;
             this.q_learning_ = QLearning(config);
             this.learning_iterations_ = 0;
+            this.random_actions_ = 0;
+            this.learned_actions_ = 0;
+            this.policy_ = config.policy;
+            this.softmax_temp_min_ = config.softmax_temp_min;
+            this.softmax_temp_max_ = config.softmax_temp_max;
+            this.softmax_temp_transition_ = config.softmax_temp_transition;
+            this.softmax_temp_slope_ = config.softmax_temp_slope;
+            this.look_ahead_dist_ = config.look_ahead_dist;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -65,10 +78,10 @@ classdef IndividualLearning < handle
             state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
             
             % Get our quality and experience from state vector
-            [quality, robot_state.experience_] = this.q_learning_.getUtility(state_vector);
-            
+            [quality, experience] = this.q_learning_.getUtility(state_vector);
+                        
             % Select action with policy
-            action_id = this.Policy(quality); 
+            action_id = this.Policy(quality, experience); 
             
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
@@ -204,7 +217,7 @@ classdef IndividualLearning < handle
             
             % Find relevant ranges for encoding angle and distance
             angle_range = (2*pi)/(bits);
-            dist_range = sqrt(width^2 + height^2)/(bits);
+            dist_range = this.look_ahead_dist_/(bits);
             
             % Make sure distance is within world bounds
             % (necessary because of noise)
@@ -318,19 +331,19 @@ classdef IndividualLearning < handle
         %
         %   INPUTS
         %   utility_vals = Array of utility values for the next actions
+        %   experience = Array of experience values for the next actions
         %
         %   OUTPUTS
         %   action_index = The ID (index) of the selected action
         
-        function action_index = Policy(this, utility_vals)
-            % TODO - Add something to randomize actions more if we have less
-            % experience. Was done with
-            % utility_vals = (utility)^(experience/some_factor)
-            
-            % If all utility is lower than randomness threshold, randomize it
-            if(sum(utility_vals) < this.config_.min_utility_threshold)
+        function action_index = Policy(this, utility_vals, experience)
+            % If all utility is zero, select a random action
+            if(sum(utility_vals) == 0)
                 action_index = ceil(rand*this.config_.num_actions);
+                this.random_actions_ = this.random_actions_ + 1;
                 return;
+            else
+                this.learned_actions_ = this.learned_actions_ + 1;
             end
             
             % Make all actions with zero quality equal to
@@ -352,8 +365,17 @@ classdef IndividualLearning < handle
                     [~, action_index] = max(utility_vals);
                 end
             elseif (strcmp(this.policy_, 'softmax'))
-                % Softmax action selection [Girard, 2015]
-                exponents = exp(utility_vals/this.config_.softmax_temp);
+                % Softmax action selection [Girard, 2015] with variable
+                % temperature addition
+                
+                % Determine temp from experience (form of function is 1
+                % minus a sigmoid function)
+                min_exp = min(experience);
+                temp = (this.softmax_temp_max_ - this.softmax_temp_min_)* ...
+                       (1 - 1/(1 + exp(this.softmax_temp_slope_*(this.softmax_temp_transition_ - min_exp)))) ...
+                       + this.softmax_temp_min_;
+                                
+                exponents = exp(utility_vals/temp);
                 action_prob = exponents/sum(exponents);
                 rand_action = rand;
                 for i=1:this.config_.num_actions

@@ -19,6 +19,7 @@ classdef QLearning <handle
         % Main Q-learning parameters
         quality_ = [];      % Table of Q values and experience
         gamma_ = [];        % Gamma coefficient in Q-learning update
+        alpha_max_ = [];    % Maximum value of alpha
         alpha_denom_ = [];  % Coefficient in alpha update
         alpha_power_ = [];  % Coefficient in alpha update
     end
@@ -40,6 +41,7 @@ classdef QLearning <handle
             this.gamma_ = config.gamma;
             this.alpha_denom_ = config.alpha_denom;
             this.alpha_power_ = config.alpha_power;
+            this.alpha_max_ = config.alpha_max;
             
             % Form array for storing learning data
             this.learning_data_ = zeros(config.max_iterations, 6);
@@ -67,7 +69,7 @@ classdef QLearning <handle
             [quality_future, ~] =  this.quality_.getElements(state_future);
             
             % Exponentially decrease learning rate with experience [Unknown]
-            alpha = 1/(exp((experience_now(action_id).^this.alpha_power_)/this.alpha_denom_));
+            alpha = this.alpha_max_/(exp((experience_now(action_id).^this.alpha_power_)/this.alpha_denom_));
             
             % Standard Q-learning update rule [Boutilier, 1999]
             quality_update = quality_now(action_id) + alpha*(reward + this.gamma_*max(quality_future) - quality_now(action_id));
