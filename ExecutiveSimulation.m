@@ -28,7 +28,7 @@ classdef ExecutiveSimulation < handle
         sim_time_ = [];         % Duration of each simulation
         physics_ = [];          % Physics object, responsible for making changes in the worldstate
         simulation_data_ = [];  % Cells for saving certain metrics about each run
-        team_learning_ = [];
+        team_learning_ = [];    % Object for team learning agent
     end
     
     methods (Access = public)
@@ -83,14 +83,15 @@ classdef ExecutiveSimulation < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   loadUtilityTables
+        %   loadLearningData
         %
-        %   Promts user to select a file containing the utility tables to
-        %   be loaded, which will then be assigned to each robot in order.
+        %   Promts user to select a file containing the utility tables, 
+        %   experience tables, and team learning data to be loaded, which 
+        %   will then be assigned to each robot in order.
         %   
         %   Tables must be in a single cell array.
         
-        function loadUtilityTables(this)
+        function loadLearningData(this)
             % Ask to select the file with utility tables
             disp('Please select the utility tables to be loaded');
             [file_name, path_name] = uigetfile;
@@ -100,11 +101,20 @@ classdef ExecutiveSimulation < handle
             disp('Please select the experience tables to be loaded');
             [file_name, path_name] = uigetfile;
             exp_tables = load([path_name, file_name]);
-            
+                                    
             for id = 1:this.num_robots_;
-                this.robots_(id,1).individual_learning_.q_learning_.quality_.q_table_ = q_tables.q_tables(:, id);
-                this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_ = exp_tables.exp_tables(:, id);
+                this.robots_(id,1).individual_learning_.q_learning_.quality_.q_table_ = q_tables.q_tables{id, 1};
+                this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_ = exp_tables.exp_tables{id, 1};
             end
+            
+            % Ask to select the file with L-Alliance data
+            disp('Please select the L-Alliance data to be loaded');
+            [file_name, path_name] = uigetfile;
+            l_alliance_data = load([path_name, file_name]);
+            
+            this.team_learning_.l_alliance_.data_ = l_alliance_data.l_alliance_data;
+            this.team_learning_.l_alliance_.reset();
+            
             disp('Utility and experience tables loaded.');
         end
         
@@ -118,7 +128,7 @@ classdef ExecutiveSimulation < handle
         %   the changes in the world, and uses the Graphics function for
         %   displaying the simulation.
         
-        function run(this)            
+        function run(this)     
             % Step through iterations
             while (this.world_state_.iterations_ < this.max_iterations_ && ~this.world_state_.GetConvergence())
                 
@@ -135,7 +145,7 @@ classdef ExecutiveSimulation < handle
                     % Make this robot learn from its action
                     this.robots_(i,1).learn();
                 end
-
+                
                 % Display live graphics, if requested in configuration
                 Graphics(this.config_, this.world_state_, this.robots_);
                 
@@ -143,7 +153,7 @@ classdef ExecutiveSimulation < handle
             end 
             
             % Call graphics for displaying tracks, if requested in configuration
-            Graphics(this.config_, this.world_state_, this.robots_);
+            Graphics(this.config_, this.world_state_, this.robots_);            
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -156,7 +166,7 @@ classdef ExecutiveSimulation < handle
         %
         %   The simulation must be initialized before use
         %
-        %   INPUTS
+        %   INPUTS:
         %   num_runs = The number of consecutive runs to be performed
         %   save_data = Boolean type to indicate if data should be saved
         %   sim_name = String with name of the test, used for saving data
@@ -173,7 +183,7 @@ classdef ExecutiveSimulation < handle
                                 
                 % Save the data from this run (if desired)
                 if (save_data)
-                    this.saveLearningData(sim_name, time);
+                    this.saveSimulationData(sim_name, time);
                 end
                 
                 % Don't reset if it is the last run (data may be useful)
@@ -183,7 +193,7 @@ classdef ExecutiveSimulation < handle
             end
             
             % Save our learned utility tables for each robot
-            this.saveUtilityTables(sim_name);
+            this.saveLearningData(sim_name);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -208,22 +218,23 @@ classdef ExecutiveSimulation < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   saveLearningData
+        %   saveSimulationData
         %
         %   Will save learningdata from the simulation to the results 
         %   folder. A folder will be created with the inputted sim_name, 
         %   and the current data.
         %
-        %   A cell array is saved, where:
+        %   An array is saved, where:
         %       Column 1 = Iterations
         %       Column 2 = Time
-        %       Column 3:end = Individual learning data [alpha, gamma, 
-        %                      experience, quality, reward, visited states]
+        %       Column 3 = Total Effort
+        %       Column 4 = Average Reward
         %
-        %   INPUTS
+        %   INPUTS:
         %   sim_name = String with test name, to be appended to file name
+        %   time = Simulation time in seconds
         
-        function saveLearningData (this, sim_name, time)
+        function saveSimulationData (this, sim_name, time)
             % Create new directory if needed
             if ~exist(['results/', sim_name], 'dir')
                 mkdir('results', sim_name);
@@ -231,13 +242,25 @@ classdef ExecutiveSimulation < handle
             
             % Add iterations and time
             [rows, ~] = size(this.simulation_data_);
-            this.simulation_data_{rows + 1, 1} = this.world_state_.iterations_;
-            this.simulation_data_{rows + 1, 2} = time;
+            this.simulation_data_(rows + 1, 1) = this.world_state_.iterations_;
+            this.simulation_data_(rows + 1, 2) = time;
             
-            % Add learning data for each robot
-            for id = 1:this.num_robots_;
-                this.simulation_data_{rows + 1, id + 2} = this.robots_(id,1).individual_learning_.q_learning_.learning_data_;
+            % Get effort and reward from robot state
+            effort = zeros(1, this.num_robots_);
+            reward = zeros(1, this.num_robots_);
+            for i = 1:this.num_robots_
+                effort(1, i) = this.robots_(i, 1).robot_state_.effort_;
+                
+                % Need indices for reward values 
+                reward_start = this.robots_(i, 1).individual_learning_.prev_learning_iterations_ + 1;
+                reward_end = this.robots_(i, 1).individual_learning_.learning_iterations_;
+                
+                reward(:, i) = sum(this.robots_(i, 1).individual_learning_.reward_(reward_start:reward_end, 1))/this.world_state_.iterations_;
             end
+            
+            % Store effort and reward
+            this.simulation_data_(rows + 1, 3) = sum(effort);
+            this.simulation_data_(rows + 1, 4) = sum(reward)/this.num_robots_;
             
             % Have to make copies of variables in order to save
             config = this.config_;
@@ -248,20 +271,29 @@ classdef ExecutiveSimulation < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   saveUtilityTables
+        %   saveLearningData
         %
-        %   Saves the utility table for each robot into a cell array
+        %   Saves the utility table and experience for each robot into a 
+        %   cell array, as well as the team learning data
         %
         %   INPUTS
         %   sim_name = String with test name, to be appended to file name
         
-        function saveUtilityTables (this, sim_name)
+        function saveLearningData (this, sim_name)
             % Add utility table for each robot to cell array
             q_tables = cell(this.num_robots_, 1);
+            exp_tables = cell(this.num_robots_, 1);
             for id = 1:this.num_robots_;
-                q_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.quality_.table_;
+                q_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.quality_.q_table_;
+                exp_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_;
             end
+            
+            % Get L-Alliance data array
+            l_alliance_data = this.team_learning_.l_alliance_.data_;
+            
             save(['results/', sim_name, '/', 'q_tables'], 'q_tables');
+            save(['results/', sim_name, '/', 'exp_tables'], 'exp_tables');
+            save(['results/', sim_name, '/', 'l_alliance_data'], 'l_alliance_data');
             disp('Utility tables saved.');
         end
         

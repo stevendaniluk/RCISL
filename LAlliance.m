@@ -8,12 +8,15 @@ classdef LAlliance < handle
     % those beliefs to assign new tasks to agents, and determine when to
     % give up on a task.
     
-    properties (Access = private)
+    properties (Access = public)
         % data is a multidimensional matrix, with one row for each robot,
         % one column for each task, and one page for each of the following
         % eleven parameters.        
         data_ = [];
-        
+    end
+    
+    properties (Access = private)
+        % Indices for data array
         tau_i_ = 1;     % Average trial time
         mi_ = 2;        % Motivation
         pi_ = 3;        % Impatience Rate

@@ -15,7 +15,7 @@ Simulation=ExecutiveSimulation(config);
 Simulation.initialize();
 
 % Option to load utility tables
-%Simulation.loadUtilityTables();
+%Simulation.loadLearningData();
 
 %% Make single run
 

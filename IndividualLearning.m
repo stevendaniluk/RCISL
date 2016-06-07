@@ -24,6 +24,7 @@ classdef IndividualLearning < handle
         q_learning_ = [];               % QLearning object
         policy_ = [];                   % The policy being used
         learning_iterations_ = [];      % Counter for how many times learning is performed
+        prev_learning_iterations_ = [];   % Four tracking iterations between epochs
         random_actions_ = [];           % Counter for number of random actions
         learned_actions_ = [];          % Counter for number of learned actions
         softmax_temp_min_ = [];         % Coefficient for softmax policy temp
@@ -31,7 +32,7 @@ classdef IndividualLearning < handle
         softmax_temp_transition_ = [];  % Coefficient for softmax policy temp
         softmax_temp_slope_ = [];       % Coefficient for softmax policy temp
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
-        temp_ = 0;
+        reward_ = [];                   % For tracking reward at each iteration
     end
     
     methods (Access = public)
@@ -50,6 +51,7 @@ classdef IndividualLearning < handle
             this.config_ = config;
             this.q_learning_ = QLearning(config);
             this.learning_iterations_ = 0;
+            this.prev_learning_iterations_ = 0;
             this.random_actions_ = 0;
             this.learned_actions_ = 0;
             this.policy_ = config.policy;
@@ -94,17 +96,18 @@ classdef IndividualLearning < handle
         %   Updates the utility values, based on the reward
         
         function learn(this, robot_state)
-            % Find reward
+            this.learning_iterations_ = this.learning_iterations_ + 1;
+            
+            % Find reward, and store it as well
             reward = this.determineReward(robot_state);
-                        
+            this.reward_(this.learning_iterations_, 1) = reward;
+                                    
             % Get current and previous state vectors for Q-learning
             state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
             
             %do one step of QLearning
-            this.q_learning_.learn(prev_state_vector, state_vector, robot_state.action_id_, reward);
-            
-            this.learning_iterations_ = this.learning_iterations_ + 1;
+            this.q_learning_.learn(prev_state_vector, state_vector, robot_state.action_id_, reward);            
         end
                 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -115,8 +118,7 @@ classdef IndividualLearning < handle
         %   while maintatining learning data
         
         function resetForNextRun(this)
-            % Set the matrix of learning data back to zero
-            this.q_learning_.resetLearningData();
+            this.prev_learning_iterations_ = this.learning_iterations_;
         end
 
     end
@@ -274,7 +276,6 @@ classdef IndividualLearning < handle
                     reward = this.config_.empty_reward_value;
                 end
                 % Record reward in robot state
-                robot_state.reward_ = reward;
                 return;
             end
             
@@ -317,9 +318,6 @@ classdef IndividualLearning < handle
                 % discouraged due to purtebations in item position
                 reward = this.config_.empty_reward_value;
             end
-            
-            % Record reward in robot state
-            robot_state.reward_ = reward;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

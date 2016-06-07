@@ -40,8 +40,8 @@ classdef RobotState < handle
         % Action information
         action_id_ = [];
         experience_ = [];
-        reward_ = [];
         action_label_ = [];
+        effort_ = [];               % Counter for how many times it has moved an item
                 
         % Noise/Particle filter related
         noise_sigma_ = [];
@@ -72,6 +72,7 @@ classdef RobotState < handle
            this.target_id_ = 0;
            this.prev_target_id_ = 0;
            this.carrying_target_ = false;
+           this.effort_ = 0;
            
            this.step_size_ = this.world_state_.robotProperties(this.id_, 4);
            this.rot_size_ = this.world_state_.robotProperties(this.id_, 2);
@@ -138,6 +139,8 @@ classdef RobotState < handle
                 % Set if we are carrying our target
                 if (this.target_properties_(this.target_id_, 4) == this.id_)
                     this.carrying_target_ = true;
+                    % Also increment the effort counter;
+                    this.effort_ = this.effort_ + 1;
                 else
                     this.carrying_target_ = false;
                 end

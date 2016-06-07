@@ -11,11 +11,7 @@ classdef QLearning <handle
     % constant gamma, and an exponentially decreasing learning rate 
     % dependent on the number of visitations to a state [Source Unknown].
     
-    properties (Access = public)
-        % For storing alpha, gamma, experience, quality, and reward
-        learning_data_ = [];        % Table
-        learning_data_index_ = 0;   % Current index
-        
+    properties (Access = public)        
         % Main Q-learning parameters
         quality_ = [];      % Table of Q values and experience
         gamma_ = [];        % Gamma coefficient in Q-learning update
@@ -42,10 +38,7 @@ classdef QLearning <handle
             this.alpha_denom_ = config.alpha_denom;
             this.alpha_power_ = config.alpha_power;
             this.alpha_max_ = config.alpha_max;
-            
-            % Form array for storing learning data
-            this.learning_data_ = zeros(config.max_iterations, 6);
-            
+                        
             % Intiialize quality table
             this.quality_ = SparseQTable(config.num_state_vrbls, config.num_state_bits, config.num_actions);
         end
@@ -73,14 +66,9 @@ classdef QLearning <handle
             
             % Standard Q-learning update rule [Boutilier, 1999]
             quality_update = quality_now(action_id) + alpha*(reward + this.gamma_*max(quality_future) - quality_now(action_id));
-            
-            % Update tracking metrics
-            this.addToLearningData ([alpha, this.gamma_, experience_now(action_id), ...
-                                     quality_now(action_id), reward, nnz(this.quality_.q_table_)]);            
 
             % Update quality table
             this.updateUtility(state_now, action_id, quality_update);
-            
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -96,17 +84,6 @@ classdef QLearning <handle
             [quality, experience] = this.quality_.getElements(state);
         end        
 
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   resetLearningData
-        %   
-        %   Resets the learning data array and index to zero 
-
-        function resetLearningData(this)
-            this.learning_data_ = zeros(size(this.learning_data_));
-            this.learning_data_index_ = 0;            
-        end
-        
     end
     
     methods (Access = private)
@@ -124,20 +101,6 @@ classdef QLearning <handle
  
         function updateUtility(this, state, action_id, q_value)
             this.quality_.storeElements(state,q_value,action_id);
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   addToLearningData
-        %   
-        %   Add the inputted dataVector to the learning_data_ array 
-        %
-        %   INPUTS
-        %   data_vector = Vector: [alpha, gamma, experience, quality, reward, visited states]
-        
-        function addToLearningData (this, data_vector)
-            this.learning_data_index_ = this.learning_data_index_ + 1;
-            this.learning_data_(this.learning_data_index_, :) = data_vector;
         end
         
     end
