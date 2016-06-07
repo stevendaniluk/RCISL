@@ -4,7 +4,7 @@
 
 # Contents of results and replay folders
 results/*
-!results/replay/placeholder.txt
+!results/placeholder.txt
 
 # Windows default autosave extension
 *.asv 
