@@ -1,7 +1,8 @@
 classdef TeamLearning < handle
     % TEAMLEARNING - Contains learning capabilities for the team of robots
     
-    % Currently merely a wrapper for LAllianceAgent
+    % Merely a wrapper for LAlliance that provides an interface to be
+    % used by ExecutiveSimulation
     
     properties
         config_ = [];
@@ -43,6 +44,9 @@ classdef TeamLearning < handle
                 % Save the old task
                 robots(i,1).robot_state_.prev_target_id_ = robots(i,1).robot_state_.target_id_;
                 
+                % Update task states
+                this.l_alliance_.updatetaskProperties(robots(i,1).robot_state_);
+                
                 % Recieve the updated task, and assign it
                 this.l_alliance_.chooseTask(robots(i,1).robot_state_.id_);
                 robots(i,1).robot_state_.target_id_ = this.l_alliance_.getCurrentTask(robots(i,1).robot_state_.id_);
@@ -61,13 +65,9 @@ classdef TeamLearning < handle
         
         function learn(this, robots)
             this.iterations_ = this.iterations_ + 1;
-            
-            for i = 1:this.num_robots_
-                % Update task states
-                this.l_alliance_.updatetaskProperties(robots(i,1).robot_state_);
-                
-                % Update the motivation if necessary
-                if (mod(this.iterations_, this.config_.motiv_freq) == 0)                    
+            % Update the motivation if necessary
+            if (mod(this.iterations_, this.config_.motiv_freq) == 0)
+                for i = 1:this.num_robots_
                     this.l_alliance_.updateImpatience(robots(i,1).robot_state_.id_);
                     this.l_alliance_.updateMotivation(robots(i,1).robot_state_.id_);
                 end

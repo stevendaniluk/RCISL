@@ -79,11 +79,9 @@ classdef Configuration < handle
         
         % L-Alliance Parameters
         motiv_freq = 5;             % Frequency at which motivation updates
-        max_task_time = 500;        % Maximum time on task before acquescing
-        theta = 0.01;               % Motivation threshold
-        min_delay = 1;              % Minimum idle time
-        max_delay = 30;             % Maximum idle time
+        max_task_time = 2000;       % Maximum time on task before acquescing
         trial_time_update = 'recursive_stochastic'; % Options: "moving_average", "recursive_stochastic"
+        stochastic_update_theta1 = 1.0; % Coefficient for stochastic update
         stochastic_update_theta2 = 0.9; % Coefficient for stochastic update
         stochastic_update_theta3 = 1.0; % Coefficient for stochastic update
         stochastic_update_theta4 = 2.5; % Coefficient for stochastic update

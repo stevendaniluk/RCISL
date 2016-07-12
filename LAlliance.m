@@ -13,9 +13,7 @@ classdef LAlliance < handle
         % one column for each task, and one page for each of the following
         % eleven parameters.        
         data_ = [];
-    end
     
-    properties (Access = private)
         % Indices for data array
         tau_i_ = 1;     % Average trial time
         mi_ = 2;        % Motivation
@@ -28,16 +26,15 @@ classdef LAlliance < handle
         fi_ = 9;        % Did we finish a task this epoch?
         vi_ = 10;       % Number of attempts at a task
         ci_ = 11;       % Are we currently cooperating? A flag
+        std_ = 12       % Standard deviation of tau values
         
         num_robots_ = [];          % Number of robots
         num_tasks_ = [];           % Number of tasks
         
         % Algorithm parameters
         motiv_freq_ = [];               % Frequency at which motivation updates
-        theta_ = [];                    % Motivation threshold
-        min_delay_ = [];                % Minimum idle time
-        max_delay_ = [];                % Maximum idle time
         trial_time_update_ = [];        % Method for updating trial times
+        stochastic_update_theta1_ = []; % Coefficient for stochastic update
         stochastic_update_theta2_ = []; % Coefficient for stochastic update
         stochastic_update_theta3_ = []; % Coefficient for stochastic update
         stochastic_update_theta4_ = []; % Coefficient for stochastic update
@@ -55,20 +52,22 @@ classdef LAlliance < handle
             
             % Load L-Alliance parameters from configuration
             this.motiv_freq_ = config.motiv_freq;
-            this.theta_ = config.theta;
-            this.min_delay_ = config.min_delay;
-            this.max_delay_ = config.max_delay;
             this.trial_time_update_ = config.trial_time_update;
+            this.stochastic_update_theta1_ = config.stochastic_update_theta1;
             this.stochastic_update_theta2_ = config.stochastic_update_theta2;
             this.stochastic_update_theta3_ = config.stochastic_update_theta3;
             this.stochastic_update_theta4_ = config.stochastic_update_theta4;
             
             %Create empty multidimensional data array
-            this.data_ = zeros(this.num_robots_, this.num_tasks_, 11);      
+            this.data_ = zeros(this.num_robots_, this.num_tasks_, 12);      
             this.data_(:, :, this.di_) = config.max_task_time;
             % Set initial average trial time to half of max allowed time
             % with some noise, so not all robots are equal
-            this.data_(:,:,this.tau_i_) = normrnd(0.5*config.max_task_time, 5, [this.num_robots_, this.num_tasks_]);
+            this.data_(:,:,this.tau_i_) = normrnd(config.max_task_time, 20, [this.num_robots_, this.num_tasks_]);
+            
+            % Initialize the tau standard deviation
+            task_standard_dev = std(this.data_(:, :, this.tau_i_), 0, 2);
+            this.data_(:, :, this.std_) = repelem(task_standard_dev, 1, this.num_tasks_);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -95,9 +94,15 @@ classdef LAlliance < handle
                 target_state = robot_state.target_properties_(task_id, 1);
                 if target_state == 1
                     this.finishTask(robot_state.id_, task_id);
-                end 
+                end
+                
+                % Acquiesce if we've been on the task too long
+                if (this.data_(robot_state.id_, task_id, this.psi_i_) > this.data_(robot_state.id_, task_id, this.di_))
+                    this.giveUpTask(robot_state.id_);
+                end
+                
             end
-
+            
             % Make sure there is not more than one task assigned
             if(sum(this.data_(robot_state.id_, :, this.ji_), 2) > 1)
                 error('More than one task assigned to robot %d', robot_state.id_); 
@@ -118,71 +123,66 @@ classdef LAlliance < handle
         %   INPUTS:
         %   robot_id = ID number of robot
         
-        function chooseTask(this, robot_id)
-            
-            % COOPERATION NOT IMPLEMENTED YET
-%             if(this.use_cooperation_==1 && this.use_cooperation_limit_ == 1)
-%                 twoOnTasks = sum(this.data_(:,:,this.ji_),1);
-%                 twoOnTasks = twoOnTasks > 1;
-%                 coopingOnTasks = twoOnTasks .*this.data_(robot_id, :, this.ji_);
-% 
-%                 if(sum(coopingOnTasks ) > 0)
-%                     [~,index] = max(coopingOnTasks,[],2);
-%                     this.data_(robot_id, index(1), this.ci_) = 1;
-%                 end
-%             end
-            
+        function chooseTask(this, robot_id)            
             % If a task is not assigned, one needs to be. If a task is
             % assigned, need to determine if it should still be pursued.
             if(sum(this.data_(robot_id, :, this.ji_), 1) == 0)                
                 
-                % COOPERATION NOT IMPLEMENTED YET
-%                 % Find which tasks are free
-%                 if(this.use_cooperation_ == 1)
-%                     free_tasks= sum(this.data_(:,:,this.ji_),1) <= 1;
-%                     
-%                     if (this.use_cooperation_limit_ == 1)
-%                         % Here we prevent assignment to a task unless it looks like
-%                         % a robot will likely fail.
-%                         
-%                         % Quantify how much better each agent is than the tau
-%                         skillMatrix = this.data_(:,:,this.di_)- this.data_(:,:,this.tau_i_);
-%                         
-%                         % Agents in negative time are expected to fail
-%                         expectToFail = skillMatrix <0;
-%                         
-%                         % Agents that need help are ones we expect to fail that
-%                         % have a task
-%                         needHelp = expectToFail.*this.data_(:,:,this.ji_);
-%                         needHelp = sum(needHelp ,1);
-%                         % the key line:
-%                         free_tasks = needHelp.*free_tasks + (sum(this.data_(:,:,this.ji_),1)==0);
-%                     end
-%                 else
-%                     free_tasks = sum(this.data_(:,:,this.ji_),1) == 0;
-%                 end               
+                % Task type categories
+                category1 = zeros(this.num_tasks_, 1);
+                category2 = zeros(this.num_tasks_, 1);
                 
-                free_tasks = (sum(this.data_(:,:,this.ji_),1) == 0);
+                for i=1:this.num_tasks_
+                    % Tasks are considered available when they are incomplete, 
+                    % and either no avatar is assigned, or the assigned avatar 
+                    % has been attempting the task for longer than their tau value
+                    % plus one standard deviation of their taus
+                    uncomplete = sum(this.data_(:, i,this.ui_)) == 0;
+                    unassigned = sum(this.data_(:, i,this.ji_)) == 0;
+                    can_takover = this.data_(:, i, this.psi_i_) > (this.data_(:, i, this.tau_i_) + this.data_(:, i, this.std_));
+                    can_takover = sum(can_takover) ~= 0;
+                    
+                    if (uncomplete && (unassigned || can_takover))
+                        
+                        [~, most_motivated] = max(this.data_(:, i,this.mi_));
+                        [~, fastest] = min(this.data_(:, i,this.tau_i_));
+                        
+                        if (most_motivated == robot_id)
+                            if (fastest == robot_id)
+                                % Expected to be the best, so assign to category 1
+                                category1(i) = this.data_(robot_id, i, this.tau_i_);
+                            else
+                                % Another robot is expected to be better, so
+                                % assign to category 2
+                                category2(i) = this.data_(robot_id, i, this.tau_i_);
+                            end
+                            
+                        end
+                    end
+                    
+                end
                 
-                % Find which tasks are not assigned
-                free_tasks = free_tasks.*(1- this.data_(robot_id, :, this.ui_));
-                % Find which robots are not assigned tasks
-                free_robots= sum(this.data_(:,:,this.ji_),2) == 0;
-                                
-                % Actual motivation has zero motivation for robots with
-                % tasks, and taken tasks
-                actual_motiv = this.data_(:,:,this.mi_);
-                actual_motiv(free_robots == 0, :) = 0;
-                actual_motiv(:, free_tasks == 0) = 0;
+                % Take the longest task from category 1, or if no tasks 
+                % belong to category 1 take the shortest task from category 2
+                if (sum(category1) ~= 0)
+                    % There is a task this avatar is expected to be the best at
+                    [~, best_task] = max(category1);
+                elseif (sum(category2 ~= 0))
+                    % This avatar is not expected to be the best at any available task
+                    category2(category2 == 0) = inf;
+                    [~, best_task] = min(category2);
+                else
+                    best_task = 0;
+                end
                 
-                % Find which robot is the most motivated for each task, and
-                % which task has the highest motivation
-                [highest_motivs, best_robots] = max(actual_motiv);
-                [~, best_task] = max(highest_motivs);
-                                
-                % Assign the best task if this robot is the most motivated 
-                % towards it, and the motivation is above the threshold
-                if((best_robots(best_task) == robot_id) && (highest_motivs(best_task) > this.theta_))
+                if (best_task ~= 0)
+                    % Check if another avatar was assigned and must acquiesce
+                    assigned_robot = find(this.data_(:, best_task, this.ji_));
+                    if(~isempty(assigned_robot))
+                        % Make it acquisce
+                        this.giveUpTask(assigned_robot);
+                    end
+                    
                     % Assign the task
                     this.data_(robot_id, best_task, this.ji_) = 1;
                     
@@ -192,11 +192,14 @@ classdef LAlliance < handle
                         robots_not_on_task = sum(this.data_(:, best_task, this.ji_), 2) == 0;
                         this.data_(robots_not_on_task, best_task, this.mi_) = 0;
                     end
-                end
+                end                
+                
             else                
                 % Check acquiescence if the task should be given up
-                acquiscence =  this.data_(robot_id, :, this.ai_);
-                if(sum(acquiscence, 2) > 0)
+                acquiescence = (this.data_(robot_id, :, this.psi_i_) > this.data_(robot_id, :, this.di_)); 
+                acquiescence = acquiescence.*this.data_(robot_id, :, this.ji_);
+                
+                if(sum(acquiescence, 2) > 0)
                     this.giveUpTask(robot_id);
                 end
             end
@@ -228,41 +231,22 @@ classdef LAlliance < handle
         %
         %   Determines the impatiance rate for the inputted robot to each
         %   task. The rates are calculated as described in 
-        %   [Lynne Parker, 1998]. The calculated values are then saved in
-        %   the data matrix.
+        %   [Lynne Parker, 1998], with the modification from [Girard, 2015] 
+        %   for pareto-optimal task selection.
         %
         %   INPUTS:
         %   robot_id = ID number of robot
         
         function updateImpatience(this, robot_id)
-            
-            % COOPERATION NOT IMPLEMENTED YET
-            
             % Loop through each task (since impatiance rates vary)
             for task = 1:this.num_tasks_
-                % Find which robot is assigned this task
-                robot_on_task = find(this.data_(:, task, this.ji_), 1);
-                
-                if (isempty(robot_on_task))
-                    % No robot assigned to task, so grow at fast rate
-                    high = max(max(this.data_(:,:,this.tau_i_)));
-                    low = min(min(this.data_(:,:,this.tau_i_)));
-                    scale_factor = (this.max_delay_ - this.min_delay_)/(high - low);
-                    task_time = this.data_(robot_id, task, this.tau_i_);
-                    
-                    [~, best_robots] = min(this.data_(:, :, this.tau_i_));
-                    
-                    if (best_robots(task) == robot_id)
-                        % This robot is expected to be the best (Z case 2)
-                        fast_rate = this.theta_ / (this.min_delay_ + (task_time - low)*scale_factor);
-                    else
-                        % Another robot is expected to be the best (Z case 1)
-                        fast_rate = this.theta_ / (this.max_delay_ + (task_time - low)*scale_factor);
-                    end
-                    this.data_(robot_id, task, this.pi_) = fast_rate;
-                else
-                    % Robot assigned to task, so grow at slow rate
-                    slow_rate = this.theta_ / this.data_(robot_on_task, task, this.psi_i_);
+                if (this.data_(robot_id, task, this.ui_) == 1 || this.data_(robot_id, task, this.ji_) == 1)
+                    % Task belongs to this robot, or is completed, so no
+                    % impatience needed
+                    this.data_(robot_id, task, this.pi_) = 0;
+                else 
+                    % Grow at slow rate
+                    slow_rate = this.stochastic_update_theta1_ / this.data_(robot_id, task, this.tau_i_);
                     this.data_(robot_id, task, this.pi_) = slow_rate;
                 end
             end
@@ -283,10 +267,6 @@ classdef LAlliance < handle
         %   robot_id = ID number of robot
         
         function updateMotivation(this, robot_id)
-            % Update acquiescence
-            acquiescence = (this.data_(robot_id, :, this.psi_i_) > this.data_(robot_id, :, this.di_)); 
-            acquiescence = acquiescence.*this.data_(robot_id, :, this.ji_);
-            this.data_(robot_id, :, this.ai_) = acquiescence;
             
             % Create a gating array for motivation update. Need to prevent
             % motivation updates for tasks that the robot should acquiesce,
@@ -335,15 +315,6 @@ classdef LAlliance < handle
         %   task_id = ID number of task to update
         
         function updateTau(this, robot_id, task_id)
-            % COOPERATION NOT IMPLEMENTED YET
-            % Don't save tau's if we are cooperating
-%             if(this.use_cooperation_==1 && this.use_cooperation_limit_ == 1)
-%                 if( this.data_(robot_id, task_id, this.ci_) == 1)
-%                     this.data_(robot_id, task_id, this.ci_) = 0;
-%                     return;
-%                 end
-%             end
-            
             % Update new tau value according to method dictated in config
             if (strcmp(this.trial_time_update_, 'moving_average'))
                 % Calculate a cumulative moving average for the tau values
@@ -366,6 +337,10 @@ classdef LAlliance < handle
             
             % Save the new tau value
             this.data_(robot_id, task_id, this.tau_i_) = tau_new;
+            
+            % Update tau standard deviation
+            this.data_(robot_id, :, this.std_) = std(this.data_(robot_id, :, this.tau_i_));
+            
         end
                                                                 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
