@@ -8,9 +8,9 @@ classdef Configuration < handle
                         
         % Primary Scenario Parameters
         max_iterations = 15000;
-        numRobots    = 8;
+        numRobots    = 3;
         numObstacles = 4;
-        numTargets   = 8;
+        numTargets   = 3;
         robot_Type =[ 4*pi/18   3   0.30    1; ... 
                       4*pi/18   2   0.40    2; ... 
                       4*pi/18   2   0.30    3; ... 
@@ -77,6 +77,9 @@ classdef Configuration < handle
         alpha_denom = 30;       % Coefficient in alpha update equation
         alpha_power = 1;        % Coefficient in alpha update equation
         
+        % Team Learning Parameters
+        task_allocation = 'fixed';  % Options: "fixed", "l_alliance"
+        
         % L-Alliance Parameters
         motiv_freq = 5;             % Frequency at which motivation updates
         max_task_time = 2000;       % Maximum time on task before acquescing
@@ -88,16 +91,7 @@ classdef Configuration < handle
         
         % Advice Exchange Parameters
         advexc_on = 0;
-        adv_epochMax = 500;
-        %Eta: moving average calc
-        % avg = avg*(1-eta) + measurment*eta
-        advice_eta = 0.2;
-        %Delta: when to take advice, comparing our current to advisors avg
-        %if(averageQual < advisorAvgOfAvgQual (1 - delta);
-        advice_delta = 0.5;
-        advice_row = 1;
-        advice_threshold = 0;% threshold*ourExpectedIndividualReward <= theirExpectedIndividualReward  --> take advice
-                
+        
     end
     
 end

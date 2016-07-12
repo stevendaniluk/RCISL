@@ -10,6 +10,7 @@ classdef TeamLearning < handle
         num_robots_ = [];               % Number of robots
         num_targets_ = [];              % Number of targets
         iterations_ = [];
+        task_allocation_ = [];
     end
     
     methods
@@ -23,10 +24,18 @@ classdef TeamLearning < handle
         
         function this = TeamLearning (config)
             this.config_ = config;
-            this.l_alliance_ = LAlliance(this.config_);
+            this.task_allocation_ = config.task_allocation;
             this.num_robots_ = config.numRobots;
             this.num_targets_ = config.numTargets;
             this.iterations_ = 0;
+            
+            if (strcmp(this.task_allocation_, 'l_alliance'))
+                this.l_alliance_ = LAlliance(this.config_);
+            elseif (strcmp(this.task_allocation_, 'fixed'))
+                if(this.num_robots_ ~= this.num_targets_)
+                    error('Must have equal amounts of robots and targets with fixed task allocation strategy');
+                end
+            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -44,13 +53,30 @@ classdef TeamLearning < handle
                 % Save the old task
                 robots(i,1).robot_state_.prev_target_id_ = robots(i,1).robot_state_.target_id_;
                 
-                % Update task states
-                this.l_alliance_.updatetaskProperties(robots(i,1).robot_state_);
-                
-                % Recieve the updated task, and assign it
-                this.l_alliance_.chooseTask(robots(i,1).robot_state_.id_);
-                robots(i,1).robot_state_.target_id_ = this.l_alliance_.getCurrentTask(robots(i,1).robot_state_.id_);
+                % Use appropriate task allocation strategy
+                if (strcmp(this.task_allocation_, 'l_alliance'))
+                    % Update task states
+                    this.l_alliance_.updatetaskProperties(robots(i,1).robot_state_);
+                    
+                    % Recieve the updated task, and assign it
+                    this.l_alliance_.chooseTask(robots(i,1).robot_state_.id_);
+                    robots(i,1).robot_state_.target_id_ = this.l_alliance_.getCurrentTask(robots(i,1).robot_state_.id_);
+                    
+                elseif (strcmp(this.task_allocation_, 'fixed'))
+                    
+                    prelim_task_id = robots(i,1).robot_state_.id_;
+                    
+                    % Only assign the task if it is not complete
+                    target_state = robots(i,1).robot_state_.target_properties_(prelim_task_id, 1);
+                    if target_state == 1
+                        robots(i,1).robot_state_.target_id_ = 0;
+                    else
+                        robots(i,1).robot_state_.target_id_ = prelim_task_id;
+                    end
+                    
+                end
             end
+            
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -68,8 +94,10 @@ classdef TeamLearning < handle
             % Update the motivation if necessary
             if (mod(this.iterations_, this.config_.motiv_freq) == 0)
                 for i = 1:this.num_robots_
-                    this.l_alliance_.updateImpatience(robots(i,1).robot_state_.id_);
-                    this.l_alliance_.updateMotivation(robots(i,1).robot_state_.id_);
+                    if (strcmp(this.task_allocation_, 'l_alliance'))
+                        this.l_alliance_.updateImpatience(robots(i,1).robot_state_.id_);
+                        this.l_alliance_.updateMotivation(robots(i,1).robot_state_.id_);
+                    end
                 end
             end
         end
@@ -82,7 +110,9 @@ classdef TeamLearning < handle
         %   while maintatining learning data
         
         function resetForNextRun(this)
-            this.l_alliance_.reset();
+            if (strcmp(this.task_allocation_, 'l_alliance'))
+                this.l_alliance_.reset();
+            end
         end
         
     end
