@@ -107,13 +107,15 @@ classdef ExecutiveSimulation < handle
                 this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_ = exp_tables.exp_tables{id, 1};
             end
             
-            % Ask to select the file with L-Alliance data
-            disp('Please select the L-Alliance data to be loaded');
-            [file_name, path_name] = uigetfile;
-            l_alliance_data = load([path_name, file_name]);
-            
-            this.team_learning_.l_alliance_.data_ = l_alliance_data.l_alliance_data;
-            this.team_learning_.l_alliance_.reset();
+            if (strcmp(this.config_.task_allocation, 'l_alliance'))
+                % Ask to select the file with L-Alliance data
+                disp('Please select the L-Alliance data to be loaded');
+                [file_name, path_name] = uigetfile;
+                l_alliance_data = load([path_name, file_name]);
+                
+                this.team_learning_.l_alliance_.data_ = l_alliance_data.l_alliance_data;
+                this.team_learning_.l_alliance_.reset();
+            end
             
             disp('Utility and experience tables loaded.');
         end
@@ -192,8 +194,10 @@ classdef ExecutiveSimulation < handle
                 end
             end
             
-            % Save our learned utility tables for each robot
-            this.saveLearningData(sim_name);
+            if (save_data)
+                % Save our learned utility tables for each robot
+                this.saveLearningData(sim_name);
+            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -288,12 +292,15 @@ classdef ExecutiveSimulation < handle
                 exp_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_;
             end
             
-            % Get L-Alliance data array
-            l_alliance_data = this.team_learning_.l_alliance_.data_;
+            if (strcmp(this.config_.task_allocation, 'l_alliance'))
+                % Get L-Alliance data array
+                l_alliance_data = this.team_learning_.l_alliance_.data_;
+                save(['results/', sim_name, '/', 'l_alliance_data'], 'l_alliance_data');
+                
+            end
             
             save(['results/', sim_name, '/', 'q_tables'], 'q_tables');
             save(['results/', sim_name, '/', 'exp_tables'], 'exp_tables');
-            save(['results/', sim_name, '/', 'l_alliance_data'], 'l_alliance_data');
             disp('Utility tables saved.');
         end
         

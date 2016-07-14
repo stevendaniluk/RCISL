@@ -25,8 +25,8 @@ classdef Configuration < handle
         num_actions = 5;
         num_state_vrbls = 5;
         num_state_bits = 4;
-        backup_fractional_speed = 1.0;
-        look_ahead_dist = 3;
+        backup_fractional_speed = 0.0;
+        look_ahead_dist = 1.5;
         
         % World Parameters
         world_height = 10;
@@ -65,11 +65,9 @@ classdef Configuration < handle
         
         % Policy parameters
         policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
-        e_greedy_epsilon = 0.1;
-        softmax_temp_min = 0.02;        % Minimum temperature value
+        e_greedy_epsilon = 0.10;
+        softmax_temp_min = 0.05;        % Minimum temperature value
         softmax_temp_max = 0.95;        % Maximum temperature value
-        softmax_temp_transition = 3;    % Point where temp = 0.5*(softmax_temp_max - softmax_temp_min)
-        softmax_temp_slope = 1.5;       % Slope of temperature transition
         
         % Q-Learning Parameters
         gamma = 0.3;            % Discount factor

@@ -29,8 +29,6 @@ classdef IndividualLearning < handle
         learned_actions_ = [];          % Counter for number of learned actions
         softmax_temp_min_ = [];         % Coefficient for softmax policy temp
         softmax_temp_max_ = [];         % Coefficient for softmax policy temp
-        softmax_temp_transition_ = [];  % Coefficient for softmax policy temp
-        softmax_temp_slope_ = [];       % Coefficient for softmax policy temp
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
         reward_ = [];                   % For tracking reward at each iteration
     end
@@ -57,8 +55,6 @@ classdef IndividualLearning < handle
             this.policy_ = config.policy;
             this.softmax_temp_min_ = config.softmax_temp_min;
             this.softmax_temp_max_ = config.softmax_temp_max;
-            this.softmax_temp_transition_ = config.softmax_temp_transition;
-            this.softmax_temp_slope_ = config.softmax_temp_slope;
             this.look_ahead_dist_ = config.look_ahead_dist;
         end
         
@@ -120,10 +116,6 @@ classdef IndividualLearning < handle
         function resetForNextRun(this)
             this.prev_learning_iterations_ = this.learning_iterations_;
         end
-
-    end
-    
-    methods (Access = private)
                 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -209,7 +201,7 @@ classdef IndividualLearning < handle
             angles = atan2(state_matrix(4:end,2), state_matrix(4:end,1));
             % Make angles relative to the orientation, plus 45 degrees, so
             % that the quadrants are orientated in front, behind, etc.
-            angles = angles - orient + pi/bits;
+            angles(angles ~= 0) = angles(angles ~= 0) - orient + pi/bits;
             
             % Make sure it is within [0, 2Pi]
             angles = mod(angles, 2*pi);
@@ -366,12 +358,13 @@ classdef IndividualLearning < handle
                 % Softmax action selection [Girard, 2015] with variable
                 % temperature addition
                 
-                % Determine temp from experience (form of function is 1
-                % minus a sigmoid function)
+                % Determine temp from experience
                 min_exp = min(experience);
-                temp = (this.softmax_temp_max_ - this.softmax_temp_min_)* ...
-                       (1 - 1/(1 + exp(this.softmax_temp_slope_*(this.softmax_temp_transition_ - min_exp)))) ...
-                       + this.softmax_temp_min_;
+                if (min_exp ~= 0)
+                    temp = this.softmax_temp_min_;
+                else
+                    temp = this.softmax_temp_max_;
+                end
                                 
                 exponents = exp(utility_vals/temp);
                 action_prob = exponents/sum(exponents);

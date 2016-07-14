@@ -1,7 +1,7 @@
 % Iterations Plotter
 clear
 
-filename = '';
+filename = 'test';
 num_tests = 10;
 num_runs = 300;
 
@@ -10,7 +10,7 @@ iterations = zeros(num_tests, num_runs);
 % Load iterations from each test
 for i=1:num_tests
     load(['results/', filename, sprintf('%d', i), '/', 'simulation_data']);
-    iterations(i,:) = cell2mat(simulation_data(1:num_runs, 1));
+    iterations(i,:) = simulation_data(1:num_runs, 1);
 end
 
 % Average
@@ -39,4 +39,4 @@ plot(1:num_runs, smooth_iterations)
 title('Average Iterations');
 xlabel('Number of Runs');
 ylabel('Iterations');
-axis([0, num_runs, 0, 5000]);
+axis([0, num_runs, 0, 2000]);
