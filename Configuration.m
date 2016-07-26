@@ -66,8 +66,7 @@ classdef Configuration < handle
         % Policy parameters
         policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
         e_greedy_epsilon = 0.10;
-        softmax_temp_min = 0.05;        % Minimum temperature value
-        softmax_temp_max = 0.95;        % Maximum temperature value
+        softmax_temp = 0.10;        % Temperature for softmax distribution
         
         % Q-Learning Parameters
         gamma = 0.3;            % Discount factor

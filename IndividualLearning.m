@@ -27,8 +27,7 @@ classdef IndividualLearning < handle
         prev_learning_iterations_ = [];   % Four tracking iterations between epochs
         random_actions_ = [];           % Counter for number of random actions
         learned_actions_ = [];          % Counter for number of learned actions
-        softmax_temp_min_ = [];         % Coefficient for softmax policy temp
-        softmax_temp_max_ = [];         % Coefficient for softmax policy temp
+        softmax_temp_ = [];             % Temperature for policy softmax distribution
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
         reward_ = [];                   % For tracking reward at each iteration
     end
@@ -53,8 +52,7 @@ classdef IndividualLearning < handle
             this.random_actions_ = 0;
             this.learned_actions_ = 0;
             this.policy_ = config.policy;
-            this.softmax_temp_min_ = config.softmax_temp_min;
-            this.softmax_temp_max_ = config.softmax_temp_max;
+            this.softmax_temp_ = config.softmax_temp;
             this.look_ahead_dist_ = config.look_ahead_dist;
         end
         
@@ -76,10 +74,10 @@ classdef IndividualLearning < handle
             state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
             
             % Get our quality and experience from state vector
-            [quality, experience] = this.q_learning_.getUtility(state_vector);
+            [quality, ~] = this.q_learning_.getUtility(state_vector);
                         
             % Select action with policy
-            action_id = this.Policy(quality, experience); 
+            action_id = this.Policy(quality); 
             
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
@@ -326,7 +324,7 @@ classdef IndividualLearning < handle
         %   OUTPUTS
         %   action_index = The ID (index) of the selected action
         
-        function action_index = Policy(this, utility_vals, experience)
+        function action_index = Policy(this, utility_vals)
             % If all utility is zero, select a random action
             if(sum(utility_vals) == 0)
                 action_index = ceil(rand*this.config_.num_actions);
@@ -355,18 +353,8 @@ classdef IndividualLearning < handle
                     [~, action_index] = max(utility_vals);
                 end
             elseif (strcmp(this.policy_, 'softmax'))
-                % Softmax action selection [Girard, 2015] with variable
-                % temperature addition
-                
-                % Determine temp from experience
-                min_exp = min(experience);
-                if (min_exp ~= 0)
-                    temp = this.softmax_temp_min_;
-                else
-                    temp = this.softmax_temp_max_;
-                end
-                                
-                exponents = exp(utility_vals/temp);
+                % Softmax action selection [Girard, 2015]
+                exponents = exp(utility_vals/this.softmax_temp_);
                 action_prob = exponents/sum(exponents);
                 rand_action = rand;
                 for i=1:this.config_.num_actions
