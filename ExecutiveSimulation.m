@@ -27,7 +27,7 @@ classdef ExecutiveSimulation < handle
         world_state_ = [];      % Current world state
         sim_time_ = [];         % Duration of each simulation
         physics_ = [];          % Physics object, responsible for making changes in the worldstate
-        simulation_data_ = [];  % Cells for saving certain metrics about each run
+        simulation_data_ = []; % Struct for saving metrics about each run
         team_learning_ = [];    % Object for team learning agent
     end
     
@@ -44,6 +44,7 @@ classdef ExecutiveSimulation < handle
         
         function this = ExecutiveSimulation(config)
             this.config_ = config;
+            this.simulation_data_ = struct;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -174,22 +175,22 @@ classdef ExecutiveSimulation < handle
         %   sim_name = String with name of the test, used for saving data
         
         function consecutiveRuns(this, num_runs, save_data, sim_name)
-            for i=1:num_runs
+            for run=1:num_runs
                 tic
-                disp(['Mission ', sprintf('%d', i), ' started.'])
+                disp(['Mission ', sprintf('%d', run), ' started.'])
                 this.run();
-                disp(['Mission ', sprintf('%d', i), ' complete.'])
+                disp(['Mission ', sprintf('%d', run), ' complete.'])
                 disp(['Number of iterations: ',sprintf('%d', this.world_state_.iterations_)])
                 time = toc;
                 disp(' ');
                                 
                 % Save the data from this run (if desired)
                 if (save_data)
-                    this.saveSimulationData(sim_name, time);
+                    this.saveSimulationData(sim_name, time, run);
                 end
                 
                 % Don't reset if it is the last run (data may be useful)
-                if (i ~= num_runs)
+                if (run ~= num_runs)
                     this.resetForNextRun();
                 end
             end
@@ -224,30 +225,30 @@ classdef ExecutiveSimulation < handle
         %
         %   saveSimulationData
         %
-        %   Will save learningdata from the simulation to the results 
+        %   Will save data from the simulation to the results 
         %   folder. A folder will be created with the inputted sim_name, 
         %   and the current data.
         %
-        %   An array is saved, where:
-        %       Column 1 = Iterations
-        %       Column 2 = Time
-        %       Column 3 = Total Effort
-        %       Column 4 = Average Reward
+        %   An structu is saved with:
+        %       -Iterations
+        %       -Time
+        %       -Total Effort
+        %       -Average Reward
         %
         %   INPUTS:
         %   sim_name = String with test name, to be appended to file name
         %   time = Simulation time in seconds
+        %   run = Run number in this simulation
         
-        function saveSimulationData (this, sim_name, time)
+        function saveSimulationData (this, sim_name, time, run)
             % Create new directory if needed
             if ~exist(['results/', sim_name], 'dir')
                 mkdir('results', sim_name);
             end
             
             % Add iterations and time
-            [rows, ~] = size(this.simulation_data_);
-            this.simulation_data_(rows + 1, 1) = this.world_state_.iterations_;
-            this.simulation_data_(rows + 1, 2) = time;
+            this.simulation_data_.iterations(run) = this.world_state_.iterations_;
+            this.simulation_data_.time(run) = time;
             
             % Get effort and reward from robot state
             effort = zeros(1, this.num_robots_);
@@ -263,8 +264,8 @@ classdef ExecutiveSimulation < handle
             end
             
             % Store effort and reward
-            this.simulation_data_(rows + 1, 3) = sum(effort);
-            this.simulation_data_(rows + 1, 4) = sum(reward)/this.num_robots_;
+            this.simulation_data_.total_effor(run) = sum(effort);
+            this.simulation_data_.avg_reward(run) = sum(reward)/this.num_robots_;;
             
             % Have to make copies of variables in order to save
             config = this.config_;
