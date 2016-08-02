@@ -77,16 +77,17 @@ function [] = Graphics(config, world_state, robots)
             end
             
             % Draw a line to current advisor (if we have one)
-            if(config.advexc_on == 1)
-                advisorId = robots(i).robot_state_.cisl.adviceexchange.GetCurrentAdvisor();
-                start_pt = position(i,1:2);
-                end_pt = position(advisorId,1:2);
-                boxPoints = GetBox(start_pt,0.3);
-                plot(boxPoints(1,:),boxPoints(2,:),'y');
-                advisor_line_x = [start_pt(1) end_pt(1)];
-                advisor_line_y = [start_pt(2) end_pt(2)];
-                plot(advisor_line_x, advisor_line_y, 'y');
+            if(config.advice_on == 1)
+                advisor_id = robots(i).individual_learning_.advice_.advisor_id_;
+                if (~isempty(advisor_id))
+                    start_pt = position(i,1:2);
+                    end_pt = position(advisor_id,1:2);
+                    advisor_line_x = [start_pt(1) end_pt(1)];
+                    advisor_line_y = [start_pt(2) end_pt(2)];
+                    plot(advisor_line_x, advisor_line_y, 'y');
+                end
             end
+            
         end
 
         % Draw the obstacles

@@ -26,8 +26,8 @@ disp(['Number of iterations: ',num2str(Simulation.world_state_.iterations_)])
 toc
 
 %% Make consecutive runs
-num_runs = 50;
-save_data = true;
+num_runs = 5;
+save_data = false;
 sim_name = 'test';
 
 Simulation.consecutiveRuns(num_runs, save_data, sim_name);
@@ -36,7 +36,7 @@ Simulation.consecutiveRuns(num_runs, save_data, sim_name);
 num_sims = 10;
 num_runs = 300;
 save_data = true;
-sim_name_base = 'test';
+sim_name_base = 'no_advice/sim_';
 
 for i=1:num_sims    
     % Form configuration

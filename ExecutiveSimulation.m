@@ -27,8 +27,11 @@ classdef ExecutiveSimulation < handle
         world_state_ = [];      % Current world state
         sim_time_ = [];         % Duration of each simulation
         physics_ = [];          % Physics object, responsible for making changes in the worldstate
-        simulation_data_ = []; % Struct for saving metrics about each run
+        simulation_data_ = [];  % Struct for saving metrics about each run
         team_learning_ = [];    % Object for team learning agent
+        advice_database_ = [];  % Object containing advice database
+        advice_data_ = [];      % Struct for saving advice performance data
+        
     end
     
     methods (Access = public)
@@ -45,6 +48,7 @@ classdef ExecutiveSimulation < handle
         function this = ExecutiveSimulation(config)
             this.config_ = config;
             this.simulation_data_ = struct;
+            this.advice_data_ = struct;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -72,6 +76,11 @@ classdef ExecutiveSimulation < handle
             
             % Create the team learning
             this.team_learning_ = TeamLearning(this.config_);
+            
+            % Create the advice mechanism (if required)
+            if (this.config_.advice_on)
+                this.advice_database_ = AdviceDatabase(this.config_, this.robots_);
+            end
             
             %Initialize physics engine
             this.physics_ = Physics(this.config_);
@@ -154,7 +163,7 @@ classdef ExecutiveSimulation < handle
                 
                 this.world_state_.iterations_ = this.world_state_.iterations_ + 1;
             end 
-            
+                        
             % Call graphics for displaying tracks, if requested in configuration
             Graphics(this.config_, this.world_state_, this.robots_);            
         end
@@ -219,6 +228,11 @@ classdef ExecutiveSimulation < handle
             for id = 1:this.num_robots_;
                 this.robots_(id,1).resetForNextRun(this.world_state_);
             end
+            
+            % Reset the advice (if necessary)
+            if (this.config_.advice_on)
+                this.advice_database_.epochFinished();
+            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -251,27 +265,50 @@ classdef ExecutiveSimulation < handle
             this.simulation_data_.time(run) = time;
             
             % Get effort and reward from robot state
-            effort = zeros(1, this.num_robots_);
-            reward = zeros(1, this.num_robots_);
+            total_effort = zeros(1, this.num_robots_);
+            avg_reward = zeros(1, this.num_robots_);
+            total_reward = zeros(1, this.num_robots_);
             for i = 1:this.num_robots_
-                effort(1, i) = this.robots_(i, 1).robot_state_.effort_;
+                total_effort(1, i) = this.robots_(i, 1).robot_state_.effort_;
                 
                 % Need indices for reward values 
                 reward_start = this.robots_(i, 1).individual_learning_.prev_learning_iterations_ + 1;
                 reward_end = this.robots_(i, 1).individual_learning_.learning_iterations_;
                 
-                reward(:, i) = sum(this.robots_(i, 1).individual_learning_.reward_(reward_start:reward_end, 1))/this.world_state_.iterations_;
+                avg_reward(:, i) = sum(this.robots_(i, 1).individual_learning_.reward_data_(reward_start:reward_end, 1))/this.world_state_.iterations_;
+                total_reward(1, i) = sum(this.robots_(i, 1).individual_learning_.reward_data_(reward_start:reward_end, 1));
             end
             
             % Store effort and reward
-            this.simulation_data_.total_effor(run) = sum(effort);
-            this.simulation_data_.avg_reward(run) = sum(reward)/this.num_robots_;;
+            this.simulation_data_.avg_reward(run) = sum(avg_reward)/this.num_robots_;
+            if (run <= 1)
+                this.simulation_data_.total_effort(run) = sum(total_effort);
+                this.simulation_data_.total_reward(run) = sum(total_reward);
+            else
+                this.simulation_data_.total_effort(run) = this.simulation_data_.total_effort(run - 1) + sum(total_effort);
+                this.simulation_data_.total_reward(run) = this.simulation_data_.total_reward(run - 1) + sum(total_reward);
+            end
             
             % Have to make copies of variables in order to save
             config = this.config_;
             simulation_data = this.simulation_data_;
             save(['results/', sim_name, '/', 'configuration'], 'config');
             save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
+            
+            % Get advice tracking metrics (if used)
+            if (this.config_.advice_on)
+                for i = 1:this.num_robots_
+                    this.advice_data_.advised_actions(i, run) = this.robots_(i, 1).individual_learning_.advice_.advised_actions_;
+                    this.advice_data_.total_actions(i, run) = this.robots_(i, 1).individual_learning_.advice_.total_actions_;
+                    this.advice_data_.advised_actions_ratio(i, run) = this.robots_(i, 1).individual_learning_.advice_.advised_actions_ / ...
+                        this.robots_(i, 1).individual_learning_.advice_.total_actions_;
+                    this.advice_data_.cond_a_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_a_true_count_;
+                    this.advice_data_.cond_b_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_b_true_count_;
+                    this.advice_data_.cond_c_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_c_true_count_;
+                end
+                advice_data = this.advice_data_;
+                save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
+            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

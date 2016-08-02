@@ -21,15 +21,27 @@ classdef IndividualLearning < handle
     
     properties
         config_ = [];                   % Current configuration object
+        robot_id_ = [];                 % Id number for owner robot
         q_learning_ = [];               % QLearning object
         policy_ = [];                   % The policy being used
+        iterations_ = [];               % Counter for total iterations
         learning_iterations_ = [];      % Counter for how many times learning is performed
-        prev_learning_iterations_ = [];   % Four tracking iterations between epochs
+        prev_learning_iterations_ = []; % For tracking iterations between epochs
         random_actions_ = [];           % Counter for number of random actions
         learned_actions_ = [];          % Counter for number of learned actions
         softmax_temp_ = [];             % Temperature for policy softmax distribution
+        advised_actions_ = [];          % Counter for number of advised actions
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
-        reward_ = [];                   % For tracking reward at each iteration
+        reward_data_ = [];              % For tracking reward at each iteration
+        
+        advice_on_ = [];
+        advice_ = [];               % Advice mechanism between robots
+        greedy_override_ = [];
+        
+    end
+    
+    events
+        PerfMetrics;
     end
     
     methods (Access = public)
@@ -44,16 +56,25 @@ classdef IndividualLearning < handle
         %   INPUTS
         %   config = Configuration object
         
-        function this = IndividualLearning(config)
+        function this = IndividualLearning(config, id)
             this.config_ = config;
+            this.robot_id_ = id;
             this.q_learning_ = QLearning(config);
+            this.iterations_ = 0;
             this.learning_iterations_ = 0;
             this.prev_learning_iterations_ = 0;
             this.random_actions_ = 0;
-            this.learned_actions_ = 0;
+            this.advised_actions_ = 0;
             this.policy_ = config.policy;
             this.softmax_temp_ = config.softmax_temp;
             this.look_ahead_dist_ = config.look_ahead_dist;
+            
+            this.advice_on_ = config.advice_on;
+            if (this.advice_on_)
+                this.advice_ = Advice(config, id);
+                this.greedy_override_ = config.greedy_override;
+            end
+            
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -63,26 +84,49 @@ classdef IndividualLearning < handle
         %   Returns the action from the individual learning layer
         %
         %   INPUTS
-        %   world_state = Current world state (i.e. world state variables)
         %   robot_state = Current robot state (i.e. robot state variables)
         %
         %   OUTPUTS
         %   action = Action to take
         
         function action_id = getAction(this, robot_state)
+            this.iterations_ = this.iterations_ + 1;
+            
             % Get state matrix, and convert to encoded state vector
             state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
             
             % Get our quality and experience from state vector
             [quality, ~] = this.q_learning_.getUtility(state_vector);
-                        
-            % Select action with policy
-            action_id = this.Policy(quality); 
+            
+            % Check if advice is needed (and activated)
+            if (this.advice_on_)
+                need_advice = this.advice_.isAdviceNeeded(state_vector, quality);
+            else
+                need_advice = false;
+            end
+            
+            % Determine action, considering advice from advisors
+            if (need_advice)
+                % Get advice from advisor (overwrite quality and experience)
+                [quality] = this.advice_.getAdvice();
+                
+                % Select action with policy (including greedy override)
+                action_id = this.Policy(quality, this.greedy_override_);
+                
+                this.advised_actions_ = this.advised_actions_ + 1;
+            else
+                % Select action with our policy (no greedy override)
+                greedy_override = false;
+                action_id = this.Policy(quality, greedy_override);
+            end
+            
+            % Notify AdviceDatabase listener of quality update
+            this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.iterations_));
             
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
         end
-                
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
         %   learn
@@ -94,16 +138,16 @@ classdef IndividualLearning < handle
             
             % Find reward, and store it as well
             reward = this.determineReward(robot_state);
-            this.reward_(this.learning_iterations_, 1) = reward;
-                                    
+            this.reward_data_(this.learning_iterations_, 1) = reward;
+            
             % Get current and previous state vectors for Q-learning
             state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
             
             %do one step of QLearning
-            this.q_learning_.learn(prev_state_vector, state_vector, robot_state.action_id_, reward);            
+            this.q_learning_.learn(prev_state_vector, state_vector, robot_state.action_id_, reward);
         end
-                
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
         %   resetForNextRun
@@ -114,16 +158,16 @@ classdef IndividualLearning < handle
         function resetForNextRun(this)
             this.prev_learning_iterations_ = this.learning_iterations_;
         end
-                
+        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
+        %
         %   stateMatrixToStateVector
         %
         %   Converts a state matrix to an encoded state vector, with all
         %   state variables being represented by a set of n-bit integers,
         %   where n, the number of bits, is dictated in the configuration
         %   file.
-        %   
+        %
         %   INPUTS:
         %   state_matrix - Matrix of all state variables
         %       Contents of each row are:
@@ -136,7 +180,7 @@ classdef IndividualLearning < handle
         %
         %   OUTPUTS:
         %   state_vector = Vector of encoded state variables
-        %       Vector contents: [position, target_type, rel_target, 
+        %       Vector contents: [position, target_type, rel_target,
         %                         rel_goal, rel_obstacle]
         
         function state_vector = stateMatrixToStateVector(this, state_matrix)
@@ -188,7 +232,7 @@ classdef IndividualLearning < handle
             if (pos_y >= height)
                 pos_y = height - delta;
             end
-                        
+            
             % Convert to bits
             pos = bitshift(floor(orient/orient_range), 2) + bitshift(floor(pos_x/x_range), 1) + floor(pos_y/y_range);
             
@@ -224,7 +268,7 @@ classdef IndividualLearning < handle
             state_vector = [pos; target_type; rel_pos];
             if (sum(state_vector(state_vector >= bits^2)) ~= 0)
                 warning(['state_vector values greater than max allowed. Reducing to max value. State Vector: ', ...
-                         sprintf('%d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5))]);
+                    sprintf('%d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5))]);
                 state_vector(state_vector >= bits^2) = (bits^2 - 1);
             end
         end
@@ -243,10 +287,10 @@ classdef IndividualLearning < handle
         %   reward = Value of the reward for the previous action
         
         function reward = determineReward(this, robot_state)
-            % Set distance threshold for rewards            
+            % Set distance threshold for rewards
             threshold = this.config_.reward_activation_dist;
             
-            % First handle the case where no target is assigned first, since 
+            % First handle the case where no target is assigned first, since
             % we cannot calculate target distance if we don't have a target
             
             % Useful values
@@ -324,14 +368,12 @@ classdef IndividualLearning < handle
         %   OUTPUTS
         %   action_index = The ID (index) of the selected action
         
-        function action_index = Policy(this, utility_vals)
+        function action_index = Policy(this, utility_vals, greedy_override)
             % If all utility is zero, select a random action
             if(sum(utility_vals) == 0)
                 action_index = ceil(rand*this.config_.num_actions);
                 this.random_actions_ = this.random_actions_ + 1;
                 return;
-            else
-                this.learned_actions_ = this.learned_actions_ + 1;
             end
             
             % Make all actions with zero quality equal to
@@ -340,8 +382,8 @@ classdef IndividualLearning < handle
             total_utility = sum(utility_vals);
             utility_vals(utility_vals == 0) = total_utility.*0.05;
             
-            % Use the policy indicated in the configuration 
-            if (strcmp(this.policy_, 'greedy'))
+            % Use the policy indicated in the configuration
+            if (strcmp(this.policy_, 'greedy') || greedy_override)
                 % Simply select the max utility
                 [~, action_index] = max(utility_vals);
             elseif (strcmp(this.policy_, 'e-greedy'))
@@ -364,15 +406,16 @@ classdef IndividualLearning < handle
                     elseif (i == this.config_.num_actions)
                         action_index = i;
                     end
-                end                
+                end
             else
-                error(['No policy matching ', this.policy_, ... 
-                       '. Options are "greedy", "e-greedy", or "softmax"']);
+                error(['No policy matching ', this.policy_, ...
+                    '. Options are "greedy", "e-greedy", or "softmax"']);
             end
-
+            
         end
         
     end
     
 end
+
 

@@ -7,7 +7,7 @@ classdef Configuration < handle
         show_track_graphics = false;
                         
         % Primary Scenario Parameters
-        max_iterations = 15000;
+        max_iterations = 5000;
         numRobots    = 3;
         numObstacles = 4;
         numTargets   = 3;
@@ -64,9 +64,9 @@ classdef Configuration < handle
         reward_activation_dist = 0.17;
         
         % Policy parameters
-        policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
+        policy = 'e-greedy'; % Options: "greedy", "e-greedy", "softmax"
         e_greedy_epsilon = 0.10;
-        softmax_temp = 0.10;        % Temperature for softmax distribution
+        softmax_temp = 0.05;        % Temperature for softmax distribution
         
         % Q-Learning Parameters
         gamma = 0.3;            % Discount factor
@@ -86,8 +86,13 @@ classdef Configuration < handle
         stochastic_update_theta3 = 1.0; % Coefficient for stochastic update
         stochastic_update_theta4 = 2.5; % Coefficient for stochastic update
         
-        % Advice Exchange Parameters
-        advexc_on = 0;
+        % Advice Parameters
+        advice_on = false;              % If advice should be used
+        greedy_override = false;       % Overrides the policy with a greedy selection
+        advice_alpha = 0.7;            % Coefficient for current average quality update
+        advice_beta = 0.90;            % Coefficient for best average quality update
+        advice_delta = 0.1;            % Coefficient for quality comparison
+        advice_rho = 0.90;             % Coefficient for quality comparison
         
     end
     

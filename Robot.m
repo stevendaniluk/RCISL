@@ -42,9 +42,9 @@ classdef Robot < handle
             this.config_ = config;
             this.world_state_ = world_state;
             this.robot_state_ = RobotState(this.id_, this.world_state_, this.config_);
-            this.individual_learning_ = IndividualLearning(config);
+            this.individual_learning_ = IndividualLearning(config, id);
             this.iterations_ = 0;
-            
+                        
             % Form the action array
             this.action_array_ = ... 
                   [this.robot_state_.step_size_                                                  0; 
