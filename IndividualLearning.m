@@ -31,6 +31,7 @@ classdef IndividualLearning < handle
         learned_actions_ = [];          % Counter for number of learned actions
         softmax_temp_ = [];             % Temperature for policy softmax distribution
         advised_actions_ = [];          % Counter for number of advised actions
+        state_bits_ = [];               % Bits in state_vector
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
         reward_data_ = [];              % For tracking reward at each iteration
         
@@ -67,6 +68,7 @@ classdef IndividualLearning < handle
             this.advised_actions_ = 0;
             this.policy_ = config.policy;
             this.softmax_temp_ = config.softmax_temp;
+            this.state_bits_ = config.num_state_bits;
             this.look_ahead_dist_ = config.look_ahead_dist;
             
             this.advice_on_ = config.advice_on;
@@ -200,10 +202,7 @@ classdef IndividualLearning < handle
             %      7        2        4    |     15       4        4
             
             % Some parameters which should be loaded from the config file
-            
-            % Find bits are required to represent state values and action
-            bits = this.config_.num_state_bits;
-            
+                        
             width = this.config_.world_height;
             height = this.config_.world_width;
             
@@ -214,12 +213,12 @@ classdef IndividualLearning < handle
             % Get orientation, will be Z element, in second row
             orient = state_matrix(2, 3);
             orient = mod(orient, 2*pi);
-            orient_range = (2*pi)/(bits);
+            orient_range = (2*pi)/(this.state_bits_(1));
             
             % Encode robot position
             % Find size of increments for position
-            x_range = width/(bits/2);
-            y_range = height/(bits/2);
+            x_range = width/(this.state_bits_(1)/2);
+            y_range = height/(this.state_bits_(1)/2);
             
             % Extract positions from state matrix
             pos_x = state_matrix(1,1);
@@ -241,35 +240,32 @@ classdef IndividualLearning < handle
             
             % Find angles from x and y coords of each state
             angles = atan2(state_matrix(4:end,2), state_matrix(4:end,1));
-            % Make angles relative to the orientation, plus 45 degrees, so
+            % Make angles relative to the orientation, plus X degrees, so
             % that the quadrants are orientated in front, behind, etc.
-            angles(angles ~= 0) = angles(angles ~= 0) - orient + pi/bits;
-            
-            % Make sure it is within [0, 2Pi]
-            angles = mod(angles, 2*pi);
+            angles = angles - orient + pi./this.state_bits_(3:5)';
             
             % Find euclidean distances from target/goal/obstacle
             dist = sqrt(state_matrix(4:end,1).^2 + state_matrix(4:end,2).^2);
             
             % Find relevant ranges for encoding angle and distance
-            angle_range = (2*pi)/(bits);
-            dist_range = this.look_ahead_dist_/(bits);
+            angle_range = (2*pi)./(this.state_bits_(3:5))';
+            dist_range = this.look_ahead_dist_./(this.state_bits_(3:5))';
             
             % Make sure distance is within world bounds
             % (necessary because of noise)
-            dist(dist >= (dist_range*bits)) = (dist_range*bits) - delta;
-            angles(angles >= (angle_range*bits)) = (angle_range*bits) - delta;
+            dist(dist >= this.look_ahead_dist_) = this.look_ahead_dist_ - delta;
+            angles = mod(angles, 2*pi);
             
             % Convert to bits
-            rel_pos = bitshift(floor(angles/angle_range),2) + floor(dist/dist_range);
+            rel_pos = bitshift(floor(angles./angle_range),2) + floor(dist./dist_range);
             
             % Assemble, and correct elements in case an are over the max
             % bit amount (shouldn't happen, but if it does we want to know)
-            state_vector = [pos; target_type; rel_pos];
-            if (sum(state_vector(state_vector >= bits^2)) ~= 0)
+            state_vector = [pos; target_type; rel_pos]';
+            if (sum(state_vector >= 2.^this.state_bits_) ~= 0)
                 warning(['state_vector values greater than max allowed. Reducing to max value. State Vector: ', ...
-                    sprintf('%d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5))]);
-                state_vector(state_vector >= bits^2) = (bits^2 - 1);
+                         sprintf('%d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5))]);
+                state_vector = mod(state_vector, 2.^this.state_bits_);
             end
         end
         

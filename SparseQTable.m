@@ -13,24 +13,26 @@ classdef SparseQTable < handle
     %
     % State variables and action values must be non-zero integers. 
     %
-    % Example: There are 5 state variables, with possible values between 0
-    % 15, and there are 8 possible actions
+    % Example: There are 5 state variables, with minimum values of 
+    % [0, 0, 0, 0, 0] and maximum values of [15, 1, 15, 15, 15]
     %
-    % The state vector will look like: [X, X, X, X, X]
-    % 3 Bits are needed to express the actions
-    % 4 Bits are needed to express the state variables
-    %
-    % Rows of the data array will be formed as follows:
-    %   Rows 1 to 2^(3+4) will be for state vectors [0 0 0 0 0] to [15 0 0 0 0]
-    %   Rows (2^(3+4)+1) to 2(3+4+4) will be for state vectors [0 1 0 0 0] to [15 1 0 0 0]
-    %   Rows (2^(3+4+4)+1) to 2(3+4+4+4) will be for state vectors [0 2 0 0 0] to [15 2 0 0 0]
+    % A table is formed such that:
+    %   Rows 1:80 are for vectors [0 0 0 0 0] to [15 0 0 0 0]
+    %   Rows 81:160 are for vectors [0 1 0 0 0] to [15 1 0 0 0]
+    %   Rows 161:2561 are for vectors [0 0 0 0 0] to [15 1 15 0 0]
     %   etc.
+    %
+    % An encoder vector is used, so that when the state vector is
+    % multiplied by this vector, it accounts for the offset needed for each
+    % element. For this example the encoder vector is 
+    % [1, 80, 160, 2560, 40960]. Thus the second element of the state
+    % vector gets offset by 80, the third by 160, the forth by 2560, etc..
 
     properties (Access = public)
         num_state_vrbls_ = [];   % Number of variables in state vector
         num_actions_ = [];       % Number of possible actions
         state_bits_ = [];        % Bits required to express state values
-        action_bits_ = [];       % Bits required to exress action number
+        encoder_vector_ = [];    % Multiplying vector to convert state vector to key value
         table_size_ = [];        % Length of Q-table
         q_table_ = [];           % Sparse array  of Q-values
         exp_table_ = [];         % Sparse array  of experience values
@@ -47,17 +49,21 @@ classdef SparseQTable < handle
         %   num_state_bits = Number of bits to represent each state
         %   num_actions
         
-        function this = SparseQTable (num_state_vrbls, num_state_bits, num_actions)
+        function this = SparseQTable (num_state_vrbls, state_bits, num_actions)
             
             this.num_state_vrbls_ = num_state_vrbls;
             this.num_actions_ = num_actions;
+            this.state_bits_ = state_bits;
             
-            % Find bits are required to represent state values and action
-            this.state_bits_ = num_state_bits;
-            this.action_bits_ = ceil(log2(this.num_actions_));
+            % Form encoder vector to multipy inputted state vectors by
+            this.encoder_vector_ = ones(1, this.num_state_vrbls_);
+            for i=2:this.num_state_vrbls_
+                this.encoder_vector_(i) = prod(2.^this.state_bits_(1:(i-1)));
+            end
+            this.encoder_vector_ = this.encoder_vector_*this.num_actions_;
             
             % Calculate table size for all possible combinations
-            this.table_size_ = 2^(this.num_state_vrbls_ * this.state_bits_ + this.action_bits_);
+            this.table_size_ = prod(2.^this.state_bits_)*this.num_actions_;
             
             % Create sparse Q and experience table
             this.q_table_ = sparse(this.table_size_, 1);
@@ -140,18 +146,12 @@ classdef SparseQTable < handle
         %   action_id = Action number [1,num_actions_]
         
         function key= getKey(this, state_vector, action_id)
-            % Find remainder if key_vector is greater than max value
-            % This will not be necessary once the encoding is fixed
-            state_vector = mod(state_vector, 2^this.state_bits_);
-          
-            % Increment key value for each entry in state_vector
-            % Uses bitshift opeartion, since number of combinations can be
-            % expressed in bits. See description at top for an example.
-            key = action_id;
-            for i = 1:this.num_state_vrbls_
-                shift = bitshift(state_vector(i), (i-1)*this.state_bits_ + this.action_bits_);
-                key = key + shift;
-            end
+            % Ensure the state_vector elements are within bounds
+            state_vector = mod(state_vector, 2.^this.state_bits_);
+            
+            % Multipy by the encoder vector and add the action num to 
+            % convert to a unique key value
+            key = action_id + state_vector * this.encoder_vector_';
         end
         
     end

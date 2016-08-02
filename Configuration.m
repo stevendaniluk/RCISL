@@ -24,7 +24,7 @@ classdef Configuration < handle
         % Action and State Parameters
         num_actions = 5;
         num_state_vrbls = 5;
-        num_state_bits = 4;
+        num_state_bits = [4, 1, 4, 4, 4];
         backup_fractional_speed = 0.0;
         look_ahead_dist = 1.5;
         
