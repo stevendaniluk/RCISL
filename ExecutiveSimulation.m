@@ -195,7 +195,7 @@ classdef ExecutiveSimulation < handle
                                 
                 % Save the data from this run (if desired)
                 if (save_data)
-                    this.saveSimulationData(sim_name, time, run);
+                    this.storeSimulationData(time, run);
                 end
                 
                 % Don't reset if it is the last run (data may be useful)
@@ -205,6 +205,8 @@ classdef ExecutiveSimulation < handle
             end
             
             if (save_data)
+                % Save simulation tracking metrics
+                this.saveSimulationData(sim_name);
                 % Save our learned utility tables for each robot
                 this.saveLearningData(sim_name);
             end
@@ -237,7 +239,7 @@ classdef ExecutiveSimulation < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   saveSimulationData
+        %   storeSimulationData
         %
         %   Will save data from the simulation to the results 
         %   folder. A folder will be created with the inputted sim_name, 
@@ -250,16 +252,10 @@ classdef ExecutiveSimulation < handle
         %       -Average Reward
         %
         %   INPUTS:
-        %   sim_name = String with test name, to be appended to file name
         %   time = Simulation time in seconds
         %   run = Run number in this simulation
         
-        function saveSimulationData (this, sim_name, time, run)
-            % Create new directory if needed
-            if ~exist(['results/', sim_name], 'dir')
-                mkdir('results', sim_name);
-            end
-            
+        function storeSimulationData (this, time, run)            
             % Add iterations and time
             this.simulation_data_.iterations(run) = this.world_state_.iterations_;
             this.simulation_data_.time(run) = time;
@@ -289,12 +285,6 @@ classdef ExecutiveSimulation < handle
                 this.simulation_data_.total_reward(run) = this.simulation_data_.total_reward(run - 1) + sum(total_reward);
             end
             
-            % Have to make copies of variables in order to save
-            config = this.config_;
-            simulation_data = this.simulation_data_;
-            save(['results/', sim_name, '/', 'configuration'], 'config');
-            save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
-            
             % Get advice tracking metrics (if used)
             if (this.config_.advice_on)
                 for i = 1:this.num_robots_
@@ -306,6 +296,33 @@ classdef ExecutiveSimulation < handle
                     this.advice_data_.cond_b_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_b_true_count_;
                     this.advice_data_.cond_c_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_c_true_count_;
                 end
+            end
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   saveSimulationData
+        %
+        %   Saves the simulation tracking metrics in the directory
+        %   indicated.
+        %
+        %   INPUTS
+        %   sim_name = Folder to save data in
+        
+        function saveSimulationData (this, sim_name)
+            % Create new directory if needed
+            if ~exist(['results/', sim_name], 'dir')
+                mkdir('results', sim_name);
+            end
+            
+            % Have to make copies of variables in order to save
+            config = this.config_;
+            simulation_data = this.simulation_data_;
+            save(['results/', sim_name, '/', 'configuration'], 'config');
+            save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
+            
+            % Get advice tracking metrics (if used)
+            if (this.config_.advice_on)
                 advice_data = this.advice_data_;
                 save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
             end

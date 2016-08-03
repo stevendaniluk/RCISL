@@ -23,6 +23,7 @@ classdef IndividualLearning < handle
         config_ = [];                   % Current configuration object
         robot_id_ = [];                 % Id number for owner robot
         q_learning_ = [];               % QLearning object
+        state_vector_ = [];             % Current state vector
         policy_ = [];                   % The policy being used
         iterations_ = [];               % Counter for total iterations
         learning_iterations_ = [];      % Counter for how many times learning is performed
@@ -95,14 +96,14 @@ classdef IndividualLearning < handle
             this.iterations_ = this.iterations_ + 1;
             
             % Get state matrix, and convert to encoded state vector
-            state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
+            this.state_vector_ = this.stateMatrixToStateVector(robot_state.state_matrix_);
             
             % Get our quality and experience from state vector
-            [quality, ~] = this.q_learning_.getUtility(state_vector);
+            [quality, ~] = this.q_learning_.getUtility(this.state_vector_);
             
             % Check if advice is needed (and activated)
             if (this.advice_on_)
-                need_advice = this.advice_.isAdviceNeeded(state_vector, quality);
+                need_advice = this.advice_.isAdviceNeeded(this.state_vector_, quality);
             else
                 need_advice = false;
             end
@@ -142,12 +143,11 @@ classdef IndividualLearning < handle
             reward = this.determineReward(robot_state);
             this.reward_data_(this.learning_iterations_, 1) = reward;
             
-            % Get current and previous state vectors for Q-learning
-            state_vector = this.stateMatrixToStateVector(robot_state.state_matrix_);
+            % Get previous state vector for Q-learning
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
             
             %do one step of QLearning
-            this.q_learning_.learn(prev_state_vector, state_vector, robot_state.action_id_, reward);
+            this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
