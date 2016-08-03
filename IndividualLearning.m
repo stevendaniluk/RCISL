@@ -35,6 +35,7 @@ classdef IndividualLearning < handle
         state_bits_ = [];               % Bits in state_vector
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
         reward_data_ = [];              % For tracking reward at each iteration
+        state_q_data_ = [];             % For tracking Q values at each step
         
         advice_on_ = [];
         advice_ = [];               % Advice mechanism between robots
@@ -71,6 +72,11 @@ classdef IndividualLearning < handle
             this.softmax_temp_ = config.softmax_temp;
             this.state_bits_ = config.num_state_bits;
             this.look_ahead_dist_ = config.look_ahead_dist;
+            
+            % Form structure for tracking Q values
+            % Need to know the values, and if a +ve reward was received
+            this.state_q_data_.vals = [];
+            this.state_q_data_.reward_sign = [];
             
             this.advice_on_ = config.advice_on;
             if (this.advice_on_)
@@ -145,6 +151,15 @@ classdef IndividualLearning < handle
             
             % Get previous state vector for Q-learning
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
+            
+            % Save q values for +ve and -ve rewards
+            [quality, ~] = this.q_learning_.getUtility(prev_state_vector);
+            this.state_q_data_.vals(size(this.state_q_data_.vals, 1) + 1, :) = quality';
+            if (reward > 0)
+                this.state_q_data_.reward_sign(size(this.state_q_data_.reward_sign, 1) + 1, 1) = true;
+            else
+                this.state_q_data_.reward_sign(size(this.state_q_data_.reward_sign, 1) + 1, 1) = false;
+            end
             
             %do one step of QLearning
             this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);

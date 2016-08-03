@@ -31,6 +31,7 @@ classdef ExecutiveSimulation < handle
         team_learning_ = [];    % Object for team learning agent
         advice_database_ = [];  % Object containing advice database
         advice_data_ = [];      % Struct for saving advice performance data
+        state_q_data_ = [];     % For tracking Q values at each step
         
     end
     
@@ -74,6 +75,15 @@ classdef ExecutiveSimulation < handle
                 this.robots_(id,1) = Robot(id, this.config_, this.world_state_);
             end
             
+            % Form structure for tracking Q values
+            % Tracking the values, and if a +ve reward was received
+            this.state_q_data_ = cell(this.num_robots_, 1);
+            for id = 1:this.num_robots_;
+                this.state_q_data_{id}=struct;
+                this.state_q_data_{id}.vals = [];
+                this.state_q_data_{id}.reward_sign = [];
+            end
+            
             % Create the team learning
             this.team_learning_ = TeamLearning(this.config_);
             
@@ -81,7 +91,7 @@ classdef ExecutiveSimulation < handle
             if (this.config_.advice_on)
                 this.advice_database_ = AdviceDatabase(this.config_, this.robots_);
             end
-            
+                        
             %Initialize physics engine
             this.physics_ = Physics(this.config_);
             
@@ -310,6 +320,12 @@ classdef ExecutiveSimulation < handle
         %   sim_name = Folder to save data in
         
         function saveSimulationData (this, sim_name)
+            % Get the Q value info
+            for i = 1:this.num_robots_
+                this.state_q_data_{i}.vals = this.robots_(i, 1).individual_learning_.state_q_data_.vals;
+                this.state_q_data_{i}.reward_sign = this.robots_(i, 1).individual_learning_.state_q_data_.reward_sign;
+            end
+            
             % Create new directory if needed
             if ~exist(['results/', sim_name], 'dir')
                 mkdir('results', sim_name);
@@ -318,8 +334,10 @@ classdef ExecutiveSimulation < handle
             % Have to make copies of variables in order to save
             config = this.config_;
             simulation_data = this.simulation_data_;
+            state_q_data = this.state_q_data_;
             save(['results/', sim_name, '/', 'configuration'], 'config');
             save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
+            save(['results/', sim_name, '/', 'state_q_data'], 'state_q_data');
             
             % Get advice tracking metrics (if used)
             if (this.config_.advice_on)
