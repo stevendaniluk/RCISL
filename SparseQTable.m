@@ -131,10 +131,6 @@ classdef SparseQTable < handle
             this.exp_table_ = sparse(this.table_size_, 1);
         end
         
-    end
-    
-    methods (Access = private)
-        
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   getKey
