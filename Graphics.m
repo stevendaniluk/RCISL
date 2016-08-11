@@ -102,7 +102,7 @@ function [] = Graphics(config, world_state, robots)
             
             if targetProperties(i,1) == 0
                 plot(boxPoints(1,:),boxPoints(2,:),'g');
-                if targetProperties(i,3) == 2
+                if targetProperties(i,2) == 2
                     plot(boxPoints(1,:),boxPoints(2,:)+0.05,'g');
                 end
             else

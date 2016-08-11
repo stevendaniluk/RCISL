@@ -97,12 +97,12 @@ classdef Physics
                         carrying_item = world_state.targetProperties(target_id, world_state.tpid_carriedBy) == robot_id;
                         
                         % Check if robot is capable of moving the item
-                        robot_type = world_state.robotProperties(robot_id, 5);
-                        box_type = world_state.targetProperties(target_id, 3);
-                        if (((box_type == 2) && (robot_type == 1) || box_type == 1))
-                            can_carry = true;
-                        else
+                        robot_type = world_state.robotProperties(robot_id, 3);
+                        box_type = world_state.targetProperties(target_id, 2);
+                        if (box_type == 2 && robot_type == 1)
                             can_carry = false;
+                        else
+                            can_carry = true;
                         end
                         
                         % Move box if appropriate
