@@ -63,7 +63,7 @@ classdef LAlliance < handle
             this.data_(:, :, this.di_) = config.max_task_time;
             % Set initial average trial time to half of max allowed time
             % with some noise, so not all robots are equal
-            this.data_(:,:,this.tau_i_) = normrnd(config.max_task_time, 20, [this.num_robots_, this.num_tasks_]);
+            this.data_(:,:,this.tau_i_) = normrnd(0.5*config.max_task_time, 20, [this.num_robots_, this.num_tasks_]);
             
             % Initialize the tau standard deviation
             task_standard_dev = std(this.data_(:, :, this.tau_i_), 0, 2);
@@ -143,9 +143,21 @@ classdef LAlliance < handle
                     can_takover = sum(can_takover) ~= 0;
                     
                     if (uncomplete && (unassigned || can_takover))
+                        % Only look at motivation and trial time of free robots
+                        motiv = this.data_(:, i,this.mi_);
                         
-                        [~, most_motivated] = max(this.data_(:, i,this.mi_));
-                        [~, fastest] = min(this.data_(:, i,this.tau_i_));
+                        if (motiv(robot_id) == 0)
+                            % Must have some motivation to avoid defaulting
+                            % to the first robot in the list
+                            break;
+                        end
+                        
+                        motiv(sum(this.data_(:,:,this.ji_), 2) == 1) = -inf;
+                        [~, most_motivated] = max(motiv);
+                        
+                        task_time = this.data_(:, i,this.tau_i_);
+                        task_time(sum(this.data_(:,:,this.ji_), 2) == 1) = inf;
+                        [~, fastest] = min(task_time);
                         
                         if (most_motivated == robot_id)
                             if (fastest == robot_id)
@@ -179,8 +191,17 @@ classdef LAlliance < handle
                     % Check if another avatar was assigned and must acquiesce
                     assigned_robot = find(this.data_(:, best_task, this.ji_));
                     if(~isempty(assigned_robot))
-                        % Make it acquisce
-                        this.giveUpTask(assigned_robot);
+                        % Make sure this task can be taken over
+                        can_takover = this.data_(assigned_robot, best_task, this.psi_i_) ...
+                                      > (this.data_(assigned_robot, best_task, this.tau_i_) ...
+                                      + this.data_(assigned_robot, best_task, this.std_));
+                        if (can_takover)
+                            % Make it acquisce
+                            this.giveUpTask(assigned_robot);
+                        else
+                            % Cannot assign this task
+                            return;
+                        end
                     end
                     
                     % Assign the task
@@ -332,7 +353,7 @@ classdef LAlliance < handle
                 tau_old = this.data_(robot_id, task_id, this.tau_i_);
                 time_on_task = this.data_(robot_id, task_id, this.psi_i_);
                 
-                tau_new = beta*(tau_old + (theta2 / f)*(time_on_task - tau_old));
+                tau_new = beta*(tau_old + exp(-f/theta2)*(time_on_task - tau_old));
             end
             
             % Save the new tau value
@@ -383,6 +404,7 @@ classdef LAlliance < handle
         function giveUpTask(this, robot_id)
             % Find the assigned task id
             [~, task_id] = find(this.data_(robot_id, :, this.ji_));
+            
             % Increment the task attempts
             this.data_(robot_id, task_id, this.vi_) = this.data_(robot_id, task_id, this.vi_) + 1;
             % Update the taus

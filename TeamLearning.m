@@ -49,21 +49,27 @@ classdef TeamLearning < handle
         %   robots = Array of robot objects
         
         function getTasks(this, robots)
-            for i = 1:this.num_robots_
-                % Save the old task
-                robots(i,1).robot_state_.prev_target_id_ = robots(i,1).robot_state_.target_id_;
-                
-                % Use appropriate task allocation strategy
-                if (strcmp(this.task_allocation_, 'l_alliance'))
+            
+            % Use appropriate task allocation strategy
+            if (strcmp(this.task_allocation_, 'l_alliance'))
+                % Update L-Alliance for robots in a random order
+                rand_robot_id = randperm(this.num_robots_);
+                for i = 1:this.num_robots_
+                    rand_id = rand_robot_id(i);
+                    % Save the old task
+                    robots(rand_id,1).robot_state_.prev_target_id_ = robots(rand_id,1).robot_state_.target_id_;
                     % Update task states
-                    this.l_alliance_.updatetaskProperties(robots(i,1).robot_state_);
+                    this.l_alliance_.updatetaskProperties(robots(rand_id,1).robot_state_);
                     
                     % Recieve the updated task, and assign it
-                    this.l_alliance_.chooseTask(robots(i,1).robot_state_.id_);
-                    robots(i,1).robot_state_.target_id_ = this.l_alliance_.getCurrentTask(robots(i,1).robot_state_.id_);
-                    
-                elseif (strcmp(this.task_allocation_, 'fixed'))
-                    
+                    this.l_alliance_.chooseTask(robots(rand_id,1).robot_state_.id_);
+                    robots(rand_id,1).robot_state_.target_id_ = this.l_alliance_.getCurrentTask(robots(rand_id,1).robot_state_.id_);
+                end
+                
+            elseif (strcmp(this.task_allocation_, 'fixed'))
+                for i = 1:this.num_robots_
+                    % Save the old task
+                    robots(i,1).robot_state_.prev_target_id_ = robots(i,1).robot_state_.target_id_;
                     prelim_task_id = robots(i,1).robot_state_.id_;
                     
                     % Only assign the task if it is not complete
@@ -73,10 +79,9 @@ classdef TeamLearning < handle
                     else
                         robots(i,1).robot_state_.target_id_ = prelim_task_id;
                     end
-                    
                 end
             end
-            
+ 
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
