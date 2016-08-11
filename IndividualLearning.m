@@ -75,8 +75,10 @@ classdef IndividualLearning < handle
             
             % Form structure for tracking Q values
             % Need to know the values, and if a +ve reward was received
-            this.state_q_data_.vals = [];
-            this.state_q_data_.reward_sign = [];
+            this.state_q_data_.q_vals = [];
+            this.state_q_data_.state_vector = [];
+            this.state_q_data_.action = [];
+            this.state_q_data_.reward = [];
             
             this.advice_on_ = config.advice_on;
             if (this.advice_on_)
@@ -152,14 +154,12 @@ classdef IndividualLearning < handle
             % Get previous state vector for Q-learning
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
             
-            % Save q values for +ve and -ve rewards
+            % Save q values and reward
             [quality, ~] = this.q_learning_.getUtility(prev_state_vector);
-            this.state_q_data_.vals(size(this.state_q_data_.vals, 1) + 1, :) = quality';
-            if (reward > 0)
-                this.state_q_data_.reward_sign(size(this.state_q_data_.reward_sign, 1) + 1, 1) = true;
-            else
-                this.state_q_data_.reward_sign(size(this.state_q_data_.reward_sign, 1) + 1, 1) = false;
-            end
+            this.state_q_data_.q_vals(size(this.state_q_data_.q_vals, 1) + 1, :) = quality';
+            this.state_q_data_.state_vector(size(this.state_q_data_.state_vector, 1) + 1, :) = prev_state_vector;
+            this.state_q_data_.action(size(this.state_q_data_.action, 1) + 1, :) = robot_state.action_id_;
+            this.state_q_data_.reward(size(this.state_q_data_.reward, 1) + 1, 1) = reward;
             
             %do one step of QLearning
             this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);

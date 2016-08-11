@@ -6,132 +6,180 @@
 % Data for q_tables, state_q_data, and simulation_data 
 % must be loaded in prior to use!
 
-% Quality analysis
-plot_learned_q_vals = false;
-plot_online_q_vals = true;
-save_video = true;
+% Current Q-value metrics:
+%   -Entropy
+%   -Kolmogorov-Smirnov Test
+%   -Kullback-Leibler Divergence
 
-% Online Q-Value Settings
-iter_delta = 1000;
-iter_start = 1;
-vid_filename='test';
-video_framerate = 10;
+% What metrics to calculate
+plot_entropy = true;
+plot_kstest = true;
+plot_kld = true;
+
+% Number of iterations to smooth over for each metric
+smooth_entropy = 500;
+smooth_kld = 2000;
 
 % General settings
 actions = 5;
 robot = 1;
-plot_axis = [0, 0.12, -0.1, 0.4];
 
-%% For observing a batch of Q-values after learning
-if (plot_learned_q_vals)
-    % Get qualities, and reshape into one row for each state, 
-    % one column for each action
-    q_table = full(q_tables{robot});
-    q_table = reshape(q_table, [length(q_table)/actions, actions]);
+%% Load and sort data
 
-    % Collect quality metrics into a data matrix
-    %   Col 1: Variance
-    %   Col 2: Mean
-    data = zeros(size(q_table, 1), 2);
-    data(:, 1) = var(q_table, 0, 2);
-    data(:, 2) = sum(q_table, 2)/actions;
+% Sort Q values from learned policy
+learned_q_vals = full(q_tables{robot});
+learned_q_vals = reshape(learned_q_vals, [length(learned_q_vals)/actions, actions]);
+
+% Get the live state vectors
+state_vectors = state_q_data{robot}.state_vector;
+
+% Extract the live Q values
+q_vals = state_q_data{robot}.q_vals;
+reward = state_q_data{robot}.reward;
+
+% Probability of Q values
+tau = 0.05;
+q_exponents = exp(q_vals/tau);
+q_prob = bsxfun(@rdivide, q_exponents, sum(q_exponents, 2));
+
+% Get indices of positive and negative rewards
+pos_r_indices = reward > 0;
+neg_r_indices = reward <= 0;
+
+pos_r_iters = find(reward > 0);
+neg_r_iters = find(reward <= 0);
+
+% Make a Q table object to extract learned Q values for a state vector
+num_state_vrbls = 5;
+state_bits = [4, 1, 4, 4, 4];
+table = SparseQTable(num_state_vrbls, state_bits, actions);
+
+% Insert learned Q-values
+table.q_table_ = q_tables{robot};
+
+% Useful values
+n = length(q_vals);
+iters = 1:n;
+
+%% Entropy
+if (plot_entropy)
+    base_entropy = -actions*(1/actions)*log2(1/actions);
+    entropy = sum(-q_prob.*log2(q_prob), 2);
+    pos_r_entropy = sum(-q_prob(pos_r_indices, :).*log2(q_prob(pos_r_indices, :)), 2);
+    neg_r_entropy = sum(-q_prob(neg_r_indices, :).*log2(q_prob(neg_r_indices, :)), 2);
     
-    % Find which states have a positive Q value
-    pos_q_indices = sum(q_table > 0, 2) > 0;
+    learned_entropy = zeros(n, 1);
+    for i = 1:n
+        % Use learned Q-values as "true" distribution
+        q_learned = table.getElements(state_vectors(i, :))';
+        q_learned_prob = exp(q_learned/tau)/sum(exp(q_learned/tau));
+        learned_entropy(i) = sum(-q_learned_prob.*log2(q_learned_prob), 2);
+    end
     
-    % Get metrics for states with a positive Q
-    var_pos_reward = data(pos_q_indices, 1);
-    mean_pos_reward = data(pos_q_indices, 2);
+    % Smooth
+    entropy = smooth(entropy, smooth_entropy);
+    learned_entropy = smooth(learned_entropy, smooth_entropy);
+    pos_r_entropy = smooth(pos_r_entropy, smooth_entropy);
+    neg_r_entropy = smooth(neg_r_entropy, smooth_entropy);
     
-    % Get metrics for states with negative Q's
-    var_neg_reward = data(~pos_q_indices, 1);
-    mean_neg_reward = data(~pos_q_indices, 2);
-    
+    % Plot
     figure(1)
+    clf
     hold on
-    plot(var_pos_reward, mean_pos_reward, 'bo');
-    plot(var_neg_reward, mean_neg_reward, 'rx');
+    plot(pos_r_iters, pos_r_entropy)
+    plot(neg_r_iters, neg_r_entropy)
+    plot(iters, learned_entropy)
     hold off
-    xlabel('Variance')
-    ylabel('Mean')
-    title(['Metrics From Learned Q-Values for ', num2str(length(simulation_data.iterations)), ' Runs'])
-    axis(plot_axis)
-    legend('+ve Q-Value Present', '-ve Q-Values Only')
-    
+    ref_line = refline(0, base_entropy);
+    ref_line.Color = 'r';
+    ref_line.LineStyle = '--';
+    xlabel('Iterations')
+    ylabel('Entropy')
+    title('Q-Value Entropy at Each Iteration')
+    axis([0, n, 0, 1.1*base_entropy])
+    legend('Positive Reward', 'Negative Reward', 'Learned Qs')
 end
 
-%% For observing Q-values online during learning
-if (plot_online_q_vals)
+%% Kolmogorov-Smirnov Test
+if (plot_kstest)
+    theo_dist = zeros(1, actions);
+    k_test_data = zeros(n, 3);
     
-    if (save_video)
-        % Create AVI video file
-        vid = VideoWriter(vid_filename);	% Video object
-        
-        % Set video parameters
-        vid.Quality = 100;					% Range of [0, 100]
-        vid.FrameRate = video_framerate;	% Frames per second in video
-        
-        % Open video file for writing
-        open(vid);
-    end
+    accept = 0;
+    reject = 0;
+    accept_count = zeros(n, 1);
+    reject_count = zeros(n, 1);
     
-    % Set which iterations should be included
-    total_iters = sum(simulation_data.iterations);
-    if (save_video)
-        index_end = total_iters;
-    else
-        index_end = iter_start;
-    end
-    
-     for index_start=iter_start:iter_delta:index_end
-        % Adjust the end index
-        index_end = index_start + iter_delta;
-        index_end = min(index_end, total_iters);
-
-        % Extract the proper Q values
-        q_vals = state_q_data{robot}.vals(index_start:index_end, :);
-        reward_sign = state_q_data{robot}.reward_sign(index_start:index_end, :);
-        
-        % Soft into positive and negative reward Q's
-        pos_reward_qs_in = q_vals(reward_sign == 1, :);
-        neg_reward_qs_in = q_vals(reward_sign == 0, :);
-        
-        % Get metrics
-        var_pos_reward = var(pos_reward_qs_in, 0, 2);
-        mean_pos_reward = sum(pos_reward_qs_in, 2)/actions;
-        var_neg_reward = var(neg_reward_qs_in, 0, 2);
-        mean_neg_reward = sum(neg_reward_qs_in, 2)/actions;
-        
-        % Plot
-        f = figure(2);
-        x_string = 'Variance';
-        y_string = 'Mean';
-        title_string = ['Reward Q-Value Data For ', num2str(iter_delta), ...
-                     ' Iterations Starting at ', num2str(index_start), ...
-                     ' (Total: ', num2str(total_iters), ')'];
-        hold on
-        subplot(2,1,1)
-        plot(var_pos_reward, mean_pos_reward, 'bx');
-        xlabel(x_string)
-        ylabel(y_string)
-        title(['+ve ', title_string]);
-        axis(plot_axis)
-        hold on
-        subplot(2,1,2)
-        plot(var_neg_reward, mean_neg_reward, 'rx');
-        xlabel(x_string)
-        ylabel(y_string)
-        title(['-ve ', title_string]);
-        axis(plot_axis)
-        
-        if (save_video)
-            % Get and write frames for video
-            writeVideo(vid,getframe(f));
+    for i = 1:n
+        [h, p, k] = kstest2(q_vals(i, :), theo_dist, 'Alpha', 0.1);
+        k_test_data(i, :) = [h, p, k];
+        if (h == 0)
+            accept = accept + 1;
+        else
+            reject = reject + 1;
         end
-     end
-     
-     if (save_video)
-         % When finished, close the video file
-         close(vid);
-     end
+        accept_count(i) = accept;
+        reject_count(i) = reject;
+    end
+    
+    % Plot
+    figure(2)
+    clf
+    hold on
+    plot(iters, accept_count)
+    plot(iters, reject_count)
+    hold off
+    ref_line = refline(0, n);
+    ref_line.Color = 'r';
+    ref_line.LineStyle = '--';
+    xlabel('Iterations')
+    ylabel('K-S Test Result Count')
+    title('Cumulative Results of Kolmogorov-Smirnov Test')
+    axis([0, n, 0, 1.1*n])
+    legend('Accept', 'Reject')
+end
+
+%% Kullback-Leibler Divergence
+if (plot_kld)
+    % Calculate KL Divergence for each state
+    D_kl = zeros(n, 1);
+    D_kl_pos_r = zeros(length(pos_r_iters), 1);
+    D_kl_neg_r = zeros(length(neg_r_iters), 1);
+    pos_count = 0;
+    neg_count = 0;
+    for i = 1:n
+        % Use learned Q-values as "true" distribution
+        q_learned = table.getElements(state_vectors(i, :))';
+        P = exp(q_learned/tau)/sum(exp(q_learned/tau));
+        % Use live values as approximate distribution 
+        Q = q_prob(i, :);
+        % Calculate divergence
+        D_kl(i) = P*(log2(P./Q)');
+        
+        if (pos_r_indices(i))
+            pos_count = pos_count + 1;
+            D_kl_pos_r(pos_count) = D_kl(i);
+        else
+            neg_count = neg_count + 1;
+            D_kl_neg_r(neg_count) = D_kl(i);
+        end
+    end
+    
+    % Smooth
+    D_kl = smooth(D_kl, smooth_kld);
+    D_kl_pos_r = smooth(D_kl_pos_r, smooth_kld);
+    D_kl_neg_r = smooth(D_kl_neg_r, smooth_kld);
+    
+    % Plot
+    figure(4)
+    clf
+    hold on
+    plot(pos_r_iters, D_kl_pos_r)
+    plot(neg_r_iters, D_kl_neg_r)
+    hold off
+    xlabel('Iterations')
+    ylabel('D_k_l')
+    title('Result of Kullback-Leibler Divergence')
+    axis([0, n, 0, 2])
+    legend('Positive Reward', 'Negative Reward')
 end
