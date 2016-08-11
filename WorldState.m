@@ -126,20 +126,6 @@ classdef WorldState < handle
                                  
             % Randomize the positions and orientatons for all objects
             this.randomizeState();
-            
-            % set the realism level accordingly
-            % at the first realism level, we let the boxes be 'picked up'
-            % by a robot. At later sim levels this is not the case.
-            if(config.simulation_Realism == 0)
-                this.boxPickup = 1;
-            else
-                this.boxPickup =0;
-            end
-            if(config.simulation_Realism == 2)
-                this.groupPickup = 1;
-            else
-                this.groupPickup =0;
-            end 
         end
                 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -193,7 +179,6 @@ classdef WorldState < handle
 
                 this.targetProperties(i, this.tpid_size) = targetTypes(type_index, 1);      % Size
                 this.targetProperties(i, this.tpid_weight) = targetTypes(type_index, 2);    % Weight
-                this.targetProperties(i, this.tpid_type12) = targetTypes(type_index, 3);    % Type
             end
         end
 
