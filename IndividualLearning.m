@@ -109,17 +109,10 @@ classdef IndividualLearning < handle
             % Get our quality and experience from state vector
             [quality, ~] = this.q_learning_.getUtility(this.state_vector_);
             
-            % Check if advice is needed (and activated)
+            % Get advised action (if necessary)
             if (this.advice_on_)
-                need_advice = this.advice_.isAdviceNeeded(this.state_vector_, quality);
-            else
-                need_advice = false;
-            end
-            
-            % Determine action, considering advice from advisors
-            if (need_advice)
                 % Get advice from advisor (overwrite quality and experience)
-                [quality] = this.advice_.getAdvice();
+                [quality] = this.advice_.getAdvice(this.state_vector_, quality);
                 
                 % Select action with policy (including greedy override)
                 action_id = this.Policy(quality, this.greedy_override_);
@@ -130,7 +123,7 @@ classdef IndividualLearning < handle
                 greedy_override = false;
                 action_id = this.Policy(quality, greedy_override);
             end
-            
+                        
             % Notify AdviceDatabase listener of quality update
             this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.iterations_));
             

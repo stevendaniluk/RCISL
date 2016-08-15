@@ -4,6 +4,7 @@ classdef Advice < handle
     properties
         % Configuration settings
         config_ = [];
+        mechanism_ = [];
         num_robots_ = [];
         robots_ = [];
         id_ = [];
@@ -56,9 +57,12 @@ classdef Advice < handle
         
         function this = Advice (config, id)
             this.config_ = config;
+            this.mechanism_ = config.advice_mechanism;
             this.id_ = id;
             this.num_robots_ = config.numRobots;
             this.epoch_ = 1;
+            this.total_actions_ = 0;
+            this.advised_actions_ = 0;
                         
             % Set Advice Exchange Properties
             this.alpha_ = config.advice_alpha;       
@@ -66,13 +70,11 @@ classdef Advice < handle
             this.delta_ = config.advice_delta;
             this.rho_ = config.advice_rho;
             
-            % Intialize tracking metrics
+            % Intialize Advice Exchange metrics
             this.cq_ = 0;
             this.best_cq_ = struct('id', [], 'value', 0);
             this.bq_ = 0;
             this.best_bq_ = struct('id', [], 'value', 0);
-            this.total_actions_ = 0;
-            this.advised_actions_ = 0;
             this.cond_a_true_count_ = 0;
             this.cond_b_true_count_ = 0;
             this.cond_c_true_count_ = 0;
@@ -81,36 +83,79 @@ classdef Advice < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   isAdviceNeeded
+        %   getAdvice
         %
         %   Checks if this robot needs advice, by comparing its current and
         %   best average qualities to those of other robots, as well is
         %   checking if it is confused about its own state.
         %
         %   INPUTS:
-        %   quality = Vector of quality values for this robots state
+        %   quality_in = Vector of quality values for this robots state
         %
         %   OUTPUTS:
-        %   need_advice = Boolean response to if advice is needed
+        %   quality_out = Advised quality values
         
-        function need_advice = isAdviceNeeded(this, state_vector, quality)
+        function quality_out = getAdvice(this, state_vector, quality_in)
             
             this.total_actions_ = this.total_actions_ + 1;
             
+            % Get advice from selected mechanism
+            if (strcmp(this.mechanism_, 'advice_exchange'))
+                quality_out = this.adviceExchange(state_vector, quality_in);
+            elseif (strcmp(this.mechanism_, 'entropy'))
+                  quality_out = this.adviceEntropy(state_vector, quality_in);  
+            end
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   adviceEntropy
+        %
+        %   TODO
+        %
+        %   INPUTS:
+        %   quality_in = Vector of quality values for this robots state
+        %
+        %   OUTPUTS:
+        %   quality_out = Advised quality values
+        
+        function quality_out = adviceEntropy(this, state_vector, quality_in)
+            % TODO
+            quality_out = quality_in;
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   adviceExchange
+        %
+        %   Implements the Advice Exchange algorithm, by comparing current
+        %   average and best qualities, as well as the quality values of
+        %   the current state, to potential advisor robots. Implemented
+        %   according to [Girard, 2015].
+        %
+        %   NOTE: In MatlabCISL from Justin Girard, it appears that
+        %   condition C is never evaluated.
+        %
+        %   INPUTS:
+        %   quality_in = Vector of quality values for this robots state
+        %
+        %   OUTPUTS:
+        %   quality_out = Advised quality values
+        
+        function quality_out = adviceExchange(this, state_vector, quality_in)
             % Do nothing during the first epoch (need data first)
             if(this.epoch_ <= 1)
-                need_advice = false;
+                quality_out = quality_in;
                 return;
-            end
-                        
-            % Default to no advice
-            need_advice = false;       
+            end      
             
             % An advisor must have a better current average quality
             if (this.cq_ < this.best_cq_.value)
                 
                 % Advisor id
                 this.advisor_id_ = this.best_cq_.id;
+                this.advisor_handle_ = this.requestData(this.advisor_id_, 'robot_handle');
+                [this.advisor_quality_, ~] = this.advisor_handle_.individual_learning_.q_learning_.getUtility(state_vector);
                 
                 % Compare this epochs current average quality, to advisors
                 % relative current average quality
@@ -122,39 +167,28 @@ classdef Advice < handle
                 cond_b = this.bq_ < advisor_bq;
                 
                 % Compare qualities for current action
-                this.advisor_handle_ = this.requestData(this.advisor_id_, 'robot_handle');
-                [this.advisor_quality_, ~] = this.advisor_handle_.individual_learning_.q_learning_.getUtility(state_vector);
-                cond_c = sum(quality) < this.rho_*sum(this.advisor_quality_);
+                % NOT EVALUATED IN MATLABCISL FROM JUSTIN GIRARD
+                % cond_c = sum(quality_in) < this.rho_*sum(this.advisor_quality_);
+                cond_c = true;
                 
                 % All conditions must be satisfied to give advice
                 if (cond_a && cond_b && cond_c)
-                    need_advice = true;
+                    quality_out = this.advisor_quality_;
                     this.advised_actions_ = this.advised_actions_ + 1;
+                else
+                    quality_out = quality_in;
+                    this.advisor_id_ = [];
                 end
                 
                 % Track how often each is true
                 this.cond_a_true_count_ = this.cond_a_true_count_ + cond_a;
                 this.cond_b_true_count_ = this.cond_b_true_count_ + cond_b;
                 this.cond_c_true_count_ = this.cond_c_true_count_ + cond_c;
-                
             else
+                quality_out = quality_in;
                 this.advisor_id_ = [];
             end
-            
         end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %
-        %   getAdvice
-        %
-        %   Returns the advice from the advisor (currently simply returns
-        %   the quality and experience of the advisor from isAdviceNeeded)
-        
-        function quality = getAdvice(this)
-            quality = this.advisor_quality_;
-        end
-        
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %

@@ -3,7 +3,7 @@ classdef Configuration < handle
     properties
         
         % Graphics Parameters
-        show_live_graphics = false;
+        show_live_graphics = true;
         show_track_graphics = false;
                         
         % Primary Scenario Parameters
@@ -84,12 +84,13 @@ classdef Configuration < handle
         stochastic_update_theta4 = 2.0;  % Coefficient for stochastic update
         
         % Advice Parameters
-        advice_on = false;              % If advice should be used
-        greedy_override = false;       % Overrides the policy with a greedy selection
-        advice_alpha = 0.7;            % Coefficient for current average quality update
-        advice_beta = 0.90;            % Coefficient for best average quality update
-        advice_delta = 0.1;            % Coefficient for quality comparison
-        advice_rho = 0.90;             % Coefficient for quality comparison
+        advice_on = false;                       % If advice should be used
+        advice_mechanism = 'advice_exchange';   % Options: "advice_exchange", "entropy"
+        greedy_override = false;                % Overrides the policy with a greedy selection
+        advice_alpha = 0.85;                    % Coefficient for current average quality update
+        advice_beta = 0.90;                     % Coefficient for best average quality update
+        advice_delta = 0.03;                    % Coefficient for quality comparison
+        advice_rho = 0.95;                      % Coefficient for quality comparison
         
     end
     
