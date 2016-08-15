@@ -20,10 +20,6 @@ classdef QLearning <handle
         alpha_power_ = [];  % Coefficient in alpha update
     end
     
-    properties (Access = private)
-        
-    end
-    
     methods (Access = public)
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
@@ -32,15 +28,15 @@ classdef QLearning <handle
         %   INPUTS
         %   config = Configuration object
  
-        function this = QLearning(config)
-            % Load learning parameters from config file
-            this.gamma_ = config.gamma;
-            this.alpha_denom_ = config.alpha_denom;
-            this.alpha_power_ = config.alpha_power;
-            this.alpha_max_ = config.alpha_max;
-                        
+        function this = QLearning(gamma, alpha_denom, alpha_power, alpha_max, num_state_vrbls, num_state_bits, num_actions)
+            % Set learning parameters
+            this.gamma_ = gamma;
+            this.alpha_denom_ = alpha_denom;
+            this.alpha_power_ = alpha_power;
+            this.alpha_max_ = alpha_max;
+            
             % Intiialize quality table
-            this.quality_ = SparseQTable(config.num_state_vrbls, config.num_state_bits, config.num_actions);
+            this.quality_ = SparseQTable(num_state_vrbls, num_state_bits, num_actions);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -83,11 +79,7 @@ classdef QLearning <handle
         function [quality, experience] = getUtility(this, state)
             [quality, experience] = this.quality_.getElements(state);
         end        
-
-    end
-    
-    methods (Access = private)
-        
+            
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
         %   updateUtility

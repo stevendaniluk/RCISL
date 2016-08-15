@@ -20,16 +20,16 @@ clf
 
 % Set what data should be plotted
 plot_ref = true;
-plot_advice = false;
-plot_advice_metrics = false;
-plot_indiv = false;
+plot_advice = true;
+plot_advice_exchange_metrics = true;
+plot_advice_exchange_indiv = false;
 save_plots = false;
 
 % Folder paths and number of sims
-ref_folder = 'test_a';
-ref_sims = 10;
-advice_folder = 'test_b';
-advice_sims = 10;
+ref_folder = 'test';
+ref_sims = 1;
+advice_folder = 'ae';
+advice_sims = 1;
 
 % Individual robots to generate plots for (for when plot_indiv is true)
 indiv_robots = [1, 2, 3];
@@ -37,7 +37,7 @@ indiv_sim_num = 1;
 
 % General settings
 num_robots = 3;
-num_runs = 300;
+num_runs = 5;
 smooth_pts = 10;
 iter_axis_max = 1500;
 reward_axis_min = -1000;
@@ -93,7 +93,7 @@ if (plot_advice)
     % Smooth data
     advice_iters = smooth(advice_iters',smooth_pts);
     
-    if (plot_advice_metrics)
+    if (plot_advice_exchange_metrics)
         team_advice_ratio = zeros(advice_sims, num_runs);
         team_cond_a_count = zeros(advice_sims, num_runs);
         team_cond_b_count = zeros(advice_sims, num_runs);
@@ -103,19 +103,21 @@ if (plot_advice)
         for i=1:advice_sims
             load(['results/', advice_filename, sprintf('%d', i), '/', 'advice_data']);
             
-            if (plot_indiv)
+            if (plot_advice_exchange_indiv)
                 for j = 1:num_robots
-                    robot_data{j}.advice_ratio(i, :) = advice_data.advised_actions_ratio(j, :);
-                    robot_data{j}.cond_a_count(i, :) = advice_data.cond_a_true_count(j, :);
-                    robot_data{j}.cond_b_count(i, :) = advice_data.cond_b_true_count(j, :);
-                    robot_data{j}.cond_c_count(i, :) = advice_data.cond_c_true_count(j, :);
+                    robot_data{j}.advice_ratio(i, :) = advice_data{j}.advised_actions_ratio(j, :);
+                    robot_data{j}.cond_a_count(i, :) = advice_data{j}.ae.cond_a_true_count(j, :);
+                    robot_data{j}.cond_b_count(i, :) = advice_data{j}.ae.cond_b_true_count(j, :);
+                    robot_data{j}.cond_c_count(i, :) = advice_data{j}.ae.cond_c_true_count(j, :);
                 end
             end
             
-            team_cond_a_count(i,:) = sum(advice_data.cond_a_true_count, 1)/num_robots;
-            team_cond_b_count(i,:) = sum(advice_data.cond_b_true_count, 1)/num_robots;
-            team_cond_c_count(i,:) = sum(advice_data.cond_c_true_count, 1)/num_robots;
-            team_advice_ratio(i,:) = sum(advice_data.advised_actions_ratio, 1)/num_robots';
+            for j = 1:num_robots
+                team_cond_a_count(i,:) = team_cond_a_count(i,:) + advice_data{j}.ae.cond_a_true_count/num_robots;
+                team_cond_b_count(i,:) = team_cond_b_count(i,:) + advice_data{j}.ae.cond_b_true_count/num_robots;
+                team_cond_c_count(i,:) = team_cond_c_count(i,:) + advice_data{j}.ae.cond_c_true_count/num_robots;
+                team_advice_ratio(i,:) = team_advice_ratio(i,:) + advice_data{j}.advised_actions_ratio/num_robots;
+            end
         end
         
         % Normalize advice conditions to number of iterations
@@ -154,7 +156,7 @@ if (plot_ref && ~plot_advice)
 elseif(plot_ref && plot_advice)
     % Advice is present, need three subplots
     f = figure(1);
-    if (plot_advice_metrics)
+    if (plot_advice_exchange_metrics)
         subplot(3,1,1)
     end
     hold on
@@ -172,7 +174,7 @@ elseif(plot_ref && plot_advice)
         legend('Advice', 'No Advice');
     end
     
-    if (plot_advice_metrics)
+    if (plot_advice_exchange_metrics)
         % Plot the advice condition frequency
         subplot(3,1,2)
         hold on
@@ -203,7 +205,7 @@ elseif(plot_ref && plot_advice)
 end
 
 %% Plot advice data for individual robots
-if (plot_indiv && plot_advice)
+if (plot_advice_exchange_indiv && plot_advice)
     for i = 1:length(indiv_robots)
         f_bot = figure(i + 1);
         robot_id = indiv_robots(i);

@@ -285,18 +285,6 @@ classdef ExecutiveSimulation < handle
                 this.simulation_data_.total_reward(run) = this.simulation_data_.total_reward(run - 1) + sum(total_reward);
             end
             
-            % Get advice tracking metrics (if used)
-            if (this.config_.advice_on)
-                for i = 1:this.num_robots_
-                    this.advice_data_.advised_actions(i, run) = this.robots_(i, 1).individual_learning_.advice_.advised_actions_;
-                    this.advice_data_.total_actions(i, run) = this.robots_(i, 1).individual_learning_.advice_.total_actions_;
-                    this.advice_data_.advised_actions_ratio(i, run) = this.robots_(i, 1).individual_learning_.advice_.advised_actions_ / ...
-                        this.robots_(i, 1).individual_learning_.advice_.total_actions_;
-                    this.advice_data_.cond_a_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_a_true_count_;
-                    this.advice_data_.cond_b_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_b_true_count_;
-                    this.advice_data_.cond_c_true_count(i, run) = this.robots_(i, 1).individual_learning_.advice_.cond_c_true_count_;
-                end
-            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -311,33 +299,31 @@ classdef ExecutiveSimulation < handle
         
         function saveSimulationData (this, sim_name)
             
-            % Form structure for tracking Q values and insert data
-            for i = 1:this.num_robots_
-                state_q_data_{i}=struct;
-                state_q_data_{i}.q_vals = this.robots_(i, 1).individual_learning_.state_q_data_.q_vals;
-                state_q_data_{i}.state_vector = this.robots_(i, 1).individual_learning_.state_q_data_.state_vector;
-                state_q_data_{i}.action = this.robots_(i, 1).individual_learning_.state_q_data_.action;
-                state_q_data_{i}.reward = this.robots_(i, 1).individual_learning_.state_q_data_.reward;
-            end
-            
             % Create new directory if needed
             if ~exist(['results/', sim_name], 'dir')
                 mkdir('results', sim_name);
             end
             
+            % Get state related data
+            for i = 1:this.num_robots_
+                state_q_data{i} = this.robots_(i, 1).individual_learning_.state_q_data_;
+            end
+            
+            % Get advice related data
+            if (this.config_.advice_on)
+                for i = 1:this.num_robots_
+                    advice_data{i} = this.robots_(i, 1).individual_learning_.advice_.advice_data_;
+                    advice_data{i}.advised_actions_ratio = advice_data{i}.advised_actions./advice_data{i}.total_actions;
+                end
+                save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
+            end
+                        
             % Have to make copies of variables in order to save
             config = this.config_;
             simulation_data = this.simulation_data_;
-            state_q_data = state_q_data_;
             save(['results/', sim_name, '/', 'configuration'], 'config');
             save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
             save(['results/', sim_name, '/', 'state_q_data'], 'state_q_data');
-            
-            % Get advice tracking metrics (if used)
-            if (this.config_.advice_on)
-                advice_data = this.advice_data_;
-                save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
-            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

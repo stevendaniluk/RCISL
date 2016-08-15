@@ -3,20 +3,20 @@ classdef Configuration < handle
     properties
         
         % Graphics Parameters
-        show_live_graphics = true;
+        show_live_graphics = false
         show_track_graphics = false;
                         
         % Primary Scenario Parameters
-        max_iterations = 5000;
-        numRobots    = 4;
+        max_iterations = 2000;
+        numRobots    = 3;
         numObstacles = 4;
-        numTargets   = 4;
+        numTargets   = 3;
         robot_Type =[ 4*pi/18      2         0.30      1; ... 
                       4*pi/18      1         0.40      2; ... 
                       4*pi/18      1         0.30      3; ... 
                       4*pi/18      2         0.40      4];    
                     % Rotation  Strength  Step Size Type Id
-        target_Type = [0.2, 1; 0.2, 2];
+        target_Type = [0.2, 1; 0.2, 1];
         robot_Reach = 1;
                 
         % Action and State Parameters
@@ -72,7 +72,7 @@ classdef Configuration < handle
         alpha_power = 2;        % Coefficient in alpha update equation
         
         % Team Learning Parameters
-        task_allocation = 'l_alliance';  % Options: "fixed", "l_alliance"
+        task_allocation = 'fixed';  % Options: "fixed", "l_alliance"
         
         % L-Alliance Parameters
         motiv_freq = 5;             % Frequency at which motivation updates
@@ -84,14 +84,15 @@ classdef Configuration < handle
         stochastic_update_theta4 = 2.0;  % Coefficient for stochastic update
         
         % Advice Parameters
-        advice_on = false;                       % If advice should be used
+        advice_on = true;                       % If advice should be used
         advice_mechanism = 'advice_exchange';   % Options: "advice_exchange", "entropy"
         greedy_override = false;                % Overrides the policy with a greedy selection
-        advice_alpha = 0.85;                    % Coefficient for current average quality update
-        advice_beta = 0.90;                     % Coefficient for best average quality update
-        advice_delta = 0.03;                    % Coefficient for quality comparison
-        advice_rho = 0.95;                      % Coefficient for quality comparison
-        
+        entropy_state_bits = 7;                 % Resolution of entropy
+        entropy_softmax_temp = 0.10;            % Advisor selection softmax
+        ae_alpha = 0.85;                        % Coefficient for current average quality update
+        ae_beta = 0.90;                         % Coefficient for best average quality update
+        ae_delta = 0.03;                        % Coefficient for quality comparison
+        ae_rho = 0.95;                          % Coefficient for quality comparison
     end
     
 end

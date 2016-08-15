@@ -62,7 +62,6 @@ classdef IndividualLearning < handle
         function this = IndividualLearning(config, id)
             this.config_ = config;
             this.robot_id_ = id;
-            this.q_learning_ = QLearning(config);
             this.iterations_ = 0;
             this.learning_iterations_ = 0;
             this.prev_learning_iterations_ = 0;
@@ -73,12 +72,19 @@ classdef IndividualLearning < handle
             this.state_bits_ = config.num_state_bits;
             this.look_ahead_dist_ = config.look_ahead_dist;
             
+            % Initialize Q-learning
+            this.q_learning_ = QLearning(config.gamma, config.alpha_denom, ...
+                                config.alpha_power, config.alpha_max, ...
+                                config.num_state_vrbls, config.num_state_bits, ...
+                                config.num_actions);
+            
             % Form structure for tracking Q values
             % Need to know the values, and if a +ve reward was received
             this.state_q_data_.q_vals = [];
             this.state_q_data_.state_vector = [];
             this.state_q_data_.action = [];
             this.state_q_data_.reward = [];
+            this.state_q_data_.delta_q = [];
             
             this.advice_on_ = config.advice_on;
             if (this.advice_on_)
@@ -154,8 +160,15 @@ classdef IndividualLearning < handle
             this.state_q_data_.action(size(this.state_q_data_.action, 1) + 1, :) = robot_state.action_id_;
             this.state_q_data_.reward(size(this.state_q_data_.reward, 1) + 1, 1) = reward;
             
-            %do one step of QLearning
+            % Do one step of QLearning
             this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);
+            
+            % Notify AdviceDatabase listener of change in quality
+            [new_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
+            delta_quality = new_quality(robot_state.action_id_) - quality(robot_state.action_id_);
+            this.state_q_data_.delta_q(size(this.state_q_data_.delta_q, 1) + 1, 1) = delta_quality;
+            this.notify('PerfMetrics', PerfMetricsEventData('delta_quality', this.robot_id_, delta_quality, this.learning_iterations_));
+            
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
