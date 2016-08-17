@@ -9,7 +9,8 @@ classdef AdviceDatabase < handle
         
         % General Tracking Metrics
         avg_quality_ = [];
-        delta_quality_ = [];
+        delta_q_ = [];
+        delta_h_ = [];
         
         % Advice Exchange Data
         cq_ = [];           % Realtive current average quality
@@ -35,7 +36,8 @@ classdef AdviceDatabase < handle
             keys = 1:this.num_robots_;
             values = zeros(this.num_robots_, 1);
             this.avg_quality_ = containers.Map(keys, values);
-            this.delta_quality_ = containers.Map(keys, values);
+            this.delta_q_ = containers.Map(keys, values);
+            this.delta_h_ = containers.Map(keys, values);
             
             % Initialize Advice Exchange Data
             this.cq_ = containers.Map(keys, values);
@@ -63,8 +65,10 @@ classdef AdviceDatabase < handle
             switch event.type
                 case 'quality'
                     this.avg_quality_(event.id) = this.avg_quality_(event.id) + (event.value - this.avg_quality_(event.id))/event.iterations;
-                case 'delta_quality'
-                    this.delta_quality_(event.id) = event.value;
+                case 'delta_q'
+                    this.delta_q_(event.id) = event.value;
+                case 'delta_h'
+                    this.delta_h_(event.id) = event.value;
             end
         end
         
@@ -92,8 +96,10 @@ classdef AdviceDatabase < handle
                         src.data_return_{i - 1, 1} = this.avg_reward_(id);
                     case 'avg_quality'
                         src.data_return_{i - 1, 1} = this.avg_quality_(id);
-                    case 'delta_quality'
-                        src.data_return_{i - 1, 1} = this.delta_quality_(id);
+                    case 'delta_q'
+                        src.data_return_{i - 1, 1} = this.delta_q_(id);
+                    case 'delta_h'
+                        src.data_return_{i - 1, 1} = this.delta_h_(id);
                     case 'cq'
                         src.data_return_{i - 1, 1} = this.cq_(id);
                     case 'bq'

@@ -85,6 +85,7 @@ classdef IndividualLearning < handle
             this.state_q_data_.action = [];
             this.state_q_data_.reward = [];
             this.state_q_data_.delta_q = [];
+            this.state_q_data_.delta_h = [];
             
             this.advice_on_ = config.advice_on;
             if (this.advice_on_)
@@ -152,23 +153,34 @@ classdef IndividualLearning < handle
             
             % Get previous state vector for Q-learning
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
-            
-            % Save q values and reward
-            [quality, ~] = this.q_learning_.getUtility(prev_state_vector);
-            this.state_q_data_.q_vals(size(this.state_q_data_.q_vals, 1) + 1, :) = quality';
-            this.state_q_data_.state_vector(size(this.state_q_data_.state_vector, 1) + 1, :) = prev_state_vector;
-            this.state_q_data_.action(size(this.state_q_data_.action, 1) + 1, :) = robot_state.action_id_;
-            this.state_q_data_.reward(size(this.state_q_data_.reward, 1) + 1, 1) = reward;
+            [prev_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
             
             % Do one step of QLearning
             this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);
             
+            % Save q values and reward
+            this.state_q_data_.q_vals(size(this.state_q_data_.q_vals, 1) + 1, :) = prev_quality';
+            this.state_q_data_.state_vector(size(this.state_q_data_.state_vector, 1) + 1, :) = prev_state_vector;
+            this.state_q_data_.action(size(this.state_q_data_.action, 1) + 1, :) = robot_state.action_id_;
+            this.state_q_data_.reward(size(this.state_q_data_.reward, 1) + 1, 1) = reward;
+            
             % Notify AdviceDatabase listener of change in quality
             [new_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
-            delta_quality = new_quality(robot_state.action_id_) - quality(robot_state.action_id_);
-            this.state_q_data_.delta_q(size(this.state_q_data_.delta_q, 1) + 1, 1) = delta_quality;
-            this.notify('PerfMetrics', PerfMetricsEventData('delta_quality', this.robot_id_, delta_quality, this.learning_iterations_));
+            delta_q = new_quality(robot_state.action_id_) - prev_quality(robot_state.action_id_);
+            this.state_q_data_.delta_q(size(this.state_q_data_.delta_q, 1) + 1, 1) = delta_q;
+            this.notify('PerfMetrics', PerfMetricsEventData('delta_q', this.robot_id_, delta_q, this.learning_iterations_));
             
+            % Notify AdviceDatabase listener of change in entropy
+            q_exponents = exp(prev_quality/this.softmax_temp_);
+            q_prob = q_exponents./sum(q_exponents);
+            old_h = sum(-q_prob.*log2(q_prob));
+            q_exponents = exp(new_quality/this.softmax_temp_);
+            q_prob = q_exponents./sum(q_exponents);
+            new_h = sum(-q_prob.*log2(q_prob));
+            
+            delta_h = new_h - old_h;
+            this.state_q_data_.delta_h(size(this.state_q_data_.delta_h, 1) + 1, 1) = delta_h;
+            this.notify('PerfMetrics', PerfMetricsEventData('delta_h', this.robot_id_, delta_h, this.learning_iterations_));
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
