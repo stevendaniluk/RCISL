@@ -20,7 +20,7 @@ classdef Advice < handle
         
         % Entropy parameters
         ha_q_learning_ = [];
-        ha_state_bits_ = [];
+        ha_state_resolution_ = [];
         il_softmax_temp_ = [];
         ha_softmax_temp_ = [];     % Temp setting for softmax distribution
         h_max_ = [];
@@ -95,16 +95,15 @@ classdef Advice < handle
                 
                 % Initialize Q-learning
                 num_state_vrbls = 1;
-                this.ha_state_bits_ = config.ha_state_bits;
-                num_state_bits_ = this.ha_state_bits_;
+                this.ha_state_resolution_ = config.ha_state_resolution;
                 num_actions = this.num_robots_;
                 this.ha_q_learning_ = QLearning(config.ha_gamma, config.ha_alpha_denom, ...
                                         config.ha_alpha_power, config.ha_alpha_max, ...
-                                        num_state_vrbls, num_state_bits_, ...
+                                        num_state_vrbls, this.ha_state_resolution_, ...
                                         num_actions);
                 
-                this.ha_state_ = (2^this.ha_state_bits_ - 1)*ones(this.num_robots_, 1);
-                this.prev_ha_state_ = (2^this.ha_state_bits_ - 1)*ones(this.num_robots_, 1);
+                this.ha_state_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
+                this.prev_ha_state_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
             end
             
             % Initialize Advice Exchange Properties
@@ -191,9 +190,9 @@ classdef Advice < handle
             h_vals = sum(-q_prob.*log2(q_prob), 2);
                         
             % Convert entropy to state values
-            % Map entropy value to between 0 and 2^ha_state_bits_
+            % Map entropy value to between 0 and ha_state_resolution_
             this.prev_ha_state_ = this.ha_state_;
-            this.ha_state_ = round((h_vals/this.h_max_)*(2^this.ha_state_bits_ - 1));
+            this.ha_state_ = round((h_vals/this.h_max_)*(this.ha_state_resolution_ - 1));
             
             % Learn from previous advice
             if (this.initialized_)

@@ -22,7 +22,7 @@ classdef Configuration < handle
         % Action and State Parameters
         num_actions = 5;
         num_state_vrbls = 5;
-        num_state_bits = [4, 2, 4, 4, 4];
+        state_resolution = [16, 3, 16, 16, 16];
         backup_fractional_speed = 1.0;
         look_ahead_dist = 1.5;
         
@@ -84,11 +84,11 @@ classdef Configuration < handle
         stochastic_update_theta4 = 2.0;  % Coefficient for stochastic update
         
         % Advice Parameters
-        advice_on = true;                  % If advice should be used
+        advice_on = false;                  % If advice should be used
         advice_mechanism = 'h_advice';     % Options: "advice_exchange", "h_advice"
         greedy_override = false;           % Overrides the policy with a greedy selection
         
-        ha_state_bits = 7;                 % Resolution of entropy
+        ha_state_resolution = 128;         % Resolution of entropy
         ha_softmax_temp = 0.10;            % Advisor selection softmax
         ha_gamma = 0.3;                    % Discount factor
         ha_alpha_max = 0.9;                % Maximum value of learning rate

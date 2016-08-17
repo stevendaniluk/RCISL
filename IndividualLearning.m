@@ -32,7 +32,7 @@ classdef IndividualLearning < handle
         learned_actions_ = [];          % Counter for number of learned actions
         softmax_temp_ = [];             % Temperature for policy softmax distribution
         advised_actions_ = [];          % Counter for number of advised actions
-        state_bits_ = [];               % Bits in state_vector
+        state_resolution_ = [];               % Bits in state_vector
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
         reward_data_ = [];              % For tracking reward at each iteration
         state_q_data_ = [];             % For tracking Q values at each step
@@ -69,13 +69,13 @@ classdef IndividualLearning < handle
             this.advised_actions_ = 0;
             this.policy_ = config.policy;
             this.softmax_temp_ = config.softmax_temp;
-            this.state_bits_ = config.num_state_bits;
+            this.state_resolution_ = config.state_resolution;
             this.look_ahead_dist_ = config.look_ahead_dist;
             
             % Initialize Q-learning
             this.q_learning_ = QLearning(config.gamma, config.alpha_denom, ...
                                 config.alpha_power, config.alpha_max, ...
-                                config.num_state_vrbls, config.num_state_bits, ...
+                                config.num_state_vrbls, config.state_resolution, ...
                                 config.num_actions);
             
             % Form structure for tracking Q values
@@ -246,12 +246,12 @@ classdef IndividualLearning < handle
             % Get orientation, will be Z element, in second row
             orient = state_matrix(2, 3);
             orient = mod(orient, 2*pi);
-            orient_range = (2*pi)/(this.state_bits_(1));
+            orient_range = (2*pi)/(log2(this.state_resolution_(1)));
             
             % Encode robot position
             % Find size of increments for position
-            x_range = width/(this.state_bits_(1)/2);
-            y_range = height/(this.state_bits_(1)/2);
+            x_range = width/(log2(this.state_resolution_(1))/2);
+            y_range = height/(log2(this.state_resolution_(1))/2);
             
             % Extract positions from state matrix
             pos_x = state_matrix(1,1);
@@ -275,14 +275,14 @@ classdef IndividualLearning < handle
             angles = atan2(state_matrix(4:end,2), state_matrix(4:end,1));
             % Make angles relative to the orientation, plus X degrees, so
             % that the quadrants are orientated in front, behind, etc.
-            angles = angles - orient + pi./this.state_bits_(3:5)';
+            angles = angles - orient + pi./log2(this.state_resolution_(3:5))';
             
             % Find euclidean distances from target/goal/obstacle
             dist = sqrt(state_matrix(4:end,1).^2 + state_matrix(4:end,2).^2);
             
             % Find relevant ranges for encoding angle and distance
-            angle_range = (2*pi)./(this.state_bits_(3:5))';
-            dist_range = this.look_ahead_dist_./(this.state_bits_(3:5))';
+            angle_range = (2*pi)./(log2(this.state_resolution_(3:5)))';
+            dist_range = this.look_ahead_dist_./(log2(this.state_resolution_(3:5)))';
             
             % Make sure distance is within world bounds
             % (necessary because of noise)
@@ -295,10 +295,10 @@ classdef IndividualLearning < handle
             % Assemble, and correct elements in case an are over the max
             % bit amount (shouldn't happen, but if it does we want to know)
             state_vector = [pos; target_type; rel_pos]';
-            if (sum(state_vector >= 2.^this.state_bits_) ~= 0)
+            if (sum(state_vector >= this.state_resolution_) ~= 0)
                 warning(['state_vector values greater than max allowed. Reducing to max value. State Vector: ', ...
                          sprintf('%d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5))]);
-                state_vector = mod(state_vector, 2.^this.state_bits_);
+                state_vector = mod(state_vector, this.state_resolution_);
             end
         end
         

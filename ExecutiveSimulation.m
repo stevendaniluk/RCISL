@@ -113,8 +113,8 @@ classdef ExecutiveSimulation < handle
             exp_tables = load([path_name, file_name]);
                                     
             for id = 1:this.num_robots_;
-                this.robots_(id,1).individual_learning_.q_learning_.quality_.q_table_ = q_tables.q_tables{id, 1};
-                this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_ = exp_tables.exp_tables{id, 1};
+                this.robots_(id,1).individual_learning_.q_learning_.q_table_ = q_tables.q_tables{id, 1};
+                this.robots_(id,1).individual_learning_.q_learning_.exp_table_ = exp_tables.exp_tables{id, 1};
             end
             
             if (strcmp(this.config_.task_allocation, 'l_alliance'))
@@ -317,8 +317,8 @@ classdef ExecutiveSimulation < handle
                     
                     % Save the advice Q-table (if present)
                     if (strcmp(this.config_.advice_mechanism, 'h_advice'))
-                        advice_data{i}.ha.q_table = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_.quality_.q_table_;
-                        advice_data{i}.ha.exp_table = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_.quality_.exp_table_;
+                        advice_data{i}.ha.q_table = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_.q_table_;
+                        advice_data{i}.ha.exp_table = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_.exp_table_;
                     end
                 end
                 save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
@@ -347,8 +347,8 @@ classdef ExecutiveSimulation < handle
             q_tables = cell(this.num_robots_, 1);
             exp_tables = cell(this.num_robots_, 1);
             for id = 1:this.num_robots_;
-                q_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.quality_.q_table_;
-                exp_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.quality_.exp_table_;
+                q_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.q_table_;
+                exp_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.exp_table_;
             end
             
             if (strcmp(this.config_.task_allocation, 'l_alliance'))
