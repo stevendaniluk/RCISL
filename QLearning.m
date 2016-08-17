@@ -162,6 +162,29 @@ classdef QLearning <handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % 
+        %   overwriteUtility
+        %   
+        %   Overwrite existing Q value and experience into quality table
+        %
+        %   INPUTS
+        %   state = Vector of state variables
+        %   actions = Single number, or vector of applicable actions
+        %   quality = New Q value(s) for table
+        %   experience = New experience value(s) for the table
+ 
+        function overwriteUtility(this, state_vector, actions, quality, experience)            
+            % Find corresponding row in table
+            key= this.getKey(state_vector, min(actions));
+            % Make vector of entries for all actions
+            key = key + actions - min(actions);
+            
+            % Insert into table
+            this.q_table_(key) = quality;
+            this.exp_table_(key) = experience;
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 
         %   getKey
         %
         %   Get the table index for a certain key vector
