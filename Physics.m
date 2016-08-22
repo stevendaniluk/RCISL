@@ -50,7 +50,7 @@ classdef Physics
                     dist = world_state.robot_pos_(robot_id,:) - world_state.target_pos_(target_id,:);
                     dist = sqrt(dist.^2);
                     dist = sum(dist);
-                    robot_reach = world_state.robotProperties(robot_id,6);
+                    robot_reach = world_state.robotProperties(robot_id, 5);
                     
                     % Pick up the item of close enough
                     if(dist <= robot_reach)
