@@ -11,20 +11,26 @@ classdef Configuration < handle
         numRobots    = 4;
         numObstacles = 4;
         numTargets   = 4;
-        robot_Type =[ 4*pi/18      2         0.30      1; ... 
-                      4*pi/18      1         0.40      2; ... 
-                      4*pi/18      1         0.30      3; ... 
-                      4*pi/18      2         0.40      4];    
+        robot_Type =[ pi*(2/9)     2         0.30      1; ... 
+                      pi*(2/9)     1         0.40      2; ... 
+                      pi*(2/9)     1         0.30      3; ... 
+                      pi*(2/9)     2         0.40      4];    
                     % Rotation  Strength  Step Size Type Id
         target_Type = [0.2, 1; 0.2, 1];
-        robot_Reach = 1;
+        robot_Reach = 0.5;
                 
         % Action and State Parameters
         num_actions = 5;
-        num_state_vrbls = 5;
-        state_resolution = [16, 3, 16, 16, 16];
+        num_state_vrbls = 7;
+        state_resolution = [3;  % Target Type
+                            3;  % Target Distance
+                            5;  % target Angle
+                            3;  % Goal Distance
+                            5;  % Goal Angle
+                            3;  % Obstacle Distance
+                            5]'; % Obstacle Angle
         backup_fractional_speed = 1.0;
-        look_ahead_dist = 1.5;
+        look_ahead_dist = 2.0;
         
         % World Parameters
         world_height = 10;
@@ -54,8 +60,8 @@ classdef Configuration < handle
         learning_iterations = 1;
         item_closer_reward = 0.5;
         item_further_reward = -0.3;
-        robot_closer_reward = 0.5;
-        robot_further_reward = -0.3;
+        robot_closer_reward = 0.3;
+        robot_further_reward = -0.1;
         return_reward = 10;
         empty_reward_value = 0.0;
         reward_activation_dist = 0.17;
@@ -63,7 +69,7 @@ classdef Configuration < handle
         % Policy parameters
         policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
         e_greedy_epsilon = 0.10;
-        softmax_temp = 0.05;        % Temperature for softmax distribution
+        softmax_temp = 0.10;        % Temperature for softmax distribution
         
         % Individual Q-Learning Parameters
         gamma = 0.3;            % Discount factor

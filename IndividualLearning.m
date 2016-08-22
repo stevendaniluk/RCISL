@@ -233,12 +233,7 @@ classdef IndividualLearning < handle
             %      5        2        2    |     13       4        2
             %      6        2        3    |     14       4        3
             %      7        2        4    |     15       4        4
-            
-            % Some parameters which should be loaded from the config file
-                        
-            width = this.config_.world_height;
-            height = this.config_.world_width;
-            
+                                
             % In case an values are outside the world bounds, they need to
             % be adjusted to be within the bounds by at least this much
             delta = 0.0001;
@@ -246,59 +241,53 @@ classdef IndividualLearning < handle
             % Get orientation, will be Z element, in second row
             orient = state_matrix(2, 3);
             orient = mod(orient, 2*pi);
-            orient_range = (2*pi)/(log2(this.state_resolution_(1)));
-            
-            % Encode robot position
-            % Find size of increments for position
-            x_range = width/(log2(this.state_resolution_(1))/2);
-            y_range = height/(log2(this.state_resolution_(1))/2);
-            
-            % Extract positions from state matrix
-            pos_x = state_matrix(1,1);
-            pos_y = state_matrix(1,2);
-            % Make sure they are within the world limits
-            % (necessary because of noise)
-            if (pos_x >= width)
-                pos_x = width - delta;
-            end
-            if (pos_y >= height)
-                pos_y = height - delta;
-            end
-            
-            % Convert to bits
-            pos = bitshift(floor(orient/orient_range), 2) + bitshift(floor(pos_x/x_range), 1) + floor(pos_y/y_range);
             
             % Encode target type
             target_type = state_matrix(3,1);
             
-            % Find angles from x and y coords of each state
-            angles = atan2(state_matrix(4:end,2), state_matrix(4:end,1));
-            % Make angles relative to the orientation, plus X degrees, so
-            % that the quadrants are orientated in front, behind, etc.
-            angles = angles - orient + pi./log2(this.state_resolution_(3:5))';
+            % Find euclidean distances from target/goal/obstacle, make sure
+            % it is within the look ahead distance, then convert to the
+            % proper state resolution
+            target_dist = sqrt(state_matrix(4, 1).^2 + state_matrix(4, 2).^2);
+            target_dist = min(target_dist, this.look_ahead_dist_ - delta);
+            target_dist = floor((target_dist/this.look_ahead_dist_)*this.state_resolution_(2));
             
-            % Find euclidean distances from target/goal/obstacle
-            dist = sqrt(state_matrix(4:end,1).^2 + state_matrix(4:end,2).^2);
+            goal_dist = sqrt(state_matrix(5, 1).^2 + state_matrix(5, 2).^2);
+            goal_dist = min(goal_dist, this.look_ahead_dist_ - delta);
+            goal_dist = floor((goal_dist/this.look_ahead_dist_)*this.state_resolution_(4));
             
-            % Find relevant ranges for encoding angle and distance
-            angle_range = (2*pi)./(log2(this.state_resolution_(3:5)))';
-            dist_range = this.look_ahead_dist_./(log2(this.state_resolution_(3:5)))';
+            obst_dist = sqrt(state_matrix(6, 1).^2 + state_matrix(6, 2).^2);
+            obst_dist = min(obst_dist, this.look_ahead_dist_ - delta);
+            obst_dist = floor((obst_dist/this.look_ahead_dist_)*this.state_resolution_(6));            
             
-            % Make sure distance is within world bounds
-            % (necessary because of noise)
-            dist(dist >= this.look_ahead_dist_) = this.look_ahead_dist_ - delta;
-            angles = mod(angles, 2*pi);
+            % Get relative angles of targets/goal/obstacles, offset by half
+            % of resolution (so that straight forward is the centre of a
+            % quadrant), then convert to the proper state resolution
+            target_angle = atan2(state_matrix(4, 2), state_matrix(4, 1)) - orient;
+            target_angle = mod((target_angle + 2*pi/this.state_resolution_(3)), 2*pi);
+            target_angle = floor(target_angle*this.state_resolution_(3)/(2*pi));
             
-            % Convert to bits
-            rel_pos = bitshift(floor(angles./angle_range),2) + floor(dist./dist_range);
+            goal_angle = atan2(state_matrix(5, 2), state_matrix(5, 1)) - orient;
+            goal_angle = mod((goal_angle + 2*pi/this.state_resolution_(5)), 2*pi);
+            goal_angle = floor(goal_angle*this.state_resolution_(5)/(2*pi));
+            
+            obst_angle = atan2(state_matrix(6, 2), state_matrix(6, 1)) - orient;
+            obst_angle = mod((obst_angle + 2*pi/this.state_resolution_(7)), 2*pi);
+            obst_angle = floor(obst_angle*this.state_resolution_(7)/(2*pi));
             
             % Assemble, and correct elements in case an are over the max
             % bit amount (shouldn't happen, but if it does we want to know)
-            state_vector = [pos; target_type; rel_pos]';
+            state_vector = [target_type; 
+                            target_dist;
+                            target_angle;
+                            goal_dist;
+                            goal_angle;
+                            obst_dist;
+                            obst_angle]';            
             if (sum(state_vector >= this.state_resolution_) ~= 0)
                 warning(['state_vector values greater than max allowed. Reducing to max value. State Vector: ', ...
-                         sprintf('%d, %d, %d, %d, %d \n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5))]);
-                state_vector = mod(state_vector, this.state_resolution_);
+                         sprintf('%d, %d, %d, %d, %d %d, %d\n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5), state_vector(6), state_vector(7))]);
+                state_vector = mod(state_vector, this.state_resolution_');
             end
         end
         

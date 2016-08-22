@@ -350,7 +350,10 @@ classdef RobotState < handle
             rel_border_pos_top = this.config_.world_height - robot_pos(2);
             % Relative distances from robot to all obstacles
             rel_obstacle_pos_x = this.obstacle_pos_(:,1) - robot_pos(1);
-            rel_obstacle_pos_y = this.obstacle_pos_(:,2) - robot_pos(2);          
+            rel_obstacle_pos_y = this.obstacle_pos_(:,2) - robot_pos(2);
+            rel_obstacle_angle = atan2(rel_obstacle_pos_y, rel_obstacle_pos_x);
+            rel_obstacle_pos_x = rel_obstacle_pos_x - cos(rel_obstacle_angle)*this.config_.obstacle_size;
+            rel_obstacle_pos_y = rel_obstacle_pos_y - sin(rel_obstacle_angle)*this.config_.obstacle_size;
             rel_obstacle_pos_l = sqrt(rel_obstacle_pos_x.^2 + rel_obstacle_pos_y.^2);
             % Combine them into an array
             rel_obstacle_pos = [abs(rel_border_pos_left),   rel_border_pos_left,   0; ...
