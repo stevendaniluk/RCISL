@@ -16,14 +16,15 @@ clear
 folder = 'ae_test';
 plot_indiv_metrics = true;
 save_plots = false;
-num_sims = 2;
+num_sims = 1;
 num_runs = 15;
-num_robots = 2;
+num_robots = 4;
 
 % Plot settings
 robots_to_plot = [1, 2];
 indiv_sim_num = 1;
 smooth_pts = 10;
+avg_q_axis_limit = 0.5;
 
 %% Prepare to load data
 
@@ -66,7 +67,10 @@ for i=1:num_sims
         robot_data{j}.cond_a_count(i, :) = advice_data{j}.ae.cond_a_true_count;
         robot_data{j}.cond_b_count(i, :) = advice_data{j}.ae.cond_b_true_count;
         robot_data{j}.cond_c_count(i, :) = advice_data{j}.ae.cond_c_true_count;
-        
+        robot_data{j}.avg_q(i, :) = advice_data{j}.ae.avg_q;
+        robot_data{j}.cq(i, :) = advice_data{j}.ae.cq;
+        robot_data{j}.bq(i, :) = advice_data{j}.ae.bq;
+
         % Team metrics
         team_advice_ratio(i,:) = team_advice_ratio(i,:) + advice_data{j}.advised_actions_ratio/num_robots;
         team_cond_a_count(i,:) = team_cond_a_count(i,:) + advice_data{j}.ae.cond_a_true_count/num_robots;
@@ -100,7 +104,7 @@ hold on
 plot(1:num_runs, 100*team_cond_a_count)
 plot(1:num_runs, 100*team_cond_b_count)
 plot(1:num_runs, 100*team_cond_c_count)
-legend('Cond: q_a_v_g', 'Cond: q_b_e_s_t', 'Cond: sum(q)');
+legend('Cond: q_a_v_g', 'Cond: q_b_e_s_t', 'Cond: sum(q)', 'Location', 'northwest');
 title('Percent of Time Advice Conditions Are Satisfied (Average Over All Robots and Sims)');
 xlabel('Run Number');
 ylabel('Time Satisfied [%]');
@@ -108,7 +112,6 @@ axis([0, num_runs, 0, 100]);
 
 % Plot ratio of advised actions
 subplot(2,1,2)
-hold on
 plot(1:num_runs, 100*team_advice_ratio)
 title('Percent of Actions That Were Advised (Average Over All Robots and Sims)');
 xlabel('Run Number');
@@ -117,7 +120,56 @@ axis([0, num_runs, 0, 100]);
 
 % Save (if desired)
 if (save_plots)
-    savefig(f, ['results/', folder, '/figures/Team_Advice_Exchange_Metrics.fig']);
+    savefig(f, ['results/', folder, '/figures/Team_Advice_Exchange_Metrics_Part_1.fig']);
+end
+
+% Plot the average quality
+f = figure(2);
+clf
+subplot(3,1,1)
+hold on
+legend_string = cell(1, num_robots);
+for i = 1:num_robots
+    plot(1:num_runs, robot_data{i}.avg_q(indiv_sim_num, :));
+    legend_string{i} = ['Robot ', num2str(i)];
+end
+title('Average Quality For Each Robot');
+xlabel('Run Number');
+ylabel('Average q');
+legend(legend_string, 'Location', 'northwest');
+%axis([0, num_runs, 0, avg_q_axis_limit]);
+
+% Plot the relative current average quality
+subplot(3,1,2)
+hold on
+legend_string = cell(1, num_robots);
+for i = 1:num_robots
+    plot(1:num_runs, robot_data{i}.cq(indiv_sim_num, :));
+    legend_string{i} = ['Robot ', num2str(i)];
+end
+title('Relatve Current Average Quality For Each Robot');
+xlabel('Run Number');
+ylabel('cq');
+legend(legend_string, 'Location', 'northwest');
+%axis([0, num_runs, 0, avg_q_axis_limit]);
+
+% Plot the relative best average quality
+subplot(3,1,3)
+hold on
+legend_string = cell(1, num_robots);
+for i = 1:num_robots
+    plot(1:num_runs, robot_data{i}.bq(indiv_sim_num, :));
+    legend_string{i} = ['Robot ', num2str(i)];
+end
+title('Relatve Best Average Quality For Each Robot');
+xlabel('Run Number');
+ylabel('bq');
+legend(legend_string, 'Location', 'northwest');
+%axis([0, num_runs, 0, avg_q_axis_limit]);
+
+% Save (if desired)
+if (save_plots)
+    savefig(f, ['results/', folder, '/figures/Team_Advice_Exchange_Metrics_Part_2.fig']);
 end
 
 % Individual metrics
@@ -125,7 +177,7 @@ if (plot_indiv_metrics)
     for i = 1:length(robots_to_plot)
         id = robots_to_plot(i);
         
-        f_bot = figure(i + 1);
+        f_bot = figure(i + 2);
         clf
         k = indiv_sim_num;  % Shortcut
         

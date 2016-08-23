@@ -376,7 +376,12 @@ classdef Advice < handle
             avg_quality = this.requestData(this.id_, 'avg_quality');
             this.cq_ = (1 - this.ae_alpha_)*avg_quality + this.ae_alpha_*this.cq_;
             this.bq_ = max(avg_quality, this.ae_beta_*this.bq_);
-
+            
+            % Save the tracking metrics
+            this.advice_data_.ae.avg_q(1, this.epoch_ + 1) = avg_quality;
+            this.advice_data_.ae.cq(1, this.epoch_ + 1) = this.cq_;
+            this.advice_data_.ae.bq(1, this.epoch_ + 1) = this.bq_;
+            
             % Store our tracking metrics in the AdviceDatabase
             data_map = containers.Map;
             data_map('cq') = this.cq_;
