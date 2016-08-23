@@ -25,7 +25,7 @@ classdef IndividualLearning < handle
         q_learning_ = [];               % QLearning object
         state_vector_ = [];             % Current state vector
         policy_ = [];                   % The policy being used
-        iterations_ = [];               % Counter for total iterations
+        epoch_iterations_ = [];         % Counter for iterations in each epoch
         learning_iterations_ = [];      % Counter for how many times learning is performed
         prev_learning_iterations_ = []; % For tracking iterations between epochs
         random_actions_ = [];           % Counter for number of random actions
@@ -62,7 +62,7 @@ classdef IndividualLearning < handle
         function this = IndividualLearning(config, id)
             this.config_ = config;
             this.robot_id_ = id;
-            this.iterations_ = 0;
+            this.epoch_iterations_ = 0;
             this.learning_iterations_ = 0;
             this.prev_learning_iterations_ = 0;
             this.random_actions_ = 0;
@@ -108,7 +108,7 @@ classdef IndividualLearning < handle
         %   action = Action to take
         
         function action_id = getAction(this, robot_state)
-            this.iterations_ = this.iterations_ + 1;
+            this.epoch_iterations_ = this.epoch_iterations_ + 1;
             
             % Get state matrix, and convert to encoded state vector
             this.state_vector_ = this.stateMatrixToStateVector(robot_state.state_matrix_);
@@ -132,7 +132,7 @@ classdef IndividualLearning < handle
             end
                         
             % Notify AdviceDatabase listener of quality update
-            this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.iterations_));
+            this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.epoch_iterations_));
             
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
@@ -192,6 +192,7 @@ classdef IndividualLearning < handle
         
         function resetForNextRun(this)
             this.prev_learning_iterations_ = this.learning_iterations_;
+            this.epoch_iterations_ = 0;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
