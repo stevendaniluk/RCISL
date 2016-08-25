@@ -10,7 +10,7 @@ classdef Advice < handle
         id_ = [];
         iters_ = [];
         epoch_ = [];
-        num_state_vrbls_ = [];
+        num_robot_actions_ = [];
         
         % Advisor Properties
         advisor_handle_ = [];
@@ -24,8 +24,8 @@ classdef Advice < handle
         il_softmax_temp_ = [];
         ha_softmax_temp_ = [];     % Temp setting for softmax distribution
         h_max_ = [];
-        ha_state_ = [];
-        prev_ha_state_ = [];
+        h_vals_encoded_ = [];
+        prev_h_vals_encoded_ = [];
         initialized_ = [];
         
         % Advice Exchange Parameters
@@ -71,7 +71,7 @@ classdef Advice < handle
             this.num_robots_ = config.numRobots;
             this.iters_ = 0;
             this.epoch_ = 1;
-            this.num_state_vrbls_ = config.num_state_vrbls;
+            this.num_robot_actions_ = config.num_actions;
             this.advisor_id_ = this.id_;
             this.initialized_ = false;
             
@@ -93,17 +93,20 @@ classdef Advice < handle
                 this.ha_softmax_temp_ = config.ha_softmax_temp;
                 this.h_max_ =  -config.num_actions*(1/config.num_actions)*log2(1/config.num_actions);
                 
-                % Initialize Q-learning
+                % Initialize Q-learning (one for each robot)
                 num_state_vrbls = 1;
                 this.ha_state_resolution_ = config.ha_state_resolution;
-                num_actions = this.num_robots_;
-                this.ha_q_learning_ = QLearning(config.ha_gamma, config.ha_alpha_denom, ...
-                                        config.ha_alpha_power, config.ha_alpha_max, ...
-                                        num_state_vrbls, this.ha_state_resolution_, ...
-                                        num_actions);
-                
-                this.ha_state_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
-                this.prev_ha_state_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
+                num_actions = 1;
+                this.ha_q_learning_ = cell(this.num_robots_, 1);
+                for i = 1:this.num_robots_;
+                    this.ha_q_learning_{i} = QLearning(config.ha_gamma, config.ha_alpha_denom, ...
+                                          config.ha_alpha_power, config.ha_alpha_max, ...
+                                          num_state_vrbls, this.ha_state_resolution_, ...
+                                          num_actions);
+                end
+
+                this.h_vals_encoded_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
+                this.prev_h_vals_encoded_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
             end
             
             % Initialize Advice Exchange Properties
@@ -174,7 +177,7 @@ classdef Advice < handle
         function quality_out = hAdvice(this, state_vector, quality_in)
                         
             % Get individual learning quality values for each robot
-            q_vals = zeros(this.num_robots_, this.num_state_vrbls_);
+            q_vals = zeros(this.num_robots_, this.num_robot_actions_);
             for i = 1:this.num_robots_
                 if (i == this.id_)
                     q_vals(i, :) = quality_in;
@@ -188,17 +191,17 @@ classdef Advice < handle
             q_exponents = exp(q_vals/this.il_softmax_temp_);
             q_prob = bsxfun(@rdivide, q_exponents, sum(q_exponents, 2));
             h_vals = sum(-q_prob.*log2(q_prob), 2);
-                        
+            
             % Convert entropy to state values
             % Map entropy value to between 0 and ha_state_resolution_
-            this.prev_ha_state_ = this.ha_state_;
-            this.ha_state_ = round((h_vals/this.h_max_)*(this.ha_state_resolution_ - 1));
+            this.prev_h_vals_encoded_ = this.h_vals_encoded_;
+            this.h_vals_encoded_ = round((h_vals/this.h_max_)*(this.ha_state_resolution_ - 1));
             
             % Learn from previous advice
             if (this.initialized_)
                 % Form states
-                prev_advice_state = this.prev_ha_state_(this.prev_advisor_id_);
-                current_advice_state = min(this.ha_state_);
+                prev_advice_state = this.prev_h_vals_encoded_(this.prev_advisor_id_);
+                current_advice_state = this.h_vals_encoded_(this.prev_advisor_id_);
                 
                 % Get change in individual learning quality
                 delta_q = this.requestData(this.id_, 'delta_q');
@@ -217,13 +220,16 @@ classdef Advice < handle
                 end
                                 
                 % Q-learning update
-                this.ha_q_learning_.learn(prev_advice_state, current_advice_state, this.prev_advisor_id_, reward);
+                this.ha_q_learning_{this.prev_advisor_id_}.learn(prev_advice_state, current_advice_state, 1, reward);
             else
                 this.initialized_ = true;
             end
                         
             % Get advice quality for all advisors (based on their entropy)
-            advisor_quality = this.ha_q_learning_.getUtility(this.ha_state_(i));
+            advisor_quality = zeros(this.num_robots_, 1);
+            for i = 1:this.num_robots_
+                [advisor_quality(i), ~] = this.ha_q_learning_{i}.getUtility(this.h_vals_encoded_(i));
+            end
             
             % Select advisor based on softmax distribution of advisor quality
             exponents = exp(advisor_quality/this.ha_softmax_temp_);
@@ -241,6 +247,7 @@ classdef Advice < handle
             
             % Store the entropy data
             this.advice_data_.ha.h(this.iters_) = h_vals(this.advisor_id_);
+            
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

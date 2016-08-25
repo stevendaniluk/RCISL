@@ -305,20 +305,24 @@ classdef ExecutiveSimulation < handle
             end
             
             % Get state related data
+            state_q_data = cell(this.num_robots_, 1);
             for i = 1:this.num_robots_
                 state_q_data{i} = this.robots_(i, 1).individual_learning_.state_q_data_;
             end
             
             % Get advice related data
             if (this.config_.advice_on)
+                advice_data = cell(this.num_robots_, 1);
                 for i = 1:this.num_robots_
                     advice_data{i} = this.robots_(i, 1).individual_learning_.advice_.advice_data_;
                     advice_data{i}.advised_actions_ratio = advice_data{i}.advised_actions./advice_data{i}.total_actions;
                     
                     % Save the advice Q-table (if present)
                     if (strcmp(this.config_.advice_mechanism, 'h_advice'))
-                        advice_data{i}.ha.q_table = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_.q_table_;
-                        advice_data{i}.ha.exp_table = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_.exp_table_;
+                        for j = 1:this.num_robots_
+                            advice_data{i}.ha.q_table{j} = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_{j}.q_table_;
+                            advice_data{i}.ha.exp_table{j} = this.robots_(i, 1).individual_learning_.advice_.ha_q_learning_{j}.exp_table_;
+                        end
                     end
                 end
                 save(['results/', sim_name, '/', 'advice_data'], 'advice_data');

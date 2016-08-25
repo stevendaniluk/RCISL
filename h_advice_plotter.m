@@ -18,7 +18,7 @@ clear
 clf
 
 % Input data settings
-folder = 'pro_test';
+folder = 'test';
 plot_indiv_metrics = true;
 save_plots = false;
 num_runs = 300;
@@ -68,10 +68,10 @@ team_advised_actions = zeros(num_robots, num_runs);
 
 for i = 1:num_robots
     % Advice Q-Learning tables
-    q_tables{i} = full(advice_data{i}.ha.q_table);
-    q_tables{i} = reshape(q_tables{i}, [num_robots, ha_q_length]);
-    exp_tables{i} = full(advice_data{i}.ha.exp_table);
-    exp_tables{i} = reshape(exp_tables{i}, [num_robots, ha_q_length]);
+    for j = 1:num_robots
+        q_tables{i}(j, :) = full(advice_data{i}.ha.q_table{j});
+        exp_tables{i}(j, :) = full(advice_data{i}.ha.exp_table{j});
+    end
     
     % Which iterations were, and were not advised
     advised_indices = (advice_data{i}.advisor ~= i);
