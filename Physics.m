@@ -1,4 +1,4 @@
-classdef Physics
+classdef Physics < handle
     %PHYSICS - Responsible for all physics in RCISL simulation
     
     % Peforms modifications to the worldstate when robots move forward,
@@ -200,34 +200,7 @@ classdef Physics
                     return;
                 end
             end
-            
-            % Get distance to other targets
-            target_dist = bsxfun(@minus,world_state.target_pos_, new_point);
-            
-            % Don't check against items being carried or returned
-            returned_items = (world_state.targetProperties(:,1) ~= 0);
-            carried_items = (world_state.targetProperties(:,world_state.ID_CARRIED_BY) ~= 0);
-            
-            % Ignore items that the robot is coincident with (for cases
-            % when it drops an item)
-            coincident_items = bsxfun(@minus,world_state.target_pos_, world_state.robot_pos_(robot_id, :));
-            coincident_items = sqrt(coincident_items(:, 1).^2 + coincident_items(:, 2).^2) <= (robot_size + world_state.target_size_);
-            
-            void_items = (returned_items + carried_items + coincident_items)~= 0;
-            target_dist(void_items, :) = [];
-            
-            if(~isempty(target_dist))
-                euclidean_target_dist = sqrt(target_dist(:,1).^2 + target_dist(:,2).^2 + target_dist(:,3).^2);
-                [min_target_dist, ~] = min(euclidean_target_dist) ;
-                
-                % Check for collision with targets (must allow for the case
-                % when a robot drops an item, making the distance zero)
-                if ((min_target_dist < (robot_size + world_state.target_size_)))
-                    valid = false;
-                    return;
-                end
-            end
-            
+           
             % If all chacks have passed, the new point is valid
             valid = true;
         end

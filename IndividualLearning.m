@@ -265,15 +265,15 @@ classdef IndividualLearning < handle
             % of resolution (so that straight forward is the centre of a
             % quadrant), then convert to the proper state resolution
             target_angle = atan2(state_matrix(4, 2), state_matrix(4, 1)) - orient;
-            target_angle = mod((target_angle + 2*pi/this.state_resolution_(3)), 2*pi);
+            target_angle = mod((target_angle + pi/this.state_resolution_(3)), 2*pi);
             target_angle = floor(target_angle*this.state_resolution_(3)/(2*pi));
             
             goal_angle = atan2(state_matrix(5, 2), state_matrix(5, 1)) - orient;
-            goal_angle = mod((goal_angle + 2*pi/this.state_resolution_(5)), 2*pi);
+            goal_angle = mod((goal_angle + pi/this.state_resolution_(5)), 2*pi);
             goal_angle = floor(goal_angle*this.state_resolution_(5)/(2*pi));
             
             obst_angle = atan2(state_matrix(6, 2), state_matrix(6, 1)) - orient;
-            obst_angle = mod((obst_angle + 2*pi/this.state_resolution_(7)), 2*pi);
+            obst_angle = mod((obst_angle + pi/this.state_resolution_(7)), 2*pi);
             obst_angle = floor(obst_angle*this.state_resolution_(7)/(2*pi));
             
             % Assemble, and correct elements in case an are over the max
