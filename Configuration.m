@@ -16,21 +16,21 @@ classdef Configuration < handle
                       pi*(2/9)     1         0.30      3; ... 
                       pi*(2/9)     2         0.40      4];    
                     % Rotation  Strength  Step Size Type Id
-        target_Type = [0.2, 1; 0.2, 1];
+        target_Type = [0.2, 1; 0.2, 2];
         robot_Reach = 0.5;
                 
         % Action and State Parameters
-        num_actions = 5;
+        num_actions = 4;
         num_state_vrbls = 7;
-        state_resolution = [3;  % Target Type
-                            3;  % Target Distance
-                            5;  % target Angle
-                            3;  % Goal Distance
-                            5;  % Goal Angle
-                            3;  % Obstacle Distance
+        state_resolution = [3;   % Target Type
+                            3;   % Target Distance
+                            5;   % Target Angle
+                            3;   % Goal Distance
+                            5;   % Goal Angle
+                            3;   % Obstacle Distance
                             5]'; % Obstacle Angle
-        backup_fractional_speed = 1.0;
         look_ahead_dist = 2.0;
+        backup_fractional_speed = 1.0;
         
         % World Parameters
         world_height = 10;
@@ -64,7 +64,7 @@ classdef Configuration < handle
         robot_further_reward = -0.1;
         return_reward = 10;
         empty_reward_value = 0.0;
-        reward_activation_dist = 0.17;
+        reward_activation_dist = 0.15;
         
         % Policy parameters
         policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
@@ -90,21 +90,21 @@ classdef Configuration < handle
         stochastic_update_theta4 = 2.0;  % Coefficient for stochastic update
         
         % Advice Parameters
-        advice_on = false;                  % If advice should be used
+        advice_on = false;                 % If advice should be used
         advice_mechanism = 'h_advice';     % Options: "advice_exchange", "h_advice"
         greedy_override = false;           % Overrides the policy with a greedy selection
         
-        ha_state_resolution = 128;         % Resolution of entropy
+        ha_state_resolution = [128, 2];    % Resolution of [entropy, Q_max]
         ha_softmax_temp = 0.10;            % Advisor selection softmax
         ha_gamma = 0.3;                    % Discount factor
         ha_alpha_max = 0.9;                % Maximum value of learning rate
         ha_alpha_denom = 5000000;          % Coefficient in alpha update equation
         ha_alpha_power = 2;                % Coefficient in alpha update equation
         
-        ae_alpha = 0.85;                   % Coefficient for current average quality update
-        ae_beta = 0.90;                    % Coefficient for best average quality update
-        ae_delta = 0.03;                   % Coefficient for quality comparison
-        ae_rho = 0.95;                     % Coefficient for quality comparison
+        ae_alpha = 0.80;                   % Coefficient for current average quality update
+        ae_beta = 0.95;                    % Coefficient for best average quality update
+        ae_delta = 0.00;                   % Coefficient for quality comparison
+        ae_rho = 1.00;                     % Coefficient for quality comparison
     end
     
 end

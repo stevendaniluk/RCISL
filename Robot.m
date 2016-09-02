@@ -47,8 +47,7 @@ classdef Robot < handle
                         
             % Form the action array
             this.action_array_ = ... 
-                  [this.robot_state_.step_size_                                                  0; 
-                  -this.robot_state_.step_size_*this.config_.backup_fractional_speed             0;
+                  [this.robot_state_.step_size_               0; 
                               0                    this.robot_state_.rot_size_;
                               0                   -this.robot_state_.rot_size_;
                               0                               0];
@@ -95,11 +94,11 @@ classdef Robot < handle
                 % Force robot to drop item if task allocation requests
                 force_drop = true;
                 physics.interact (this.world_state_, this.id_, this.robot_state_.prev_target_id_, force_drop);
-            elseif(this.robot_state_.action_id_ <= 4)
+            elseif(this.robot_state_.action_id_ <= 3)
                 % Move in the direction specified by action
                 physics.MoveRobot (this.world_state_, this.id_, this.action_(1), this.action_(2));
                 % Add action tag for graphics
-                if(this.robot_state_.action_id_ <= 2)
+                if(this.robot_state_.action_id_ == 1)
                     this.robot_state_.action_label_  = [this.robot_state_.type_ ,' move'];
                 else
                     this.robot_state_.action_label_  = [this.robot_state_.type_ ,' rot'];
