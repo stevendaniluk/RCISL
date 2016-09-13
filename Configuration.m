@@ -8,15 +8,15 @@ classdef Configuration < handle
                         
         % Primary Scenario Parameters
         max_iterations = 2000;
-        numRobots    = 4;
+        numRobots    = 2;
         numObstacles = 4;
-        numTargets   = 4;
+        numTargets   = 2;
         robot_Type =[ pi*(2/9)     2         0.30      1; ... 
-                      pi*(2/9)     1         0.40      2; ... 
+                      pi*(2/9)     1         0.30      2; ... 
                       pi*(2/9)     1         0.30      3; ... 
                       pi*(2/9)     2         0.40      4];    
                     % Rotation  Strength  Step Size Type Id
-        target_Type = [0.2, 1; 0.2, 2];
+        target_Type = [0.2, 1; 0.2, 1];
         robot_Reach = 0.5;
                 
         % Action and State Parameters
@@ -90,9 +90,10 @@ classdef Configuration < handle
         stochastic_update_theta4 = 2.0;  % Coefficient for stochastic update
         
         % Advice Parameters
-        advice_on = false;                 % If advice should be used
-        advice_mechanism = 'h_advice';     % Options: "advice_exchange", "h_advice"
+        advice_on = true;                 % If advice should be used
+        advice_mechanism = 'advice_exchange';     % Options: "advice_exchange", "h_advice"
         greedy_override = false;           % Overrides the policy with a greedy selection
+        avg_quality_decay_rate = 0.95;
         
         ha_state_resolution = [128, 2];    % Resolution of [entropy, Q_max]
         ha_softmax_temp = 0.10;            % Advisor selection softmax

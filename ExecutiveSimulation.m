@@ -198,10 +198,7 @@ classdef ExecutiveSimulation < handle
                     this.storeSimulationData(time, run);
                 end
                 
-                % Don't reset if it is the last run (data may be useful)
-                if (run ~= num_runs)
-                    this.resetForNextRun();
-                end
+                this.resetForNextRun();
             end
             
             if (save_data)

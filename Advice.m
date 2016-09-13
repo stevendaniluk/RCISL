@@ -33,11 +33,9 @@ classdef Advice < handle
         ae_beta_ = [];         % Coefficient for best average quality update
         ae_delta_ = [];        % Coefficient for quality comparison
         ae_rho_ = [];          % Coefficient for quality comparison
-        cq_ = [];              % Realtive current average quality
-        best_cq_ = [];         % Best value for cq, and robot id
-        bq_ = [];              % Relative best average quality
-        best_bq_ = [];         % Best value for bq, and robot id
-                
+        ae_cq_ = [];           % Realtive current average quality
+        ae_bq_ = [];           % Relative best average quality
+        ae_best_bq_ = [];      % Best value for cq, and robot id
         
         % Structure of data to save
         advice_data_ = [];
@@ -77,15 +75,16 @@ classdef Advice < handle
             
             % Initialize structure for data to save
             this.advice_data_.advisor = [];
-            this.advice_data_.total_actions = 0;
-            this.advice_data_.advised_actions = 0;
+            this.advice_data_.total_actions = [];
+            this.advice_data_.advised_actions = [];
             this.advice_data_.advised_actions_ratio = [];
-            this.advice_data_.ae.cond_a_true_count = 0;
-            this.advice_data_.ae.cond_b_true_count = 0;
-            this.advice_data_.ae.cond_c_true_count = 0;
+            this.advice_data_.ae.cond_a_true_count = [];
+            this.advice_data_.ae.cond_b_true_count = [];
+            this.advice_data_.ae.cond_c_true_count = [];
             this.advice_data_.ha.h = [];
             this.advice_data_.ha.delta_q = [];
             this.advice_data_.ha.delta_h = [];
+            
             
             % Set Entropy properties
             if (strcmp(this.mechanism_, 'h_advice'))
@@ -114,10 +113,9 @@ classdef Advice < handle
             this.ae_beta_ = config.ae_beta;
             this.ae_delta_ = config.ae_delta;
             this.ae_rho_ = config.ae_rho;
-            this.cq_ = 0;
-            this.best_cq_ = struct('id', [], 'value', 0);
-            this.bq_ = 0;
-            this.best_bq_ = struct('id', [], 'value', 0);
+            this.ae_cq_ = 0;
+            this.ae_bq_ = 0;
+            this.ae_best_bq_ = struct('id', [], 'value', 0);
             
         end
         
@@ -137,6 +135,17 @@ classdef Advice < handle
         %   quality_out = Advised quality values
         
         function quality_out = getAdvice(this, state_vector, quality_in)
+            
+            % Initialize tracking metrics, if not done so
+            if (length(this.advice_data_.total_actions) ~= this.epoch_)
+                % Allocate a spot in the arrays for next the epoch
+                this.advice_data_.advised_actions_ratio(1, this.epoch_) = 0;
+                this.advice_data_.advised_actions(1, this.epoch_) = 0;
+                this.advice_data_.total_actions(1, this.epoch_) = 0;
+                this.advice_data_.ae.cond_a_true_count(1, this.epoch_) = 0;
+                this.advice_data_.ae.cond_b_true_count(1, this.epoch_) = 0;
+                this.advice_data_.ae.cond_c_true_count(1, this.epoch_) = 0;
+            end
             
             % Update data
             this.iters_ = this.iters_ + 1;
@@ -276,26 +285,25 @@ classdef Advice < handle
             end      
             
             % An advisor must have a better current average quality
-            if (this.cq_ < this.best_cq_.value)
+            if (this.ae_cq_ < this.ae_best_bq_.value)
                 
                 % Advisor id
-                this.advisor_id_ = this.best_cq_.id;
+                this.advisor_id_ = this.ae_best_bq_.id;
                 this.advisor_handle_ = this.requestData(this.advisor_id_, 'robot_handle');
                 [this.advisor_quality_, ~] = this.advisor_handle_.individual_learning_.q_learning_.getUtility(state_vector);
                 
                 % Compare this epochs current average quality, to advisors
                 % relative current average quality
-                avg_quality = this.requestData(this.id_, 'avg_quality');
-                cond_a = avg_quality < (this.best_cq_.value - this.ae_delta_*this.best_cq_.value);
+                avg_quality = this.requestData(this.id_, 'epoch_avg_quality');
+                cond_a = avg_quality < (this.ae_best_bq_.value - this.ae_delta_*this.ae_best_bq_.value);
                 
                 % Compare best quality
-                advisor_bq = this.requestData(this.advisor_id_, 'bq');
-                cond_b = this.bq_ < advisor_bq;
+                advisor_bq = this.requestData(this.advisor_id_, 'ae_bq');
+                cond_b = this.ae_bq_ < advisor_bq;
                 
                 % Compare qualities for current action
                 % NOT EVALUATED IN MATLABCISL FROM JUSTIN GIRARD
-                % cond_c = sum(quality_in) < this.ae_rho_*sum(this.advisor_quality_);
-                cond_c = true;
+                cond_c = sum(quality_in) < this.ae_rho_*sum(this.advisor_quality_);
                 
                 % All conditions must be satisfied to give advice
                 if (cond_a && cond_b && cond_c)
@@ -378,21 +386,21 @@ classdef Advice < handle
         %   completed, then publishes them on the AdviceDatabase. To be
         %   called once after an epoch is completed.
         
-        function publishPerfMetrics(this)
+        function publishAEPerfMetrics(this)
             % Update our own tracking metrics
-            avg_quality = this.requestData(this.id_, 'avg_quality');
-            this.cq_ = (1 - this.ae_alpha_)*avg_quality + this.ae_alpha_*this.cq_;
-            this.bq_ = max(avg_quality, this.ae_beta_*this.bq_);
+            epoch_avg_quality = this.requestData(this.id_, 'epoch_avg_quality');
+            this.ae_cq_ = (1 - this.ae_alpha_)*epoch_avg_quality + this.ae_alpha_*this.ae_cq_;
+            this.ae_bq_ = max(epoch_avg_quality, this.ae_beta_*this.ae_bq_);
             
             % Save the tracking metrics
-            this.advice_data_.ae.avg_q(1, this.epoch_ + 1) = avg_quality;
-            this.advice_data_.ae.cq(1, this.epoch_ + 1) = this.cq_;
-            this.advice_data_.ae.bq(1, this.epoch_ + 1) = this.bq_;
+            this.advice_data_.ae.avg_q(1, this.epoch_) = epoch_avg_quality;
+            this.advice_data_.ae.cq(1, this.epoch_) = this.ae_cq_;
+            this.advice_data_.ae.bq(1, this.epoch_) = this.ae_bq_;
             
             % Store our tracking metrics in the AdviceDatabase
             data_map = containers.Map;
-            data_map('cq') = this.cq_;
-            data_map('bq') = this.bq_;
+            data_map('ae_cq') = this.ae_cq_;
+            data_map('ae_bq') = this.ae_bq_;
             this.storeData(this.id_, data_map);
         end
         
@@ -407,22 +415,22 @@ classdef Advice < handle
         %   publishes this data on the AdviceDatabase. To be called 
         %   after publishPerfMetrics.
         
-        function updateIndividualMetrics (this)
+        function updateAEIndividualMetrics (this)
             % Update the best tracking metrics of other robots
-            this.best_cq_.value = 0;
-            this.best_cq_.id = [];
+            this.ae_best_bq_.value = 0;
+            this.ae_best_bq_.id = [];
             for i = 1:this.num_robots_
                 if (i ~= this.id_)
-                    [cq, bq] = this.requestData(i, 'cq', 'bq');
+                    [cq, bq] = this.requestData(i, 'ae_cq', 'ae_bq');
                     
-                    if (cq > this.best_cq_.value)
-                        this.best_cq_.value = cq;
-                        this.best_cq_.id = i;
+                    if (cq > this.ae_best_bq_.value)
+                        this.ae_best_bq_.value = cq;
+                        this.ae_best_bq_.id = i;
                     end
                     
-                    if (bq > this.best_bq_.value)
-                        this.best_bq_.value = bq;
-                        this.best_bq_.id = i;
+                    if (bq > this.ae_best_bq_.value)
+                        this.ae_best_bq_.value = bq;
+                        this.ae_best_bq_.id = i;
                     end
                 end
             end
@@ -431,21 +439,14 @@ classdef Advice < handle
                 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   resetTrackingMetrics
+        %   resetForNextRun
         %
         %   Resets all tracking metrics for the next run
         
-        function resetTrackingMetrics (this)
+        function resetForNextRun (this)
             % Increment epochs
             this.epoch_ = this.epoch_ + 1;
             
-            % Allocate a spot in the arrays for next the epoch
-            this.advice_data_.advised_actions_ratio_(1, this.epoch_) = 0;
-            this.advice_data_.advised_actions(1, this.epoch_) = 0;
-            this.advice_data_.total_actions(1, this.epoch_) = 0;
-            this.advice_data_.ae.cond_a_true_count(1, this.epoch_) = 0;
-            this.advice_data_.ae.cond_b_true_count(1, this.epoch_) = 0;
-            this.advice_data_.ae.cond_c_true_count(1, this.epoch_) = 0;
         end
         
     end

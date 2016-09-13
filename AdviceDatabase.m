@@ -1,20 +1,26 @@
 classdef AdviceDatabase < handle
-    % AdviceDatabase - TODO
+    % AdviceDatabase - Medium for storing and exchange data for advice
     
     properties
         % Configuration settings
         config_ = [];
         num_robots_ = [];
         robot_handles_ = [];
+        advice_mechanism_ = [];
+        avg_quality_decay_rate_ = [];
         
-        % General Tracking Metrics
-        avg_quality_ = [];
+        % Iteration tracking metrics
+        avg_quality_total_ = [];
+        avg_quality_decaying_ = [];
         delta_q_ = [];
         delta_h_ = [];
         
+        % Epoch tracking metrics
+        epoch_avg_quality_ = [];
+        
         % Advice Exchange Data
-        cq_ = [];           % Realtive current average quality
-        bq_ = [];           % Relative best average quality
+        ae_cq_ = [];           % Realtive current average quality
+        ae_bq_ = [];           % Relative best average quality
         
     end
     
@@ -31,17 +37,23 @@ classdef AdviceDatabase < handle
             this.config_ = config;
             this.num_robots_ = config.numRobots;
             this.robot_handles_ = robots;
+            this.advice_mechanism_ = config.advice_mechanism;
+            this.avg_quality_decay_rate_ = config.avg_quality_decay_rate;
             
             % Intialize tracking metrics
             keys = 1:this.num_robots_;
             values = zeros(this.num_robots_, 1);
-            this.avg_quality_ = containers.Map(keys, values);
+            this.avg_quality_total_ = containers.Map(keys, values);
+            this.avg_quality_decaying_ = containers.Map(keys, values);
             this.delta_q_ = containers.Map(keys, values);
             this.delta_h_ = containers.Map(keys, values);
+            this.epoch_avg_quality_ = containers.Map(keys, values);
             
             % Initialize Advice Exchange Data
-            this.cq_ = containers.Map(keys, values);
-            this.bq_ = containers.Map(keys, values);
+            if (strcmp(this.advice_mechanism_, 'advice_exchange'))
+                this.ae_cq_ = containers.Map(keys, values);
+                this.ae_bq_ = containers.Map(keys, values);
+            end
             
             % Add property listeners for each robot
             for id = 1:this.num_robots_;
@@ -64,7 +76,12 @@ classdef AdviceDatabase < handle
         function handleDataMonitoring(this, ~, event)
             switch event.type
                 case 'quality'
-                    this.avg_quality_(event.id) = this.avg_quality_(event.id) + (event.value - this.avg_quality_(event.id))/event.iterations;
+                    epoch_iters = event.Source.epoch_iterations_;
+                    total_iters = event.Source.learning_iterations_;
+                    
+                    this.epoch_avg_quality_(event.id) = this.epoch_avg_quality_(event.id) + (event.value - this.epoch_avg_quality_(event.id))/epoch_iters;
+                    this.avg_quality_total_(event.id) = this.avg_quality_total_(event.id) + (event.value - this.avg_quality_total_(event.id))/total_iters;
+                    this.avg_quality_decaying_(event.id) = this.avg_quality_decay_rate_*this.avg_quality_decaying_(event.id) + (1 - this.avg_quality_decay_rate_)*event.value;
                 case 'delta_q'
                     this.delta_q_(event.id) = event.value;
                 case 'delta_h'
@@ -92,18 +109,20 @@ classdef AdviceDatabase < handle
             % Check label for each cell and assign output data 
             for i = 2:length(list)
                 switch list{i}
-                    case 'avg_reward'
-                        src.data_return_{i - 1, 1} = this.avg_reward_(id);
-                    case 'avg_quality'
-                        src.data_return_{i - 1, 1} = this.avg_quality_(id);
+                    case 'epoch_avg_quality'
+                        src.data_return_{i - 1, 1} = this.epoch_avg_quality_(id);
+                    case 'avg_quality_total'
+                        src.data_return_{i - 1, 1} = this.avg_quality_total_(id);
+                    case 'avg_quality_decaying'
+                        src.data_return_{i - 1, 1} = this.avg_quality_decaying_(id);
                     case 'delta_q'
                         src.data_return_{i - 1, 1} = this.delta_q_(id);
                     case 'delta_h'
                         src.data_return_{i - 1, 1} = this.delta_h_(id);
-                    case 'cq'
-                        src.data_return_{i - 1, 1} = this.cq_(id);
-                    case 'bq'
-                        src.data_return_{i - 1, 1} = this.bq_(id);
+                    case 'ae_cq'
+                        src.data_return_{i - 1, 1} = this.ae_cq_(id);
+                    case 'ae_bq'
+                        src.data_return_{i - 1, 1} = this.ae_bq_(id);
                     case 'robot_handle'
                         src.data_return_{i - 1, 1} = this.robot_handles_(id, 1);
                     otherwise
@@ -128,11 +147,11 @@ classdef AdviceDatabase < handle
             id = src.store_data_('id');
             
             % Check each data property
-            if (isKey(src.store_data_, 'cq'))
-                this.cq_(id) = src.store_data_('cq');
+            if (isKey(src.store_data_, 'ae_cq'))
+                this.ae_cq_(id) = src.store_data_('ae_cq');
             end
-            if (isKey(src.store_data_, 'bq'))
-                this.bq_(id) = src.store_data_('bq');
+            if (isKey(src.store_data_, 'ae_bq'))
+                this.ae_bq_(id) = src.store_data_('ae_bq');
             end
         end
         
@@ -144,15 +163,19 @@ classdef AdviceDatabase < handle
         %   this epoch, and to update their data about other robots for the
         %   next epoch.
         
-        function epochFinished(this) 
-            for id = 1:this.num_robots_;
-                this.robot_handles_(id, 1).individual_learning_.advice_.publishPerfMetrics();
+        function epochFinished(this)
+            % Advice Exchange specific data
+            if (strcmp(this.advice_mechanism_, 'advice_exchange'))
+                for id = 1:this.num_robots_;
+                    this.robot_handles_(id, 1).individual_learning_.advice_.publishAEPerfMetrics();
+                end
+                for id = 1:this.num_robots_;
+                    this.robot_handles_(id, 1).individual_learning_.advice_.updateAEIndividualMetrics();
+                end
             end
+            
             for id = 1:this.num_robots_;
-                this.robot_handles_(id, 1).individual_learning_.advice_.updateIndividualMetrics();
-            end
-            for id = 1:this.num_robots_;
-                this.robot_handles_(id, 1).individual_learning_.advice_.resetTrackingMetrics();
+                this.robot_handles_(id, 1).individual_learning_.advice_.resetForNextRun();
             end
         end
                         
