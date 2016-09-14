@@ -167,10 +167,10 @@ classdef AdviceDatabase < handle
             % Advice Exchange specific data
             if (strcmp(this.advice_mechanism_, 'advice_exchange'))
                 for id = 1:this.num_robots_;
-                    this.robot_handles_(id, 1).individual_learning_.advice_.publishAEPerfMetrics();
+                    this.robot_handles_(id, 1).individual_learning_.advice_.publishPerfMetrics();
                 end
                 for id = 1:this.num_robots_;
-                    this.robot_handles_(id, 1).individual_learning_.advice_.updateAEIndividualMetrics();
+                    this.robot_handles_(id, 1).individual_learning_.advice_.updateIndividualMetrics();
                 end
             end
             

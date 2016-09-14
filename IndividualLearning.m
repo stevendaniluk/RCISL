@@ -89,7 +89,12 @@ classdef IndividualLearning < handle
             
             this.advice_on_ = config.advice_on;
             if (this.advice_on_)
-                this.advice_ = Advice(config, id);
+                % Load the proper mechanism
+                if (strcmp(config.advice_mechanism, 'advice_exchange'))
+                    this.advice_ = AdviceExchange(config, id);
+                elseif (strcmp(config.advice_mechanism, 'advice_dev'))
+                    this.advice_ = AdviceDev(config, id);
+                end
                 this.greedy_override_ = config.greedy_override;
             end
             

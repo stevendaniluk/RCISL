@@ -1,6 +1,9 @@
 classdef Configuration < handle
     
     properties
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % General Simulation Settings
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % Graphics Parameters
         show_live_graphics = false
@@ -14,7 +17,7 @@ classdef Configuration < handle
         robot_Type =[ pi*(2/9)     2         0.30      1; ... 
                       pi*(2/9)     1         0.30      2; ... 
                       pi*(2/9)     1         0.30      3; ... 
-                      pi*(2/9)     2         0.40      4];    
+                      pi*(2/9)     2         0.30      4];    
                     % Rotation  Strength  Step Size Type Id
         target_Type = [0.2, 1; 0.2, 1];
         robot_Reach = 0.5;
@@ -56,6 +59,10 @@ classdef Configuration < handle
         particle_Number = 35;
         particle_PruneNumber = 7;
         
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Individual Learning
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
         % Individual Learning Parameters
         learning_iterations = 1;
         item_closer_reward = 0.5;
@@ -77,6 +84,10 @@ classdef Configuration < handle
         alpha_denom = 300;      % Coefficient in alpha update equation
         alpha_power = 2;        % Coefficient in alpha update equation
         
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Team Learning
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
         % Team Learning Parameters
         task_allocation = 'fixed';  % Options: "fixed", "l_alliance"
         
@@ -89,19 +100,25 @@ classdef Configuration < handle
         stochastic_update_theta3 = 0.3;  % Coefficient for stochastic update
         stochastic_update_theta4 = 2.0;  % Coefficient for stochastic update
         
-        % Advice Parameters
-        advice_on = true;                 % If advice should be used
-        advice_mechanism = 'advice_exchange';     % Options: "advice_exchange", "h_advice"
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Advice
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        % General Advice Parameters
+        advice_on = false;                 % If advice should be used
+        advice_mechanism = 'advice_dev';     % Options: "advice_exchange", "advice_dev"
         greedy_override = false;           % Overrides the policy with a greedy selection
         avg_quality_decay_rate = 0.95;
         
-        ha_state_resolution = [128, 2];    % Resolution of [entropy, Q_max]
-        ha_softmax_temp = 0.10;            % Advisor selection softmax
-        ha_gamma = 0.3;                    % Discount factor
-        ha_alpha_max = 0.9;                % Maximum value of learning rate
-        ha_alpha_denom = 5000000;          % Coefficient in alpha update equation
-        ha_alpha_power = 2;                % Coefficient in alpha update equation
+        % Advice Enhancement Parameters
+        a_dev_state_resolution = [128];    % Resolution of [entropy, Q_max]
+        a_dev_softmax_temp = 0.10;            % Advisor selection softmax
+        a_dev_gamma = 0.3;                    % Discount factor
+        a_dev_alpha_max = 0.9;                % Maximum value of learning rate
+        a_dev_alpha_denom = 5000000;          % Coefficient in alpha update equation
+        a_dev_alpha_power = 2;                % Coefficient in alpha update equation
         
+        % Advice Exchange Parameters
         ae_alpha = 0.80;                   % Coefficient for current average quality update
         ae_beta = 0.95;                    % Coefficient for best average quality update
         ae_delta = 0.00;                   % Coefficient for quality comparison

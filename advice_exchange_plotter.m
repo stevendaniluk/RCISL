@@ -13,12 +13,12 @@
 clear
 
 % Input data settings
-folder = 'ae_test';
+folder = 'test';
 plot_indiv_metrics = true;
 save_plots = false;
 num_sims = 1;
 num_runs = 15;
-num_robots = 4;
+num_robots = 2;
 
 % Plot settings
 robots_to_plot = [1, 2];

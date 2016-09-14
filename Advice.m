@@ -1,44 +1,26 @@
 classdef Advice < handle
-    % Advice - Advice sharing mechanism for RCISL
+    % Advice - Base class for advice mechanisms
+    
+    % Contains all common functionality to the advice mechanisms, and
+    % methods for interacting with AdviceDatabase.
     
     properties
         % Configuration settings
         config_ = [];
-        mechanism_ = [];
         num_robots_ = [];
         robots_ = [];
         id_ = [];
-        iters_ = [];
         epoch_ = [];
-        num_robot_actions_ = [];
         
         % Advisor Properties
         advisor_handle_ = [];
         advisor_id_ = [];
         prev_advisor_id_ = [];
-        advisor_quality_ = [];
-        
-        % Entropy parameters
-        ha_q_learning_ = [];
-        ha_state_resolution_ = [];
-        il_softmax_temp_ = [];
-        ha_softmax_temp_ = [];     % Temp setting for softmax distribution
-        h_max_ = [];
-        h_vals_encoded_ = [];
-        prev_h_vals_encoded_ = [];
-        initialized_ = [];
-        
-        % Advice Exchange Parameters
-        ae_alpha_ = [];        % Coefficient for current average quality update
-        ae_beta_ = [];         % Coefficient for best average quality update
-        ae_delta_ = [];        % Coefficient for quality comparison
-        ae_rho_ = [];          % Coefficient for quality comparison
-        ae_cq_ = [];           % Realtive current average quality
-        ae_bq_ = [];           % Relative best average quality
-        ae_best_bq_ = [];      % Best value for cq, and robot id
         
         % Structure of data to save
         advice_data_ = [];
+        data_initialized_ = [];
+        iters_ = [];
         
         % Properties accessed by AdviceDatabase class
         request_data_ = []; % List of parameters to be ready by AdviceDatabase
@@ -64,264 +46,58 @@ classdef Advice < handle
         function this = Advice (config, id)
             % General parameters
             this.config_ = config;
-            this.mechanism_ = config.advice_mechanism;
             this.id_ = id;
             this.num_robots_ = config.numRobots;
-            this.iters_ = 0;
             this.epoch_ = 1;
-            this.num_robot_actions_ = config.num_actions;
             this.advisor_id_ = this.id_;
-            this.initialized_ = false;
+            this.iters_ = 0;
             
             % Initialize structure for data to save
-            this.advice_data_.advisor = [];
-            this.advice_data_.total_actions = [];
-            this.advice_data_.advised_actions = [];
-            this.advice_data_.advised_actions_ratio = [];
-            this.advice_data_.ae.cond_a_true_count = [];
-            this.advice_data_.ae.cond_b_true_count = [];
-            this.advice_data_.ae.cond_c_true_count = [];
-            this.advice_data_.ha.h = [];
-            this.advice_data_.ha.delta_q = [];
-            this.advice_data_.ha.delta_h = [];
-            
-            
-            % Set Entropy properties
-            if (strcmp(this.mechanism_, 'h_advice'))
-                this.il_softmax_temp_ = config.softmax_temp;
-                this.ha_softmax_temp_ = config.ha_softmax_temp;
-                this.h_max_ =  -config.num_actions*(1/config.num_actions)*log2(1/config.num_actions);
-                
-                % Initialize Q-learning (one for each robot)
-                num_state_vrbls = 1;
-                this.ha_state_resolution_ = config.ha_state_resolution;
-                num_actions = 1;
-                this.ha_q_learning_ = cell(this.num_robots_, 1);
-                for i = 1:this.num_robots_;
-                    this.ha_q_learning_{i} = QLearning(config.ha_gamma, config.ha_alpha_denom, ...
-                                          config.ha_alpha_power, config.ha_alpha_max, ...
-                                          num_state_vrbls, this.ha_state_resolution_, ...
-                                          num_actions);
-                end
-
-                this.h_vals_encoded_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
-                this.prev_h_vals_encoded_ = (this.ha_state_resolution_ - 1)*ones(this.num_robots_, 1);
-            end
-            
-            % Initialize Advice Exchange Properties
-            this.ae_alpha_ = config.ae_alpha;
-            this.ae_beta_ = config.ae_beta;
-            this.ae_delta_ = config.ae_delta;
-            this.ae_rho_ = config.ae_rho;
-            this.ae_cq_ = 0;
-            this.ae_bq_ = 0;
-            this.ae_best_bq_ = struct('id', [], 'value', 0);
-            
+            this.data_initialized_ = true;
+            this.advice_data_.advisor = 0;
+            this.advice_data_.total_actions = 0;
+            this.advice_data_.advised_actions = 0;
+            this.advice_data_.advised_actions_ratio = 0;
         end
         
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   getAdvice
+        %   preAdviceUpdate
         %
-        %   Checks if this robot needs advice, by comparing its current and
-        %   best average qualities to those of other robots, as well is
-        %   checking if it is confused about its own state.
-        %
-        %   INPUTS:
-        %   quality_in = Vector of quality values for this robots state
-        %
-        %   OUTPUTS:
-        %   quality_out = Advised quality values
+        %   To be called before each time advice is retrieved. 
         
-        function quality_out = getAdvice(this, state_vector, quality_in)
-            
-            % Initialize tracking metrics, if not done so
-            if (length(this.advice_data_.total_actions) ~= this.epoch_)
+        function  preAdviceUpdate(this)
+            if (~this.data_initialized_)
                 % Allocate a spot in the arrays for next the epoch
                 this.advice_data_.advised_actions_ratio(1, this.epoch_) = 0;
                 this.advice_data_.advised_actions(1, this.epoch_) = 0;
                 this.advice_data_.total_actions(1, this.epoch_) = 0;
-                this.advice_data_.ae.cond_a_true_count(1, this.epoch_) = 0;
-                this.advice_data_.ae.cond_b_true_count(1, this.epoch_) = 0;
-                this.advice_data_.ae.cond_c_true_count(1, this.epoch_) = 0;
+                this.data_initialized_ = true;
             end
+                        
+            this.prev_advisor_id_ = this.advisor_id_;  
             
-            % Update data
             this.iters_ = this.iters_ + 1;
-            this.advice_data_.total_actions(this.epoch_) = this.advice_data_.total_actions(this.epoch_) + 1;
-            this.prev_advisor_id_ = this.advisor_id_;
-            
-            % Get advice from selected mechanism
-            if (strcmp(this.mechanism_, 'advice_exchange'))
-                quality_out = this.adviceExchange(state_vector, quality_in);
-            elseif (strcmp(this.mechanism_, 'h_advice'))
-                  quality_out = this.hAdvice(state_vector, quality_in);  
-            end
-            
+        end
+        
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   postAdviceUpdate
+        %
+        %   To be called after each time advice is retrieved. Updates
+        %   tracking metrics for the advice.
+        
+        function  postAdviceUpdate(this)
             % Save advice data
             if (this.advisor_id_ ~= this.id_)
                 this.advice_data_.advised_actions(this.epoch_) = this.advice_data_.advised_actions(this.epoch_) + 1;
             end
+            this.advice_data_.total_actions(this.epoch_) = this.advice_data_.total_actions(this.epoch_) + 1;
             this.advice_data_.advisor(this.iters_) = this.advisor_id_;
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %
-        %   hAdvice
-        %
-        %   Evaluates the entropy of the quality values for this robot, and
-        %   all potential advisors. At each iteration an advisor is
-        %   selected based on their quality entropy. Q-learning is
-        %   performed on the advisors, where the input state is their
-        %   quality entropy, and the reward is dependent on the change in
-        %   quality of the advisee robot.
-        %
-        %   INPUTS:
-        %   quality_in = Vector of quality values for this robots state
-        %
-        %   OUTPUTS:
-        %   quality_out = Advised quality values
-        
-        function quality_out = hAdvice(this, state_vector, quality_in)
-                        
-            % Get individual learning quality values for each robot
-            q_vals = zeros(this.num_robots_, this.num_robot_actions_);
-            for i = 1:this.num_robots_
-                if (i == this.id_)
-                    q_vals(i, :) = quality_in;
-                else
-                    robot_handle = this.requestData(i, 'robot_handle');
-                    [q_vals(i, :), ~] = robot_handle.individual_learning_.q_learning_.getUtility(state_vector);
-                end
-            end
-            
-            % Evaluate entropy of quality values
-            q_exponents = exp(q_vals/this.il_softmax_temp_);
-            q_prob = bsxfun(@rdivide, q_exponents, sum(q_exponents, 2));
-            h_vals = sum(-q_prob.*log2(q_prob), 2);
-            
-            % Convert entropy to state values
-            % Map entropy value to between 0 and ha_state_resolution_
-            this.prev_h_vals_encoded_ = this.h_vals_encoded_;
-            this.h_vals_encoded_ = round((h_vals/this.h_max_)*(this.ha_state_resolution_ - 1));
-            
-            % Learn from previous advice
-            if (this.initialized_)
-                % Form states
-                prev_advice_state = this.prev_h_vals_encoded_(this.prev_advisor_id_);
-                current_advice_state = this.h_vals_encoded_(this.prev_advisor_id_);
-                
-                % Get change in individual learning quality
-                delta_q = this.requestData(this.id_, 'delta_q');
-                this.advice_data_.ha.delta_q(this.iters_) = delta_q;
-                
-                % Get change in entropy of individual learning quality
-                delta_h = this.requestData(this.id_, 'delta_h');
-                this.advice_data_.ha.delta_h(this.iters_) = delta_h;
-                                
-                % Determine reward from change in quality (+/- a small
-                % amount for convergence)
-                if (this.prev_advisor_id_ == this.id_)
-                    reward = delta_q + 0.0001;
-                else
-                    reward = delta_q - 0.0001;
-                end
-                                
-                % Q-learning update
-                this.ha_q_learning_{this.prev_advisor_id_}.learn(prev_advice_state, current_advice_state, 1, reward);
-            else
-                this.initialized_ = true;
-            end
-                        
-            % Get advice quality for all advisors (based on their entropy)
-            advisor_quality = zeros(this.num_robots_, 1);
-            for i = 1:this.num_robots_
-                [advisor_quality(i), ~] = this.ha_q_learning_{i}.getUtility(this.h_vals_encoded_(i));
-            end
-            
-            % Select advisor based on softmax distribution of advisor quality
-            exponents = exp(advisor_quality/this.ha_softmax_temp_);
-            action_prob = exponents/sum(exponents);
-            rand_action = rand;
-            for i = 1:this.num_robots_
-                this.advisor_id_ = i;
-                if (rand_action < sum(action_prob(1:i)))
-                    break;
-                end
-            end
-            
-            % Accept advice
-            quality_out = q_vals(this.advisor_id_, :);
-            
-            % Store the entropy data
-            this.advice_data_.ha.h(this.iters_) = h_vals(this.advisor_id_);
-            
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %
-        %   adviceExchange
-        %
-        %   Implements the Advice Exchange algorithm, by comparing current
-        %   average and best qualities, as well as the quality values of
-        %   the current state, to potential advisor robots. Implemented
-        %   according to [Girard, 2015].
-        %
-        %   NOTE: In MatlabCISL from Justin Girard, it appears that
-        %   condition C is never evaluated.
-        %
-        %   INPUTS:
-        %   quality_in = Vector of quality values for this robots state
-        %
-        %   OUTPUTS:
-        %   quality_out = Advised quality values
-        
-        function quality_out = adviceExchange(this, state_vector, quality_in)
-            % Do nothing during the first epoch (need data first)
-            if(this.epoch_ <= 1)
-                quality_out = quality_in;
-                return;
-            end      
-            
-            % An advisor must have a better current average quality
-            if (this.ae_cq_ < this.ae_best_bq_.value)
-                
-                % Advisor id
-                this.advisor_id_ = this.ae_best_bq_.id;
-                this.advisor_handle_ = this.requestData(this.advisor_id_, 'robot_handle');
-                [this.advisor_quality_, ~] = this.advisor_handle_.individual_learning_.q_learning_.getUtility(state_vector);
-                
-                % Compare this epochs current average quality, to advisors
-                % relative current average quality
-                avg_quality = this.requestData(this.id_, 'epoch_avg_quality');
-                cond_a = avg_quality < (this.ae_best_bq_.value - this.ae_delta_*this.ae_best_bq_.value);
-                
-                % Compare best quality
-                advisor_bq = this.requestData(this.advisor_id_, 'ae_bq');
-                cond_b = this.ae_bq_ < advisor_bq;
-                
-                % Compare qualities for current action
-                % NOT EVALUATED IN MATLABCISL FROM JUSTIN GIRARD
-                cond_c = sum(quality_in) < this.ae_rho_*sum(this.advisor_quality_);
-                
-                % All conditions must be satisfied to give advice
-                if (cond_a && cond_b && cond_c)
-                    quality_out = this.advisor_quality_;
-                else
-                    quality_out = quality_in;
-                    this.advisor_id_ = this.id_;
-                end
-                
-                % Track how often each is true
-                this.advice_data_.ae.cond_a_true_count(1, this.epoch_) = this.advice_data_.ae.cond_a_true_count(1, this.epoch_) + cond_a;
-                this.advice_data_.ae.cond_b_true_count(1, this.epoch_) = this.advice_data_.ae.cond_b_true_count(1, this.epoch_) + cond_b;
-                this.advice_data_.ae.cond_c_true_count(1, this.epoch_) = this.advice_data_.ae.cond_c_true_count(1, this.epoch_) + cond_c;
-            else
-                quality_out = quality_in;
-                this.advisor_id_ = this.id_;
-            end
-        end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
@@ -380,73 +156,14 @@ classdef Advice < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   publishPerfMetrics
-        %
-        %   Updates our own tracking metrics when a training epoch is
-        %   completed, then publishes them on the AdviceDatabase. To be
-        %   called once after an epoch is completed.
-        
-        function publishAEPerfMetrics(this)
-            % Update our own tracking metrics
-            epoch_avg_quality = this.requestData(this.id_, 'epoch_avg_quality');
-            this.ae_cq_ = (1 - this.ae_alpha_)*epoch_avg_quality + this.ae_alpha_*this.ae_cq_;
-            this.ae_bq_ = max(epoch_avg_quality, this.ae_beta_*this.ae_bq_);
-            
-            % Save the tracking metrics
-            this.advice_data_.ae.avg_q(1, this.epoch_) = epoch_avg_quality;
-            this.advice_data_.ae.cq(1, this.epoch_) = this.ae_cq_;
-            this.advice_data_.ae.bq(1, this.epoch_) = this.ae_bq_;
-            
-            % Store our tracking metrics in the AdviceDatabase
-            data_map = containers.Map;
-            data_map('ae_cq') = this.ae_cq_;
-            data_map('ae_bq') = this.ae_bq_;
-            this.storeData(this.id_, data_map);
-        end
-        
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %
-        %   updateIndividualMetrics
-        %
-        %   Updates this robots individual tracking metrics by pulling the
-        %   newly updated data about other robots. This finds the robots
-        %   with the best cq and bq, updates the self confidence, then 
-        %   publishes this data on the AdviceDatabase. To be called 
-        %   after publishPerfMetrics.
-        
-        function updateAEIndividualMetrics (this)
-            % Update the best tracking metrics of other robots
-            this.ae_best_bq_.value = 0;
-            this.ae_best_bq_.id = [];
-            for i = 1:this.num_robots_
-                if (i ~= this.id_)
-                    [cq, bq] = this.requestData(i, 'ae_cq', 'ae_bq');
-                    
-                    if (cq > this.ae_best_bq_.value)
-                        this.ae_best_bq_.value = cq;
-                        this.ae_best_bq_.id = i;
-                    end
-                    
-                    if (bq > this.ae_best_bq_.value)
-                        this.ae_best_bq_.value = bq;
-                        this.ae_best_bq_.id = i;
-                    end
-                end
-            end
-
-        end
-                
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %
         %   resetForNextRun
         %
         %   Resets all tracking metrics for the next run
         
-        function resetForNextRun (this)
+        function resetForNextRun(this)
             % Increment epochs
             this.epoch_ = this.epoch_ + 1;
-            
+            this.data_initialized_ = false;
         end
         
     end

@@ -1,7 +1,7 @@
-%% H-Advice Plotter
+%% Developmental Advice Plotter
 
-% Reads in recorded advice data for the H-Advice mechanism, then plots the
-% metrics for the team and/or the individual robots
+% Reads in recorded advice data for the developmental advice mechanism, 
+% then plots the metrics for the team and/or the individual robots
 %
 % The filenames have the form "folder_name/sim_name_", and a number is
 % appended to the filenames to load in the data for each simulation.
@@ -28,9 +28,9 @@ sim_num = 1;
 % Plot settings
 robots_to_plot = [1, 2];
 iter_smooth_pts = 10;
-ha_smooth_pts = 500;
+advice_smooth_pts = 500;
 advice_q_axis_max = 0.10;
-ha_q_length = 128;
+advice_q_length = 128;
 
 %% Prepare to load data
 
@@ -68,10 +68,10 @@ team_advised_actions = zeros(num_robots, num_runs);
 
 for i = 1:num_robots
     % Advice Q-Learning tables
-    for j = 1:num_robots
-        q_tables{i}(j, :) = full(advice_data{i}.ha.q_table{j});
-        exp_tables{i}(j, :) = full(advice_data{i}.ha.exp_table{j});
-    end
+    q_tables{i} = full(advice_data{i}.a_dev.q_table);
+    q_tables{i} = reshape(q_tables{1}, [2, advice_q_length]);
+    exp_tables{i} = full(advice_data{i}.a_dev.exp_table);
+    exp_tables{i} = reshape(exp_tables{1}, [2, advice_q_length]);
     
     % Which iterations were, and were not advised
     advised_indices = (advice_data{i}.advisor ~= i);
@@ -79,32 +79,32 @@ for i = 1:num_robots
     my_iters{i} = find(~advised_indices);
     
     % Individual metrics for non-advised actions
-    my_h{i} = advice_data{i}.ha.h(~advised_indices);
-    my_delta_q{i} = advice_data{i}.ha.delta_q(~advised_indices);
-    my_delta_h{i} = advice_data{i}.ha.delta_h(~advised_indices);
+    my_h{i} = advice_data{i}.a_dev.h(~advised_indices);
+    my_delta_q{i} = advice_data{i}.a_dev.delta_q(~advised_indices);
+    my_delta_h{i} = advice_data{i}.a_dev.delta_h(~advised_indices);
     
     % Individual metrics for advised actions
-    advised_h{i} = advice_data{i}.ha.h(advised_indices);
-    advised_delta_q{i} = advice_data{i}.ha.delta_q(advised_indices);
-    advised_delta_h{i} = advice_data{i}.ha.delta_h(advised_indices);
+    advised_h{i} = advice_data{i}.a_dev.h(advised_indices);
+    advised_delta_q{i} = advice_data{i}.a_dev.delta_q(advised_indices);
+    advised_delta_h{i} = advice_data{i}.a_dev.delta_h(advised_indices);
     
     % Team metrics
-    team_h(i, :) = advice_data{i}.ha.h;
-    team_delta_q(i, :) = advice_data{i}.ha.delta_q;
-    team_delta_h(i, :) = advice_data{i}.ha.delta_h;
+    team_h(i, :) = advice_data{i}.a_dev.h;
+    team_delta_q(i, :) = advice_data{i}.a_dev.delta_q;
+    team_delta_h(i, :) = advice_data{i}.a_dev.delta_h;
     team_advised_actions(i, :) = 100*advice_data{i}.advised_actions_ratio;
     
     % Smooth the data
-    team_h(i, :) = smooth(team_h(i, :), ha_smooth_pts);
-    team_delta_q(i, :) = smooth(team_delta_q(i, :), ha_smooth_pts);
-    team_delta_h(i, :) = smooth(team_delta_h(i, :), ha_smooth_pts);
+    team_h(i, :) = smooth(team_h(i, :), advice_smooth_pts);
+    team_delta_q(i, :) = smooth(team_delta_q(i, :), advice_smooth_pts);
+    team_delta_h(i, :) = smooth(team_delta_h(i, :), advice_smooth_pts);
     team_advised_actions(i, :) = smooth(team_advised_actions(i, :), iter_smooth_pts);
-    my_h{i} = smooth(my_h{i}, ha_smooth_pts);
-    my_delta_q{i} = smooth(my_delta_q{i}, ha_smooth_pts);
-    my_delta_h{i} = smooth(my_delta_h{i}, ha_smooth_pts);
-    advised_h{i} = smooth(advised_h{i}, ha_smooth_pts);
-    advised_delta_q{i} = smooth(advised_delta_q{i}, ha_smooth_pts);
-    advised_delta_h{i} = smooth(advised_delta_h{i}, ha_smooth_pts);
+    my_h{i} = smooth(my_h{i}, advice_smooth_pts);
+    my_delta_q{i} = smooth(my_delta_q{i}, advice_smooth_pts);
+    my_delta_h{i} = smooth(my_delta_h{i}, advice_smooth_pts);
+    advised_h{i} = smooth(advised_h{i}, advice_smooth_pts);
+    advised_delta_q{i} = smooth(advised_delta_q{i}, advice_smooth_pts);
+    advised_delta_h{i} = smooth(advised_delta_h{i}, advice_smooth_pts);
 end
 
 % Plot team metrics
@@ -209,14 +209,13 @@ if (plot_indiv_metrics)
         % Advice Q value for each state
         subplot(2,1,1)
         hold on
-        bar(1:ha_q_length, q_tables{id}(id, :), 'b')
-        avg_q = (sum(q_tables{id}, 1) - q_tables{id}(id, :))/(num_robots - 1);
-        bar(1:ha_q_length, avg_q, 'r')
+        bar(1:advice_q_length, q_tables{id}(1, :), 'r')
+        bar(1:advice_q_length, q_tables{id}(2, :), 'b')
         title(['Robot ', num2str(id), ' Advice Q Value For Each Entropy State']);
         xlabel('Entropy State');
         ylabel('Q');
-        legend('Individual', 'Advisors')
-        axis([1, ha_q_length, -advice_q_axis_max, advice_q_axis_max])
+        legend('Reject', 'Accept')
+        axis([1, advice_q_length, -advice_q_axis_max, advice_q_axis_max])
         
         subplot(2,1,2)
         spy(q_tables{id})
