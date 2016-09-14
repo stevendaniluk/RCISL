@@ -78,6 +78,15 @@ classdef IndividualLearning < handle
                                 config.num_state_vrbls, config.state_resolution, ...
                                 config.num_actions);
             
+            % Load expert (if necessary)
+            if (config.expert_on && id == config.expert_id)
+                load('expert_data/expert_q_table.mat');
+                load('expert_data/expert_exp_table.mat');
+                
+                this.q_learning_.q_table_ = q_table;
+                this.q_learning_.exp_table_ = exp_table;
+            end
+            
             % Form structure for tracking Q values
             % Need to know the values, and if a +ve reward was received
             this.state_q_data_.q_vals = [];

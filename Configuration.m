@@ -105,13 +105,15 @@ classdef Configuration < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % General Advice Parameters
-        advice_on = false;                 % If advice should be used
-        advice_mechanism = 'advice_dev';     % Options: "advice_exchange", "advice_dev"
-        greedy_override = false;           % Overrides the policy with a greedy selection
+        advice_on = false;                    % If advice should be used
+        advice_mechanism = 'advice_dev';      % Options: "advice_exchange", "advice_dev"
+        expert_on = false;                    % If an expert agent shoudld be loaded
+        expert_id = 1;                        % Id of expert agent
+        greedy_override = false;              % Overrides the policy with a greedy selection
         avg_quality_decay_rate = 0.95;
         
         % Advice Enhancement Parameters
-        a_dev_state_resolution = [128];    % Resolution of [entropy, Q_max]
+        a_dev_state_resolution = [128];       % Resolution of [entropy, Q_max]
         a_dev_softmax_temp = 0.10;            % Advisor selection softmax
         a_dev_gamma = 0.3;                    % Discount factor
         a_dev_alpha_max = 0.9;                % Maximum value of learning rate
@@ -119,10 +121,10 @@ classdef Configuration < handle
         a_dev_alpha_power = 2;                % Coefficient in alpha update equation
         
         % Advice Exchange Parameters
-        ae_alpha = 0.80;                   % Coefficient for current average quality update
-        ae_beta = 0.95;                    % Coefficient for best average quality update
-        ae_delta = 0.00;                   % Coefficient for quality comparison
-        ae_rho = 1.00;                     % Coefficient for quality comparison
+        ae_alpha = 0.80;                      % Coefficient for current average quality update
+        ae_beta = 0.95;                       % Coefficient for best average quality update
+        ae_delta = 0.00;                      % Coefficient for quality comparison
+        ae_rho = 1.00;                        % Coefficient for quality comparison
     end
     
 end

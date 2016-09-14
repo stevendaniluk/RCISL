@@ -4,6 +4,8 @@ classdef AdviceDev < Advice
     properties
         % Configuration properties
         num_robot_actions_ = [];
+        expert_on_ = [];
+        expert_id_ = [];
         
         % Advice learning properties
         q_learning_ = [];             % Q-learning object
@@ -31,6 +33,8 @@ classdef AdviceDev < Advice
             this@Advice(config, id);
             
             this.num_robot_actions_ = config.num_actions;
+            this.expert_on_ = config.expert_on;
+            this.expert_id_ = config.expert_id;
             this.il_softmax_temp_ = config.softmax_temp;
             this.advice_softmax_temp_ = config.a_dev_softmax_temp;
             this.h_max_ =  -config.num_actions*(1/config.num_actions)*log2(1/config.num_actions);
@@ -96,9 +100,15 @@ classdef AdviceDev < Advice
             q_prob = bsxfun(@rdivide, q_exponents, sum(q_exponents, 2));
             h_vals = sum(-q_prob.*log2(q_prob), 2);
             
-            % Randomly select advisor
-            advisors = randperm(this.num_robots_);
-            this.advisor_id_ = advisors(1);
+            % Select advisor
+            if (this.expert_on_)
+                this.advisor_id_ = this.expert_id_;
+            else
+                % Randomly choose an advisor
+                advisors = randperm(this.num_robots_);
+                this.advisor_id_ = advisors(1);
+            end
+            
             
             % Convert entropy to state values
             % Map entropy value to between 0 and state_resolution_
