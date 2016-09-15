@@ -33,10 +33,10 @@ sim_name = 'test';
 Simulation.consecutiveRuns(num_runs, save_data, sim_name);
 
 %% Run consecutive simulations with X runs
-num_sims = 10;
-num_runs = 300;
+num_sims = 1;
+num_runs = 30;
 save_data = true;
-sim_name_base = 'no_advice/sim_';
+sim_name_base = 'aep/sim_';
 
 for i=1:num_sims    
     % Form configuration

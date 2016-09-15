@@ -101,6 +101,8 @@ classdef IndividualLearning < handle
                 % Load the proper mechanism
                 if (strcmp(config.advice_mechanism, 'advice_exchange'))
                     this.advice_ = AdviceExchange(config, id);
+                elseif (strcmp(config.advice_mechanism, 'advice_exchange_plus'))
+                    this.advice_ = AdviceExchangePlus(config, id);
                 elseif (strcmp(config.advice_mechanism, 'advice_dev'))
                     this.advice_ = AdviceDev(config, id);
                 end

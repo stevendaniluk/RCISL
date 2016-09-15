@@ -165,7 +165,7 @@ classdef AdviceDatabase < handle
         
         function epochFinished(this)
             % Advice Exchange specific data
-            if (strcmp(this.advice_mechanism_, 'advice_exchange'))
+            if (strcmp(this.advice_mechanism_, 'advice_exchange') || strcmp(this.advice_mechanism_, 'advice_exchange_plus'))
                 for id = 1:this.num_robots_;
                     this.robot_handles_(id, 1).individual_learning_.advice_.publishPerfMetrics();
                 end

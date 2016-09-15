@@ -106,7 +106,12 @@ classdef Configuration < handle
         
         % General Advice Parameters
         advice_on = false;                    % If advice should be used
-        advice_mechanism = 'advice_dev';      % Options: "advice_exchange", "advice_dev"
+        advice_mechanism = 'advice_exchange';      
+            % Options: 
+            %   -advice_exchange
+            %   -advice_exchange_plus
+            %   -advice_dev
+        
         expert_on = false;                    % If an expert agent shoudld be loaded
         expert_id = 1;                        % Id of expert agent
         greedy_override = false;              % Overrides the policy with a greedy selection
@@ -125,6 +130,18 @@ classdef Configuration < handle
         ae_beta = 0.95;                       % Coefficient for best average quality update
         ae_delta = 0.00;                      % Coefficient for quality comparison
         ae_rho = 1.00;                        % Coefficient for quality comparison
+        
+        % Advice Exchange Plus Parameters
+        aep_alpha = 0.80;                     % Coefficient for current average quality update
+        aep_beta = 0.95;                      % Coefficient for best average quality update
+        aep_delta = 0.00;                     % Coefficient for quality comparison
+        aep_rho = 1.00;                       % Coefficient for quality comparison
+        aep_softmax_temp = 0.10;              % Advice selection softmax
+        aep_state_resolution = [50, 50];      % Resolution of [entropy, Q_max]
+        aep_gamma = 0.3;                      % Discount factor
+        aep_alpha_max = 0.9;                  % Maximum value of learning rate
+        aep_alpha_denom = 5000000;            % Coefficient in alpha update equation
+        aep_alpha_power = 2;                  % Coefficient in alpha update equation
     end
     
 end
