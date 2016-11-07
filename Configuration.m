@@ -71,7 +71,7 @@ classdef Configuration < handle
         robot_closer_reward = 0.3;
         robot_further_reward = -0.1;
         return_reward = 10;
-        empty_reward_value = -0.05;
+        empty_reward_value = -0.01;
         reward_activation_dist = 0.15;
         
         % Expert Parameters
@@ -124,10 +124,6 @@ classdef Configuration < handle
         a_dev_evil_advisor = false;
         a_dev_e_greedy_epsilon = 0.05;
         a_dev_state_resolution = [50, 2];         % Resolution of state
-        a_dev_short_decay_rate = 0.25;
-        a_dev_long_decay_rate = 0.99;
-        a_dev_local_avg_factor = 0.2;
-        a_dev_sigmoid_coeff = 20;
         a_dev_gamma = 0.3;                    % Discount factor
         a_dev_alpha_max = 0.9;                % Maximum value of learning rate
         a_dev_alpha_denom = 300;          % Coefficient in alpha update equation
