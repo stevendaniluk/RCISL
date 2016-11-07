@@ -7,11 +7,14 @@ classdef AdviceDatabase < handle
         num_robots_ = [];
         robot_handles_ = [];
         advice_mechanism_ = [];
-        avg_quality_decay_rate_ = [];
+        short_decay_rate_ = [];
+        long_decay_rate_ = [];
         
         % Iteration tracking metrics
         avg_quality_total_ = [];
         avg_quality_decaying_ = [];
+        avg_entropy_total_ = [];
+        avg_entropy_decaying_ = [];
         delta_q_ = [];
         delta_h_ = [];
         
@@ -38,13 +41,16 @@ classdef AdviceDatabase < handle
             this.num_robots_ = config.numRobots;
             this.robot_handles_ = robots;
             this.advice_mechanism_ = config.advice_mechanism;
-            this.avg_quality_decay_rate_ = config.avg_quality_decay_rate;
+            this.short_decay_rate_ = config.a_dev_short_decay_rate;
+            this.long_decay_rate_ = config.a_dev_long_decay_rate;
             
             % Intialize tracking metrics
             keys = 1:this.num_robots_;
             values = zeros(this.num_robots_, 1);
             this.avg_quality_total_ = containers.Map(keys, values);
             this.avg_quality_decaying_ = containers.Map(keys, values);
+            this.avg_entropy_total_ = containers.Map(keys, values);
+            this.avg_entropy_decaying_ = containers.Map(keys, values);
             this.delta_q_ = containers.Map(keys, values);
             this.delta_h_ = containers.Map(keys, values);
             this.epoch_avg_quality_ = containers.Map(keys, values);
@@ -77,11 +83,16 @@ classdef AdviceDatabase < handle
             switch event.type
                 case 'quality'
                     epoch_iters = event.Source.epoch_iterations_;
-                    total_iters = event.Source.learning_iterations_;
+                    total_iters = event.Source.learning_iterations_ + 1;
                     
                     this.epoch_avg_quality_(event.id) = this.epoch_avg_quality_(event.id) + (event.value - this.epoch_avg_quality_(event.id))/epoch_iters;
                     this.avg_quality_total_(event.id) = this.avg_quality_total_(event.id) + (event.value - this.avg_quality_total_(event.id))/total_iters;
-                    this.avg_quality_decaying_(event.id) = this.avg_quality_decay_rate_*this.avg_quality_decaying_(event.id) + (1 - this.avg_quality_decay_rate_)*event.value;
+                    this.avg_quality_decaying_(event.id) = this.long_decay_rate_*this.avg_quality_decaying_(event.id) + (1 - this.long_decay_rate_)*event.value;
+                case 'entropy'
+                    total_iters = event.Source.learning_iterations_ + 1;
+                    
+                    this.avg_entropy_total_(event.id) = this.avg_entropy_total_(event.id) + (event.value - this.avg_entropy_total_(event.id))/total_iters;
+                    this.avg_entropy_decaying_(event.id) = this.short_decay_rate_*this.avg_entropy_decaying_(event.id) + (1 - this.short_decay_rate_)*event.value;
                 case 'delta_q'
                     this.delta_q_(event.id) = event.value;
                 case 'delta_h'
@@ -115,6 +126,10 @@ classdef AdviceDatabase < handle
                         src.data_return_{i - 1, 1} = this.avg_quality_total_(id);
                     case 'avg_quality_decaying'
                         src.data_return_{i - 1, 1} = this.avg_quality_decaying_(id);
+                    case 'avg_entropy_total'
+                        src.data_return_{i - 1, 1} = this.avg_entropy_total_(id);
+                    case 'avg_entropy_decaying'
+                        src.data_return_{i - 1, 1} = this.avg_entropy_decaying_(id);
                     case 'delta_q'
                         src.data_return_{i - 1, 1} = this.delta_q_(id);
                     case 'delta_h'

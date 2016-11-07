@@ -6,14 +6,14 @@ classdef Configuration < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % Graphics Parameters
-        show_live_graphics = false
+        show_live_graphics = true
         show_track_graphics = false;
                         
         % Primary Scenario Parameters
         max_iterations = 2000;
-        numRobots    = 2;
+        numRobots    = 4;
         numObstacles = 4;
-        numTargets   = 2;
+        numTargets   = 4;
         robot_Type =[ pi*(2/9)     2         0.30      1; ... 
                       pi*(2/9)     1         0.30      2; ... 
                       pi*(2/9)     1         0.30      3; ... 
@@ -64,14 +64,20 @@ classdef Configuration < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % Individual Learning Parameters
+        individual_learning_on = true;
         learning_iterations = 1;
         item_closer_reward = 0.5;
         item_further_reward = -0.3;
         robot_closer_reward = 0.3;
         robot_further_reward = -0.1;
         return_reward = 10;
-        empty_reward_value = 0.0;
+        empty_reward_value = -0.05;
         reward_activation_dist = 0.15;
+        
+        % Expert Parameters
+        expert_on = false;                    % If expert agent(s) shoudld be loaded
+        expert_filename = '1_bot';          % Folder name containing Q and experience tables
+        expert_id = [1];                  % Id(s) of expert agent(s)
         
         % Policy parameters
         policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
@@ -106,23 +112,25 @@ classdef Configuration < handle
         
         % General Advice Parameters
         advice_on = false;                    % If advice should be used
-        advice_mechanism = 'advice_exchange';      
+        advice_mechanism = 'advice_dev';      
             % Options: 
             %   -advice_exchange
-            %   -advice_exchange_plus
             %   -advice_dev
         
-        expert_on = false;                    % If an expert agent shoudld be loaded
-        expert_id = 1;                        % Id of expert agent
         greedy_override = false;              % Overrides the policy with a greedy selection
-        avg_quality_decay_rate = 0.95;
         
         % Advice Enhancement Parameters
-        a_dev_state_resolution = [128];       % Resolution of [entropy, Q_max]
-        a_dev_softmax_temp = 0.10;            % Advisor selection softmax
+        a_dev_expert_filename = 'advisor_320_epochs';
+        a_dev_evil_advisor = false;
+        a_dev_e_greedy_epsilon = 0.05;
+        a_dev_state_resolution = [50, 2];         % Resolution of state
+        a_dev_short_decay_rate = 0.25;
+        a_dev_long_decay_rate = 0.99;
+        a_dev_local_avg_factor = 0.2;
+        a_dev_sigmoid_coeff = 20;
         a_dev_gamma = 0.3;                    % Discount factor
         a_dev_alpha_max = 0.9;                % Maximum value of learning rate
-        a_dev_alpha_denom = 5000000;          % Coefficient in alpha update equation
+        a_dev_alpha_denom = 300;          % Coefficient in alpha update equation
         a_dev_alpha_power = 2;                % Coefficient in alpha update equation
         
         % Advice Exchange Parameters
@@ -131,17 +139,6 @@ classdef Configuration < handle
         ae_delta = 0.00;                      % Coefficient for quality comparison
         ae_rho = 1.00;                        % Coefficient for quality comparison
         
-        % Advice Exchange Plus Parameters
-        aep_alpha = 0.80;                     % Coefficient for current average quality update
-        aep_beta = 0.95;                      % Coefficient for best average quality update
-        aep_delta = 0.00;                     % Coefficient for quality comparison
-        aep_rho = 1.00;                       % Coefficient for quality comparison
-        aep_softmax_temp = 0.10;              % Advice selection softmax
-        aep_state_resolution = [50, 50];      % Resolution of [entropy, Q_max]
-        aep_gamma = 0.3;                      % Discount factor
-        aep_alpha_max = 0.9;                  % Maximum value of learning rate
-        aep_alpha_denom = 5000000;            % Coefficient in alpha update equation
-        aep_alpha_power = 2;                  % Coefficient in alpha update equation
     end
     
 end

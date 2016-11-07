@@ -26,6 +26,7 @@ classdef IndividualLearning < handle
         state_vector_ = [];             % Current state vector
         policy_ = [];                   % The policy being used
         epoch_iterations_ = [];         % Counter for iterations in each epoch
+        learning_on_ = [];              % If Q-learning should be updated
         learning_iterations_ = [];      % Counter for how many times learning is performed
         prev_learning_iterations_ = []; % For tracking iterations between epochs
         random_actions_ = [];           % Counter for number of random actions
@@ -63,6 +64,7 @@ classdef IndividualLearning < handle
             this.config_ = config;
             this.robot_id_ = id;
             this.epoch_iterations_ = 0;
+            this.learning_on_ = config.individual_learning_on;
             this.learning_iterations_ = 0;
             this.prev_learning_iterations_ = 0;
             this.random_actions_ = 0;
@@ -79,12 +81,16 @@ classdef IndividualLearning < handle
                                 config.num_actions);
             
             % Load expert (if necessary)
-            if (config.expert_on && id == config.expert_id)
-                load('expert_data/expert_q_table.mat');
-                load('expert_data/expert_exp_table.mat');
-                
-                this.q_learning_.q_table_ = q_table;
-                this.q_learning_.exp_table_ = exp_table;
+            if (config.expert_on)
+                filename = config.expert_filename;
+                load(['expert_data/', filename, '/q_tables.mat']);
+                load(['expert_data/', filename, '/exp_tables.mat']);
+                for i = 1:length(config.expert_id)
+                    if (id == config.expert_id(i))
+                        this.q_learning_.q_table_ = q_tables{i};
+                        this.q_learning_.exp_table_ = exp_tables{i};
+                    end
+                end
             end
             
             % Form structure for tracking Q values
@@ -101,8 +107,6 @@ classdef IndividualLearning < handle
                 % Load the proper mechanism
                 if (strcmp(config.advice_mechanism, 'advice_exchange'))
                     this.advice_ = AdviceExchange(config, id);
-                elseif (strcmp(config.advice_mechanism, 'advice_exchange_plus'))
-                    this.advice_ = AdviceExchangePlus(config, id);
                 elseif (strcmp(config.advice_mechanism, 'advice_dev'))
                     this.advice_ = AdviceDev(config, id);
                 end
@@ -150,6 +154,11 @@ classdef IndividualLearning < handle
             % Notify AdviceDatabase listener of quality update
             this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.epoch_iterations_));
             
+            q_exponents = exp(quality/this.softmax_temp_);
+            q_prob = q_exponents./sum(q_exponents);
+            h = sum(-q_prob.*log2(q_prob));
+            this.notify('PerfMetrics', PerfMetricsEventData('entropy', this.robot_id_, h, this.epoch_iterations_));
+            
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
         end
@@ -172,8 +181,9 @@ classdef IndividualLearning < handle
             [prev_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
             
             % Do one step of QLearning
-            this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);
-            
+            if (this.learning_on_)
+                this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);
+            end
             % Save q values and reward
             this.state_q_data_.q_vals(size(this.state_q_data_.q_vals, 1) + 1, :) = prev_quality';
             this.state_q_data_.state_vector(size(this.state_q_data_.state_vector, 1) + 1, :) = prev_state_vector;

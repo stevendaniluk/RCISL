@@ -318,9 +318,6 @@ classdef ExecutiveSimulation < handle
                     if (strcmp(this.config_.advice_mechanism, 'advice_dev'))
                         advice_data{i}.a_dev.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
                         advice_data{i}.a_dev.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
-                    elseif (strcmp(this.config_.advice_mechanism, 'advice_exchange_plus'))
-                        advice_data{i}.aep.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
-                        advice_data{i}.aep.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
                     end
                 end
                 save(['results/', sim_name, '/', 'advice_data'], 'advice_data');

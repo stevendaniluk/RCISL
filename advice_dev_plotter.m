@@ -6,31 +6,30 @@
 % The filenames have the form "folder_name/sim_name_", and a number is
 % appended to the filenames to load in the data for each simulation.
 %
-% Generates plots for:
-%   -Percent of actions advised
-%   -Entropy of selected Q values
-%   -Change in individual learning Q after action
-%   -Change in individual learning H after action
-%   -Q-values in each state for advice Q-learning
-%   -Sparsity of advice Q-learning table
+% Generates advisor and advisee plots for:
+%   -Average action Q value (decaying moving average)
+%   -Average action entropy (decaying moving average)
+%
+% Generates advisee only plots for:
+%   -Accept action Q value
+%   -Reject action Q value
+%   -Advice reward
+%   -Advised actions percentage
+%   -Number of advice states visited
 
 clear
 clf
 
 % Input data settings
-folder = 'test';
-plot_indiv_metrics = true;
-save_plots = false;
-num_runs = 300;
-num_robots = 2;
+folder = 'test_v2_320_advisor';
 sim_num = 1;
+num_advice_states = 200;
 
 % Plot settings
-robots_to_plot = [1, 2];
-iter_smooth_pts = 10;
-advice_smooth_pts = 500;
-advice_q_axis_max = 0.10;
-advice_q_length = 128;
+plot_by_epoch = true;
+save_plots = false;
+iter_smooth_pts = 100;
+epoch_smooth_pts = 10;
 
 %% Prepare to load data
 
@@ -48,183 +47,175 @@ end
 
 % Load the data
 load(['results/', advice_filename, sprintf('%d', sim_num), '/', 'advice_data']);
-n = sum(advice_data{sim_num}.total_actions);
 
-% Initialize arrays
-q_tables = cell(num_robots, 1);
-exp_tables = cell(num_robots, 1);
-advised_iters = cell(num_robots, 1);
-my_iters = cell(num_robots, 1);
-my_h = cell(num_robots, 1);
-my_delta_q = cell(num_robots, 1);
-my_delta_h = cell(num_robots, 1);
-advised_h = cell(num_robots, 1);
-advised_delta_q = cell(num_robots, 1);
-advised_delta_h = cell(num_robots, 1);
-team_h = zeros(num_robots, n);
-team_delta_q = zeros(num_robots, n);
-team_delta_h = zeros(num_robots, n);
-team_advised_actions = zeros(num_robots, num_runs);
+% Which iterations were, and were not advised
+advised_indices = (advice_data{1}.advisor ~= 1);
+advised_iters = find(advised_indices);
+non_advised_iters = find(~advised_indices);
 
-for i = 1:num_robots
-    % Advice Q-Learning tables
-    q_tables{i} = full(advice_data{i}.a_dev.q_table);
-    q_tables{i} = reshape(q_tables{1}, [2, advice_q_length]);
-    exp_tables{i} = full(advice_data{i}.a_dev.exp_table);
-    exp_tables{i} = reshape(exp_tables{1}, [2, advice_q_length]);
+% Metrics from advice data
+if (plot_by_epoch)
+    avg_q = advice_data{1}.a_dev.avg_q_epoch;
+    local_avg = advice_data{1}.a_dev.local_avg_epoch;
+    advisor_avg_q = advice_data{1}.a_dev.advisor_avg_q_epoch;
+    advisor_local_avg = advice_data{1}.a_dev.advisor_local_avg_epoch;
+    accept_q = advice_data{1}.a_dev.accept_q_epoch;
+    reject_q = advice_data{1}.a_dev.reject_q_epoch;
+    reward = advice_data{1}.a_dev.reward_epoch;
+    num_states_visited = advice_data{1}.a_dev.num_states_visited_epoch;
+    advice_state_val = advice_data{1}.a_dev.advice_state_val_epoch;
+    %advised_actions_ratio_moving = advice_data{1}.a_dev.advised_actions_ratio_epoch;
+    pride = advice_data{1}.a_dev.pride_epoch;
     
-    % Which iterations were, and were not advised
-    advised_indices = (advice_data{i}.advisor ~= i);
-    advised_iters{i} = find(advised_indices);
-    my_iters{i} = find(~advised_indices);
+    smooth_pts = epoch_smooth_pts;
+else
+    avg_q = advice_data{1}.a_dev.avg_q_iter;
+    local_avg = advice_data{1}.a_dev.local_avg_iter;
+    advisor_avg_q = advice_data{1}.a_dev.advisor_avg_q_iter;
+    advisor_local_avg = advice_data{1}.a_dev.advisor_local_avg_iter;
+    accept_q = advice_data{1}.a_dev.accept_q_iter;
+    reject_q = advice_data{1}.a_dev.reject_q_iter;
+    reward = advice_data{1}.a_dev.reward_iter;
+    num_states_visited = advice_data{1}.a_dev.num_states_visited_iter;
+    advice_state_val = advice_data{1}.a_dev.advice_state_val_iter;
+    %advised_actions_ratio_moving = advice_data{1}.a_dev.advised_actions_ratio_iter;
+    pride = advice_data{1}.a_dev.pride_iter;
     
-    % Individual metrics for non-advised actions
-    my_h{i} = advice_data{i}.a_dev.h(~advised_indices);
-    my_delta_q{i} = advice_data{i}.a_dev.delta_q(~advised_indices);
-    my_delta_h{i} = advice_data{i}.a_dev.delta_h(~advised_indices);
-    
-    % Individual metrics for advised actions
-    advised_h{i} = advice_data{i}.a_dev.h(advised_indices);
-    advised_delta_q{i} = advice_data{i}.a_dev.delta_q(advised_indices);
-    advised_delta_h{i} = advice_data{i}.a_dev.delta_h(advised_indices);
-    
-    % Team metrics
-    team_h(i, :) = advice_data{i}.a_dev.h;
-    team_delta_q(i, :) = advice_data{i}.a_dev.delta_q;
-    team_delta_h(i, :) = advice_data{i}.a_dev.delta_h;
-    team_advised_actions(i, :) = 100*advice_data{i}.advised_actions_ratio;
-    
-    % Smooth the data
-    team_h(i, :) = smooth(team_h(i, :), advice_smooth_pts);
-    team_delta_q(i, :) = smooth(team_delta_q(i, :), advice_smooth_pts);
-    team_delta_h(i, :) = smooth(team_delta_h(i, :), advice_smooth_pts);
-    team_advised_actions(i, :) = smooth(team_advised_actions(i, :), iter_smooth_pts);
-    my_h{i} = smooth(my_h{i}, advice_smooth_pts);
-    my_delta_q{i} = smooth(my_delta_q{i}, advice_smooth_pts);
-    my_delta_h{i} = smooth(my_delta_h{i}, advice_smooth_pts);
-    advised_h{i} = smooth(advised_h{i}, advice_smooth_pts);
-    advised_delta_q{i} = smooth(advised_delta_q{i}, advice_smooth_pts);
-    advised_delta_h{i} = smooth(advised_delta_h{i}, advice_smooth_pts);
+    smooth_pts = iter_smooth_pts;
 end
+advised_actions_ratio = advice_data{1}.advised_actions_ratio;
 
-% Plot team metrics
-f = figure(1);
+% Smooth the data
+avg_q = smooth(avg_q, smooth_pts);
+local_avg = smooth(local_avg, smooth_pts);
+advisor_avg_q = smooth(advisor_avg_q, smooth_pts);
+advisor_local_avg = smooth(advisor_local_avg, smooth_pts);
+accept_q = smooth(accept_q, smooth_pts);
+reject_q = smooth(reject_q, smooth_pts);
+reward = smooth(reward, smooth_pts);
+pride = smooth(pride, smooth_pts);
+
+advised_actions_ratio = smooth(advised_actions_ratio, epoch_smooth_pts);
+
+% Make vector of epochs/iterations to plot data against
+num_epochs = length(advised_actions_ratio);
+num_iters = length(avg_q);
+
+if (plot_by_epoch)
+    x_length = num_epochs;
+    x_label_string = 'Epochs';
+else
+    x_length = num_iters;
+    x_label_string = 'Iterations';
+end
+x_vector = 1:x_length;
+
+%% Plot advisor and advisee metrics
+f1 = figure(1);
 clf
-total_iters = 1:length(team_h);
 
+% Average Q
 subplot(4,1,1)
-plot(1:num_runs, sum(team_advised_actions, 1)/num_robots)
-title('Team Average Percent of Actions Advised');
-xlabel('Runs');
-ylabel('Advised Actions [%]');
-axis([0, num_runs, 0, 100]);
+hold on
+plot(x_vector, avg_q)
+plot(x_vector, advisor_avg_q)
+title('Robot Individual Learning Average Action Quality');
+xlabel(x_label_string);
+ylabel('Q_a_v_g');
+axis([1, x_length, 0, 0.3]);
+legend('Advisee', 'Advisor');
 
+% Local metric (entropy)
 subplot(4,1,2)
-plot(total_iters, sum(team_h, 1)/num_robots)
-title('Team Average Entropy of Selected Q Values');
-xlabel('Iterations');
-ylabel('H');
-axis([0, total_iters(end), 0, 2.5]);
+hold on
+plot(x_vector, local_avg) 
+plot(x_vector, advisor_local_avg) 
+title('Advice Local Average Metric');
+xlabel(x_label_string);
+ylabel('H_a_v_g');
+axis([1, x_length, 0, 2.5]);
+legend('Advisee', 'Advisor');
 
+% Advice state value
 subplot(4,1,3)
-plot(total_iters, sum(team_delta_q, 1)/num_robots)
-title('Team Average Individual Learning \DeltaQ After Action');
-xlabel('Iterations');
-ylabel('\DeltaQ');
-axis([0, total_iters(end), -advice_q_axis_max, advice_q_axis_max]);
+plot(x_vector, advice_state_val)
+title('Advice State [0, 1]');
+xlabel(x_label_string);
+ylabel('Value');
+axis([1, x_length, 0, 1]);
 
+% Pride
 subplot(4,1,4)
-plot(total_iters, sum(team_delta_h, 1)/num_robots)
-title('Team Average Individual Learning \DeltaH After Action');
-xlabel('Iterations');
-ylabel('\DeltaH');
-axis([0, total_iters(end), -0.2, 0.2]);
+plot(x_vector, pride)
+title('Pride');
+xlabel(x_label_string);
+ylabel('Pride');
+axis([1, x_length, -0.15, 0.15]);
+%axis([1, x_length, 0, 1.0]);
+ref_line = refline([0 0]);
+ref_line.Color = 'r';
+ref_line.LineStyle = '--';
 
 % Save (if desired)
 if (save_plots)
-    savefig(f, ['results/', folder, '/figures/Team_Entropy_Advice_Metrics.fig']);
+    savefig(f1, ['results/', folder, '/figures/Advice_Dev_Metrics_1.fig']);
 end
 
-% Individual robot metrics
-if (plot_indiv_metrics)
-    for i = 1:length(robots_to_plot)
-        id = robots_to_plot(i);
-        
-        f1_bot = figure(2*i);
-        clf
-        hold on
-        
-        % Percent of actions advised
-        subplot(4,1,1)
-        team_advised_actions = 100*advice_data{id}.advised_actions_ratio;
-        team_advised_actions = smooth(team_advised_actions, iter_smooth_pts);
-        plot(1:num_runs, team_advised_actions)
-        title(['Robot ', num2str(id), ' Percent of Actions Advised']);
-        xlabel('Runs');
-        ylabel('Advised Actions [%]');
-        axis([0, num_runs, 0, 100]);
-        
-        % Entropy of Q values at each iteration
-        subplot(4,1,2)
-        hold on
-        plot(my_iters{id}, my_h{id})
-        plot(advised_iters{id}, advised_h{id})
-        title(['Robot ', num2str(id), ' Entropy of Q Values']);
-        xlabel('Iterations');
-        ylabel('H');
-        legend('Individual', 'Advised')
-        axis([0, total_iters(end), 0, 2.5]);
-        
-        % Individual learning delta Q
-        subplot(4,1,3)
-        hold on
-        plot(my_iters{id}, my_delta_q{id})
-        plot(advised_iters{id}, advised_delta_q{id})
-        title(['Robot ', num2str(id), ' Individual Learning \DeltaQ After Action']);
-        xlabel('Iterations');
-        ylabel('\DeltaQ');
-        legend('Individual', 'Advised')
-        axis([1, total_iters(end), -advice_q_axis_max, advice_q_axis_max])
-        
-        % Individual learning delta Entropy
-        subplot(4,1,4)
-        hold on
-        plot(my_iters{id}, my_delta_h{id})
-        plot(advised_iters{id}, advised_delta_h{id})
-        title(['Robot ', num2str(id), ' Individual Learning \DeltaH After Action']);
-        xlabel('Iterations');
-        ylabel('\DeltaH');
-        legend('Individual', 'Advised')
-        axis([1, total_iters(end), -0.5, 0.5])
-        
-        % Save (if desired)
-        if (save_plots)
-            savefig(f1_bot, ['results/', folder, '/figures/Robot_', num2str(id),'_Entropy_Advice_Metrics.fig']);
-        end
-        
-        f2_bot = figure(2*i + 1);
-        clf
-        hold on
-        
-        % Advice Q value for each state
-        subplot(2,1,1)
-        hold on
-        bar(1:advice_q_length, q_tables{id}(1, :), 'r')
-        bar(1:advice_q_length, q_tables{id}(2, :), 'b')
-        title(['Robot ', num2str(id), ' Advice Q Value For Each Entropy State']);
-        xlabel('Entropy State');
-        ylabel('Q');
-        legend('Reject', 'Accept')
-        axis([1, advice_q_length, -advice_q_axis_max, advice_q_axis_max])
-        
-        subplot(2,1,2)
-        spy(q_tables{id})
-        
-        % Save (if desired)
-        if (save_plots)
-            savefig(f2_bot, ['results/', folder, '/figures/Robot_', num2str(id),'_Entropy_Advice_Q_Learning.fig']);
-        end
-        
-    end
-    
+%% Plot advisee metrics
+f2 = figure(2);
+clf
+
+% Quality of advice actions
+subplot(4,1,1)
+hold on
+plot(x_vector, accept_q);
+plot(x_vector, reject_q);
+title('Quality of Advice Actions')
+xlabel(x_label_string);
+ylabel('Q')
+axis([1, x_length, -0.15, 0.15]);
+%axis([1, x_length, -1.5, 1.5]);
+ref_line = refline([0 0]);
+ref_line.Color = 'r';
+ref_line.LineStyle = '--';
+legend('Accept', 'Reject');
+
+% Advice reward
+subplot(4,1,2)
+plot(x_vector, reward);
+title('Reward Received For Advice Action')
+xlabel(x_label_string);
+ylabel('R')
+axis([1, x_length, -0.15, 0.15]);
+%axis([1, x_length, -1.0, 1.0]);
+ref_line = refline([0 0]);
+ref_line.Color = 'r';
+ref_line.LineStyle = '--';
+
+% Advices actions percentage
+subplot(4,1,3)
+hold on
+plot(1:num_epochs, 100*advised_actions_ratio)
+%plot(x_vector, 100*advised_actions_ratio_moving)
+title('Percent of Actions That Were Advised');
+xlabel('Epochs');
+ylabel('Advised Actions [%]');
+axis([0, num_epochs, 0, 100]);
+%legend('Per Epoch', 'Moving')
+
+% Number of advice states visited
+subplot(4,1,4)
+plot(x_vector, 100*num_states_visited/num_advice_states)
+title('Percent of Advice States Visited')
+xlabel(x_label_string);
+ylabel('Percent of States [%]')
+axis([1, x_length, 0, 110]);
+ref_line = refline([0 100]);
+ref_line.Color = 'r';
+ref_line.LineStyle = '--';
+
+% Save (if desired)
+if (save_plots)
+    savefig(f2, ['results/', folder, '/figures/Advice_Dev_Metrics_2.fig']);
 end
+
