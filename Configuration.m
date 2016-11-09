@@ -6,7 +6,7 @@ classdef Configuration < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % Graphics Parameters
-        show_live_graphics = true
+        show_live_graphics = false
         show_track_graphics = false;
                         
         % Primary Scenario Parameters
@@ -76,8 +76,8 @@ classdef Configuration < handle
         
         % Expert Parameters
         expert_on = false;                    % If expert agent(s) shoudld be loaded
-        expert_filename = '1_bot';          % Folder name containing Q and experience tables
-        expert_id = [1];                  % Id(s) of expert agent(s)
+        expert_filename = '2_bot';          % Folder name containing Q and experience tables
+        expert_id = [2];                  % Id(s) of expert agent(s)
         
         % Policy parameters
         policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
@@ -112,22 +112,15 @@ classdef Configuration < handle
         
         % General Advice Parameters
         advice_on = false;                    % If advice should be used
-        advice_mechanism = 'advice_dev';      
+        advice_mechanism = 'advice_enhancement';      
             % Options: 
+            %   -advice_enhancement
             %   -advice_exchange
-            %   -advice_dev
         
         greedy_override = false;              % Overrides the policy with a greedy selection
         
         % Advice Enhancement Parameters
-        a_dev_expert_filename = 'advisor_320_epochs';
-        a_dev_evil_advisor = false;
-        a_dev_e_greedy_epsilon = 0.05;
-        a_dev_state_resolution = [50, 2];         % Resolution of state
-        a_dev_gamma = 0.3;                    % Discount factor
-        a_dev_alpha_max = 0.9;                % Maximum value of learning rate
-        a_dev_alpha_denom = 300;          % Coefficient in alpha update equation
-        a_dev_alpha_power = 2;                % Coefficient in alpha update equation
+        a_enh_evil_adviser = false;
         
         % Advice Exchange Parameters
         ae_alpha = 0.80;                      % Coefficient for current average quality update

@@ -41,8 +41,8 @@ classdef AdviceDatabase < handle
             this.num_robots_ = config.numRobots;
             this.robot_handles_ = robots;
             this.advice_mechanism_ = config.advice_mechanism;
-            this.short_decay_rate_ = config.a_dev_short_decay_rate;
-            this.long_decay_rate_ = config.a_dev_long_decay_rate;
+            this.short_decay_rate_ = 0.25;
+            this.long_decay_rate_ = 0.99;
             
             % Intialize tracking metrics
             keys = 1:this.num_robots_;

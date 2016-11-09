@@ -107,8 +107,8 @@ classdef IndividualLearning < handle
                 % Load the proper mechanism
                 if (strcmp(config.advice_mechanism, 'advice_exchange'))
                     this.advice_ = AdviceExchange(config, id);
-                elseif (strcmp(config.advice_mechanism, 'advice_dev'))
-                    this.advice_ = AdviceDev(config, id);
+                elseif (strcmp(config.advice_mechanism, 'advice_enhancement'))
+                    this.advice_ = AdviceEnhancement(config, id);
                 end
                 this.greedy_override_ = config.greedy_override;
             end
@@ -139,10 +139,16 @@ classdef IndividualLearning < handle
             % Get advised action (if necessary)
             if (this.advice_on_)
                 % Get advice from advisor (overwrite quality and experience)
-                [quality] = this.advice_.getAdvice(this.state_vector_, quality);
+                result = this.advice_.getAdvice(this.state_vector_, quality);
                 
-                % Select action with policy (including greedy override)
-                action_id = this.Policy(quality, this.greedy_override_);
+                if length(result) ~= 1
+                    % Advice has returned Q values
+                    % Select action with policy (including greedy override)
+                    action_id = this.Policy(quality, this.greedy_override_);
+                else
+                    % Advice has returned an action id
+                    action_id = result;
+                end
                 
                 this.advised_actions_ = this.advised_actions_ + 1;
             else
@@ -152,12 +158,12 @@ classdef IndividualLearning < handle
             end
                         
             % Notify AdviceDatabase listener of quality update
-            this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.epoch_iterations_));
+            %this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.epoch_iterations_));
             
-            q_exponents = exp(quality/this.softmax_temp_);
-            q_prob = q_exponents./sum(q_exponents);
-            h = sum(-q_prob.*log2(q_prob));
-            this.notify('PerfMetrics', PerfMetricsEventData('entropy', this.robot_id_, h, this.epoch_iterations_));
+            %q_exponents = exp(quality/this.softmax_temp_);
+            %q_prob = q_exponents./sum(q_exponents);
+            %h = sum(-q_prob.*log2(q_prob));
+            %this.notify('PerfMetrics', PerfMetricsEventData('entropy', this.robot_id_, h, this.epoch_iterations_));
             
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;

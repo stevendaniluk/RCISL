@@ -315,9 +315,9 @@ classdef ExecutiveSimulation < handle
                     advice_data{i}.advised_actions_ratio = max(advice_data{i}.advised_actions./advice_data{i}.total_actions, 0);
                     
                     % Save the advice Q-table (if present)
-                    if (strcmp(this.config_.advice_mechanism, 'advice_dev'))
-                        advice_data{i}.a_dev.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
-                        advice_data{i}.a_dev.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
+                    if (strcmp(this.config_.advice_mechanism, 'advice_enhancement'))
+                        %advice_data{i}.a_dev.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
+                        %advice_data{i}.a_dev.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
                     end
                 end
                 save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
