@@ -13,9 +13,11 @@ classdef Advice < handle
         epoch_ = [];
         
         % Advisor Properties
+        adviser_handles_ = [];
+        advisers_initialized_ = [];
         advisor_handle_ = [];
-        advisor_id_ = [];
-        prev_advisor_id_ = [];
+        adviser_id_ = [];
+        prev_adviser_id_ = [];
         
         % Structure of data to save
         advice_data_ = [];
@@ -49,8 +51,10 @@ classdef Advice < handle
             this.id_ = id;
             this.num_robots_ = config.numRobots;
             this.epoch_ = 1;
-            this.advisor_id_ = this.id_;
+            this.adviser_id_ = this.id_;
             this.iters_ = 0;
+            this.adviser_handles_ = cell(this.num_robots_, 1);
+            this.advisers_initialized_ = false;
             
             % Initialize structure for data to save
             this.data_initialized_ = true;
@@ -75,8 +79,18 @@ classdef Advice < handle
                 this.advice_data_.total_actions(1, this.epoch_) = 0;
                 this.data_initialized_ = true;
             end
+            
+            if (~this.advisers_initialized_)
+                % Get robot handles
+                for i = 1:this.num_robots_
+                    if i ~= this.id_
+                        this.adviser_handles_{i, 1} = this.requestData(i, 'robot_handle');
+                    end
+                end
+                this.advisers_initialized_ = true;
+            end
                         
-            this.prev_advisor_id_ = this.advisor_id_;  
+            %this.prev_adviser_id_ = this.adviser_id_;  
             
             this.iters_ = this.iters_ + 1;
         end
@@ -91,11 +105,11 @@ classdef Advice < handle
         
         function  postAdviceUpdate(this)
             % Save advice data
-            if (this.advisor_id_ ~= this.id_)
+            if (this.adviser_id_ ~= this.id_)
                 this.advice_data_.advised_actions(this.epoch_) = this.advice_data_.advised_actions(this.epoch_) + 1;
             end
             this.advice_data_.total_actions(this.epoch_) = this.advice_data_.total_actions(this.epoch_) + 1;
-            this.advice_data_.advisor(this.iters_) = this.advisor_id_;
+            this.advice_data_.advisor(this.iters_) = this.adviser_id_;
         end
         
         
@@ -164,6 +178,7 @@ classdef Advice < handle
             % Increment epochs
             this.epoch_ = this.epoch_ + 1;
             this.data_initialized_ = false;
+            this.advisers_initialized_ = false;
         end
         
     end

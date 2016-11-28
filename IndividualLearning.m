@@ -74,6 +74,11 @@ classdef IndividualLearning < handle
             this.state_resolution_ = config.state_resolution;
             this.look_ahead_dist_ = config.look_ahead_dist;
             
+            % No learning when this robot is an expert
+            if (this.config_.expert_on && sum(this.robot_id_ == this.config_.expert_id) ~= 0)
+                this.learning_on_ = false;
+            end
+                        
             % Initialize Q-learning
             this.q_learning_ = QLearning(config.gamma, config.alpha_denom, ...
                                 config.alpha_power, config.alpha_max, ...
@@ -82,14 +87,13 @@ classdef IndividualLearning < handle
             
             % Load expert (if necessary)
             if (config.expert_on)
-                filename = config.expert_filename;
-                load(['expert_data/', filename, '/q_tables.mat']);
-                load(['expert_data/', filename, '/exp_tables.mat']);
-                for i = 1:length(config.expert_id)
-                    if (id == config.expert_id(i))
-                        this.q_learning_.q_table_ = q_tables{i};
-                        this.q_learning_.exp_table_ = exp_tables{i};
-                    end
+                index = find(this.robot_id_ == config.expert_id);
+                if (~isempty(index) && this.robot_id_ == config.expert_id(index))
+                    filename = config.expert_filename(index);
+                    load(['expert_data/', filename{1}, '/q_tables.mat']);
+                    load(['expert_data/', filename{1}, '/exp_tables.mat']);
+                    this.q_learning_.q_table_ = q_tables{this.robot_id_};
+                    this.q_learning_.exp_table_ = exp_tables{this.robot_id_};
                 end
             end
             
@@ -197,22 +201,22 @@ classdef IndividualLearning < handle
             this.state_q_data_.reward(size(this.state_q_data_.reward, 1) + 1, 1) = reward;
             
             % Notify AdviceDatabase listener of change in quality
-            [new_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
-            delta_q = new_quality(robot_state.action_id_) - prev_quality(robot_state.action_id_);
-            this.state_q_data_.delta_q(size(this.state_q_data_.delta_q, 1) + 1, 1) = delta_q;
-            this.notify('PerfMetrics', PerfMetricsEventData('delta_q', this.robot_id_, delta_q, this.learning_iterations_));
+            %[new_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
+            %delta_q = new_quality(robot_state.action_id_) - prev_quality(robot_state.action_id_);
+            %this.state_q_data_.delta_q(size(this.state_q_data_.delta_q, 1) + 1, 1) = delta_q;
+            %this.notify('PerfMetrics', PerfMetricsEventData('delta_q', this.robot_id_, delta_q, this.learning_iterations_));
             
             % Notify AdviceDatabase listener of change in entropy
-            q_exponents = exp(prev_quality/this.softmax_temp_);
-            q_prob = q_exponents./sum(q_exponents);
-            old_h = sum(-q_prob.*log2(q_prob));
-            q_exponents = exp(new_quality/this.softmax_temp_);
-            q_prob = q_exponents./sum(q_exponents);
-            new_h = sum(-q_prob.*log2(q_prob));
+            %q_exponents = exp(prev_quality/this.softmax_temp_);
+            %q_prob = q_exponents./sum(q_exponents);
+            %old_h = sum(-q_prob.*log2(q_prob));
+            %q_exponents = exp(new_quality/this.softmax_temp_);
+            %q_prob = q_exponents./sum(q_exponents);
+            %new_h = sum(-q_prob.*log2(q_prob));
             
-            delta_h = new_h - old_h;
-            this.state_q_data_.delta_h(size(this.state_q_data_.delta_h, 1) + 1, 1) = delta_h;
-            this.notify('PerfMetrics', PerfMetricsEventData('delta_h', this.robot_id_, delta_h, this.learning_iterations_));
+            %delta_h = new_h - old_h;
+            %this.state_q_data_.delta_h(size(this.state_q_data_.delta_h, 1) + 1, 1) = delta_h;
+            %this.notify('PerfMetrics', PerfMetricsEventData('delta_h', this.robot_id_, delta_h, this.learning_iterations_));
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

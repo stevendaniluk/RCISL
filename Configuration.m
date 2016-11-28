@@ -75,9 +75,9 @@ classdef Configuration < handle
         reward_activation_dist = 0.15;
         
         % Expert Parameters
-        expert_on = false;                    % If expert agent(s) shoudld be loaded
-        expert_filename = '2_bot';          % Folder name containing Q and experience tables
-        expert_id = [2];                  % Id(s) of expert agent(s)
+        expert_on = false;                   % If expert agent(s) shoudld be loaded
+        expert_filename = {'2_bot_320'};    % File for each expert
+        expert_id = [2];                    % Id(s) of expert agent(s)
         
         % Policy parameters
         policy = 'softmax'; % Options: "greedy", "e-greedy", "softmax"
@@ -120,7 +120,21 @@ classdef Configuration < handle
         greedy_override = false;              % Overrides the policy with a greedy selection
         
         % Advice Enhancement Parameters
+        a_enh_num_advisers = inf;
+        a_enh_gamma = 0.7;
+        a_enh_alpha_max = 0.9;
+        a_enh_alpha_denom = 90000;
+        a_enh_alpha_power = 1.0;
+        a_enh_state_resolution = [100, 2, 2, 4];
+        a_enh_num_actions = 3;
+        a_enh_e_greedy = 0.10;
+        a_enh_d1 = 0.01;
+        a_enh_d2 = 0.01;
+        a_enh_accept_rate_alpha = 0.99;
+        a_enh_ask_ratio_alpha = 0.99;
         a_enh_evil_adviser = false;
+        a_enh_fake_advisers = false;
+        a_enh_fake_adviser_files = {'1_bot_320'};
         
         % Advice Exchange Parameters
         ae_alpha = 0.80;                      % Coefficient for current average quality update
