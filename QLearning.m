@@ -41,8 +41,7 @@ classdef QLearning <handle
         % Main Q-learning parameters
         gamma_ = [];                % Gamma coefficient in Q-learning update
         alpha_max_ = [];            % Maximum value of alpha
-        alpha_denom_ = [];          % Coefficient in alpha update
-        alpha_power_ = [];          % Coefficient in alpha update
+        alpha_rate_ = [];           % Coefficient in alpha update
         num_state_vrbls_ = [];      % Number of variables in state vector
         num_actions_ = [];          % Number of possible actions
         state_resolution_ = [];     % Bits required to express state values
@@ -60,12 +59,11 @@ classdef QLearning <handle
         %   INPUTS
         %   config = Configuration object
  
-        function this = QLearning(gamma, alpha_denom, alpha_power, alpha_max, num_state_vrbls, state_resolution, num_actions)
+        function this = QLearning(gamma, alpha_max, alpha_rate, num_state_vrbls, state_resolution, num_actions)
             % Set learning parameters
             this.gamma_ = gamma;
-            this.alpha_denom_ = alpha_denom;
-            this.alpha_power_ = alpha_power;
             this.alpha_max_ = alpha_max;
+            this.alpha_rate_ = alpha_rate;
             
             % Set state info
             this.num_state_vrbls_ = num_state_vrbls;
@@ -105,8 +103,8 @@ classdef QLearning <handle
             [quality_now, experience_now] =  this.getUtility(state_now);
             [quality_future, ~] =  this.getUtility(state_future);
             
-            % Exponentially decrease learning rate with experience [Unknown]
-            alpha = this.alpha_max_/(exp((experience_now(action_id).^this.alpha_power_)/this.alpha_denom_));
+            % Exponentially decrease learning rate with experience
+            alpha = this.alpha_max_*exp(-experience_now(action_id)/this.alpha_rate_);
             
             % Standard Q-learning update rule [Boutilier, 1999]
             quality_update = quality_now(action_id) + alpha*(reward + this.gamma_*max(quality_future) - quality_now(action_id));
