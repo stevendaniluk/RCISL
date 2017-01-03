@@ -84,7 +84,7 @@ classdef AdviceEnhancement < Advice
                     
                     % Create a Q-learning object to load data into (only
                     % provide relevant input args)
-                    this.fake_advisers_{i + 1} = QLearning(1, 1, 1, 1, config.num_state_vrbls, config.state_resolution, config.num_actions);
+                    this.fake_advisers_{i + 1} = QLearning(1, 1, 1, config.num_state_vrbls, config.state_resolution, config.num_actions);
                     
                     % Load data into Q-learning object
                     this.fake_advisers_{i + 1}.q_table_ = q_tables{1};
@@ -105,11 +105,10 @@ classdef AdviceEnhancement < Advice
             % Instantiate Q-learning
             gamma = config.a_enh_gamma;
             alpha_max = config.a_enh_alpha_max;
-            alpha_denom = config.a_enh_alpha_denom;
-            alpha_power = config.a_enh_alpha_power;
+            alpha_rate = config.a_enh_alpha_rate;
             num_state_vrbls = length(this.ql_state_res_);
             
-            this.q_learning_ = QLearning(gamma, alpha_denom, alpha_power, alpha_max, ...
+            this.q_learning_ = QLearning(gamma, alpha_max, alpha_rate, ...
                                 num_state_vrbls, this.ql_state_res_, this.ql_num_actions_);
             
             this.ql_state_ = zeros(1, num_state_vrbls);

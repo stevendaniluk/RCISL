@@ -120,10 +120,9 @@ classdef Configuration < handle
         
         % Advice Enhancement Parameters
         a_enh_num_advisers = inf;
-        a_enh_gamma = 0.7;
+        a_enh_gamma = 0.3;
         a_enh_alpha_max = 0.9;
-        a_enh_alpha_denom = 90000;
-        a_enh_alpha_power = 1.0;
+        a_enh_alpha_rate = 20000;
         a_enh_state_resolution = [100, 2, 2, 4];
         a_enh_num_actions = 3;
         a_enh_e_greedy = 0.10;
