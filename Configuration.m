@@ -87,8 +87,7 @@ classdef Configuration < handle
         % Individual Q-Learning Parameters
         gamma = 0.3;            % Discount factor
         alpha_max = 0.9;        % Maximum value of learning rate
-        alpha_denom = 300;      % Coefficient in alpha update equation
-        alpha_power = 2;        % Coefficient in alpha update equation
+        alpha_rate = 5000;      % Coefficient in alpha update equation
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Team Learning
