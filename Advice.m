@@ -53,7 +53,7 @@ classdef Advice < handle
             this.epoch_ = 1;
             this.adviser_id_ = this.id_;
             this.iters_ = 0;
-            this.adviser_handles_ = cell(this.num_robots_, 1);
+            this.adviser_handles_ = cell(this.num_robots_ - 1, 1);
             this.advisers_initialized_ = false;
             
             % Initialize structure for data to save
@@ -82,9 +82,11 @@ classdef Advice < handle
             
             if (~this.advisers_initialized_)
                 % Get robot handles
+                j = 1;
                 for i = 1:this.num_robots_
                     if i ~= this.id_
-                        this.adviser_handles_{i, 1} = this.requestData(i, 'robot_handle');
+                        this.adviser_handles_{j, 1} = this.requestData(i, 'robot_handle');
+                        j = j + 1;
                     end
                 end
                 this.advisers_initialized_ = true;

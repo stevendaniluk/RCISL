@@ -11,9 +11,9 @@ classdef Configuration < handle
                         
         % Primary Scenario Parameters
         max_iterations = 2000;
-        numRobots    = 4;
+        numRobots    = 1;
         numObstacles = 4;
-        numTargets   = 4;
+        numTargets   = 1;
         robot_Type =[ pi*(2/9)     2         0.30      1; ... 
                       pi*(2/9)     1         0.30      2; ... 
                       pi*(2/9)     1         0.30      3; ... 
@@ -119,20 +119,19 @@ classdef Configuration < handle
         greedy_override = false;              % Overrides the policy with a greedy selection
         
         % Advice Enhancement Parameters
-        a_enh_num_advisers = inf;
-        a_enh_gamma = 0.3;
-        a_enh_alpha_max = 0.9;
-        a_enh_alpha_rate = 20000;
-        a_enh_state_resolution = [100, 2, 2, 4];
-        a_enh_num_actions = 3;
-        a_enh_e_greedy = 0.10;
-        a_enh_d1 = 0.01;
-        a_enh_d2 = 0.01;
-        a_enh_accept_rate_alpha = 0.99;
-        a_enh_ask_ratio_alpha = 0.99;
-        a_enh_evil_adviser = false;
-        a_enh_fake_advisers = false;
-        a_enh_fake_adviser_files = {'1_bot_320'};
+        a_enh_num_advisers = inf;                  % Max number of advisers to use (inf means use all available)
+        a_enh_gamma = 0.3;                         % Q-learning discount factor
+        a_enh_alpha_max = 0.9;                     % Q-learning maximum value of learning rate
+        a_enh_alpha_rate = 20000;                  % Q-learning coefficient in alpha update equation
+        a_enh_state_resolution = [100, 2, 2];      % Q-learning state resolution
+        a_enh_num_actions = 2;                     % Number of possible actions for the mechanism
+        a_enh_e_greedy = 0.10;                     % Probability fo selecting a random action
+        a_enh_accept_rate_alpha = 0.99;            % Adviser acceptance rate update coefficient
+        a_enh_evil_advice_prob = 0.0;              % Probability that an adviser will be evil
+        a_enh_fake_advisers = false;               % Flag for using fake advisers (as opposed to other robots)
+        a_enh_fake_adviser_files = {'E320'; 'E5'}; % Filenames for fake adviser data (fromt he expert folder)
+        a_enh_all_accept = false;                  % Flag to override all actions with accept
+        a_enh_all_reject = false;                  % Flag to override all actions with reject
         
         % Advice Exchange Parameters
         ae_alpha = 0.80;                      % Coefficient for current average quality update
