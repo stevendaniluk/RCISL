@@ -21,7 +21,7 @@
 clear
 
 % Input data settings
-folder = 'test';
+folder = 'run_A';
 plot_iter_sim_num = 1;
 robot = 1;
 
@@ -47,10 +47,11 @@ end
 
 % Check configuration data
 load(['results/', advice_filename, sprintf('%d', 1), '/', 'configuration']);
+
+num_advisers = config.numRobots - 1;
+
 if (config.a_enh_fake_advisers)
-    num_robots = 1 + length(config.a_enh_fake_adviser_files);
-else
-    num_robots = config.numRobots;
+    num_advisers = num_advisers + length(config.a_enh_fake_adviser_files);
 end
 
 % Metrics from advice data
@@ -156,7 +157,7 @@ reward = smooth(reward, smooth_pts);
 round_accept_flag = smooth(round_accept_flag, smooth_pts);
 round_accept_count = smooth(round_accept_count, smooth_pts);
 
-for i = 1:(num_robots - 1)
+for i = 1:num_advisers
     adviser_acceptance_rates(i, :) = smooth(adviser_acceptance_rates(i, :), smooth_pts);
     accept_action_benev(i, :) = smooth(accept_action_benev(i, :), smooth_pts);
     accept_action_evil(i, :) = smooth(accept_action_evil(i, :), smooth_pts);
@@ -178,13 +179,13 @@ x_length = length(K_o_norm);
 x_vector = 1:x_length;
 
 % Set adviser names
-adviser_names = cell(num_robots - 1, 1);
+adviser_names = cell(num_advisers, 1);
 j = 1;
-for i = 1:num_robots
+for i = 1:(num_advisers + 1)
     if (i ~= robot)
-        if(config.a_enh_fake_advisers)
+        if(config.a_enh_fake_advisers && j > (config.numRobots - 1))
             % Name them according to their file names
-            adviser_names{j} = ['Expert ', config.a_enh_fake_adviser_files{j}];
+            adviser_names{j} = ['Expert ', config.a_enh_fake_adviser_files{j - (config.numRobots - 1)}];
         else
             % Name them according to their id number
             adviser_names{j} = ['Robot ', num2str(i)];
@@ -220,7 +221,7 @@ axis([1, x_length, 0.0, 1.5]);
 % Round accept count
 subplot(4,1,3)
 hold on
-plot(x_vector, 100*round_accept_count/(num_robots - 1))
+plot(x_vector, 100*round_accept_count/num_advisers)
 plot(x_vector, 100*round_accept_flag)
 title('Advice and Adviser Usage');
 xlabel(x_label_string);
@@ -232,7 +233,7 @@ legend('Advisers Used', 'Advice Usage')
 subplot(4,1,4)
 hold on
 %legend_string = [];
-for i = 1:(num_robots - 1)
+for i = 1:num_advisers
     plot(x_vector, adviser_acceptance_rates(i, :))
 %    legend_string = [legend_string; 'Adviser ', num2str(i)];
 end
@@ -250,7 +251,7 @@ if (save_plots)
 end
 
 %% Plot action specific metrics
-for i = 1:(num_robots - 1)
+for i = 1:num_advisers
     
     f_act = figure(1 + i);
     clf

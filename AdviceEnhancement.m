@@ -63,13 +63,14 @@ classdef AdviceEnhancement < Advice
             this.all_accept_ = config.a_enh_all_accept;
             this.all_reject_ = config.a_enh_all_reject;
             
+            this.max_advisers_ = min(config.a_enh_num_advisers, this.num_robots_ - 1);
+            
             % When fake advisers are used their data needs to be loaded in
             if (this.fake_advisers_on_)
-                this.max_advisers_ = length(config.a_enh_fake_adviser_files);
-                
+                num_fake_advisers = length(config.a_enh_fake_adviser_files);
                 % Create the fake advisers (first adviser is this agent)
-                this.fake_advisers_ = cell(this.max_advisers_ + 1, 1);
-                for i = 1:this.max_advisers_
+                this.fake_advisers_ = cell(num_fake_advisers, 1);
+                for i = 1:num_fake_advisers
                     % Load the quality and experience files
                     filename = config.a_enh_fake_adviser_files(i);
                     q_tables = [];
@@ -86,8 +87,8 @@ classdef AdviceEnhancement < Advice
                     this.fake_advisers_{i}.exp_table_ = exp_tables{1};
                 end
                 
-            else
-                this.max_advisers_ = min(config.a_enh_num_advisers, this.num_robots_ - 1);
+                % Add fake advisers to the list
+                this.max_advisers_ = this.max_advisers_ + num_fake_advisers;
             end
                                     
             % Initialize mechanism properties
@@ -358,12 +359,14 @@ classdef AdviceEnhancement < Advice
         %
         %   askAdviser
         %
-        %   Asks adviser m for their advice, and returns their K values
+        %   Asks adviser m for their advice, and returns their K values.
+        %   Advisers are numbered with real advisers (i.e. other robots)
+        %   first, followed by fake advisers.
         
         function K_m = askAdviser(this, m, state_vector)
             % Get their advice
-            if (this.fake_advisers_on_)
-                [q_m, ~] = this.fake_advisers_{m}.getUtility(state_vector);
+            if (this.fake_advisers_on_ && m > (this.num_robots_ - 1))
+                [q_m, ~] = this.fake_advisers_{m - (this.num_robots_ - 1)}.getUtility(state_vector);
             else
                 [q_m, ~] = this.adviser_handles_{m}.individual_learning_.q_learning_.getUtility(state_vector);
             end
