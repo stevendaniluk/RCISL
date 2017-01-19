@@ -10,7 +10,7 @@
 %   -k_o_bar
 %   -k_hat_bar
 %   -Mechanism reward
-%   -Advice accept count per step
+%   -Advice usage per step
 %   -Acceptance rate of each adviser
 %
 % Generates m plots containing with the following data for adviser m:
@@ -72,6 +72,7 @@ if (plot_by_epoch)
     accept_reward = advice_data{robot}.a_enh.accept_reward_epoch;
     reject_reward = advice_data{robot}.a_enh.reject_reward_epoch;
     reward = advice_data{robot}.a_enh.reward_epoch;
+    round_accept_flag = advice_data{robot}.a_enh.round_accept_flag_epoch;
     round_accept_count = advice_data{robot}.a_enh.round_accept_count_epoch;
     
     % Loop through remaining sims and add up data
@@ -98,6 +99,7 @@ if (plot_by_epoch)
         accept_reward = accept_reward + advice_data{robot}.a_enh.accept_reward_epoch;
         reject_reward = reject_reward + advice_data{robot}.a_enh.reject_reward_epoch;
         reward = reward + advice_data{robot}.a_enh.reward_epoch;
+        round_accept_flag = round_accept_flag + advice_data{robot}.a_enh.round_accept_flag_epoch;
         round_accept_count = round_accept_count + advice_data{robot}.a_enh.round_accept_count_epoch;
     end
     
@@ -116,6 +118,7 @@ if (plot_by_epoch)
     accept_reward = accept_reward/num_sims;
     reject_reward = reject_reward/num_sims;
     reward = reward/num_sims;
+    round_accept_flag = round_accept_flag/num_sims;
     round_accept_count = round_accept_count/num_sims;
 
     smooth_pts = epoch_smooth_pts;
@@ -134,6 +137,7 @@ else
     accept_reward = advice_data{robot}.a_enh.accept_reward_iter;
     reject_reward = advice_data{robot}.a_enh.reject_reward_iter;
     reward = advice_data{robot}.a_enh.reward_iter;
+    round_accept_flag = advice_data{robot}.a_enh.round_accept_flag_iter;
     round_accept_count = advice_data{robot}.a_enh.round_accept_count_iter;
     
     % Ignore bevevolent vs evil accepts
@@ -149,6 +153,7 @@ K_hat_norm = smooth(K_hat_norm, smooth_pts);
 delta_K = smooth(delta_K, smooth_pts);
 beta_hat = smooth(beta_hat, smooth_pts);
 reward = smooth(reward, smooth_pts);
+round_accept_flag = smooth(round_accept_flag, smooth_pts);
 round_accept_count = smooth(round_accept_count, smooth_pts);
 
 for i = 1:(num_robots - 1)
@@ -210,21 +215,18 @@ plot(x_vector, reward)
 title('Mechanism Reward');
 xlabel(x_label_string);
 ylabel('R');
-axis([1, x_length, -0.1, 0.7]);
-ref_line = refline([0, 0]);
-ref_line.Color = 'r';
-ref_line.LineStyle = '--';
+axis([1, x_length, 0.0, 1.5]);
 
 % Round accept count
 subplot(4,1,3)
-plot(x_vector, round_accept_count)
-title('Number of times advice is accepted at each step');
+hold on
+plot(x_vector, 100*round_accept_count/(num_robots - 1))
+plot(x_vector, 100*round_accept_flag)
+title('Advice and Adviser Usage');
 xlabel(x_label_string);
 ylabel('Count');
-axis([1, x_length, 0, 1.1*(num_robots - 1)]);
-ref_line = refline([0, num_robots - 1]);
-ref_line.Color = 'r';
-ref_line.LineStyle = '--';
+axis([1, x_length, 0, 100]);
+legend('Advisers Used', 'Advice Usage')
 
 % Acceptance Rates
 subplot(4,1,4)
@@ -256,20 +258,16 @@ for i = 1:(num_robots - 1)
     % Action ratios
     subplot(3,1,1)
     hold on
-    if (plot_by_epoch)
+    if (plot_by_epoch && config.a_enh_evil_advice_prob > 0)
         plot(x_vector, accept_action_evil(i, :)*100)
-        plot(x_vector, (1 - accept_action_evil(i, :))*100)
         plot(x_vector, accept_action_benev(i, :)*100)
-        plot(x_vector, (1 - accept_action_benev(i, :))*100)
-        legend('Evil - Accept', 'Evil - Reject', 'Benevolent - Accept', 'Benevolent - Reject');
+        legend('Evil - Accept', 'Benevolent - Accept');
     else
         plot(x_vector, accept_action_benev(i, :)*100)
-        plot(x_vector, (1 - accept_action_benev(i, :))*100)
-        legend('Accept', 'Reject');
     end
-    title([adviser_names{i}, ': Action Selection Percentage']);
+    title([adviser_names{i}, ': Accept Selection Percentage']);
     xlabel(x_label_string);
-    ylabel('Selection Percentage [%]');
+    ylabel('Percentage [%]');
     axis([1, x_length, 0, 100]);
     
     % Change in K for accept and reject actions
@@ -294,7 +292,7 @@ for i = 1:(num_robots - 1)
     title([adviser_names{i}, ': Reward For Each Action']);
     xlabel(x_label_string);
     ylabel('R');
-    axis([1, x_length, -0.2, 0.2]);
+    axis([1, x_length, 0.0, 1.0]);
     legend('Accept', 'Reject');
     ref_line = refline([0, 0]);
     ref_line.Color = 'r';

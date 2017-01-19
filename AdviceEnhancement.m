@@ -9,6 +9,7 @@ classdef AdviceEnhancement < Advice
         
         % Mechanism properties
         max_advisers_ = [];         % Number of advisers to use
+        reject_reward_bias_ = [];   % Coefficient applied to reject reward
         eps_ = [];                  % Base probability value
         adviser_accept_rate_ = [];  % Moving average of adviser acceptance rates
         accept_rate_alpha_ = [];    % Coeff. for acceptance rate moving average
@@ -52,6 +53,7 @@ classdef AdviceEnhancement < Advice
             % Get parameters from config
             this.num_robot_actions_ = config.num_actions;
             this.il_softmax_temp_ = config.softmax_temp;
+            this.reject_reward_bias_ = config.a_enh_reject_reward_bias;
             this.evil_advice_prob_ = config.a_enh_evil_advice_prob;
             this.ql_state_res_ = config.a_enh_state_resolution;
             this.ql_num_actions_ = config.a_enh_num_actions;
@@ -91,7 +93,7 @@ classdef AdviceEnhancement < Advice
             % Initialize mechanism properties
             this.eps_ = 1/this.num_robot_actions_;            
             this.epoch_start_iters_ = 1;
-            this.adviser_accept_rate_ = 0.5*ones(this.max_advisers_, 1);
+            this.adviser_accept_rate_ = 0.0*ones(this.max_advisers_, 1);
             
             % Instantiate Q-learning
             gamma = config.a_enh_gamma;
@@ -121,6 +123,7 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.accept_reward_iter = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.reject_reward_iter = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.reward_iter = 0;
+            this.advice_data_.a_enh.round_accept_flag_iter = 0;
             this.advice_data_.a_enh.round_accept_count_iter = 0;
             
             this.advice_data_.a_enh.K_o_norm_epoch = 0;
@@ -137,6 +140,7 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.accept_reward_epoch = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.reject_reward_epoch = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.reward_epoch = 0;
+            this.advice_data_.a_enh.round_accept_flag_epoch = 0;
             this.advice_data_.a_enh.round_accept_count_epoch = 0;
                         
         end
@@ -241,7 +245,7 @@ classdef AdviceEnhancement < Advice
                     delta_K = sum(abs(K_hat)) - K_o_norm;
                     
                     % Calculate the reward (and ensure it is valid)
-                    reward = (beta_m > 0)*delta_K/(K_o_norm + abs(delta_K));
+                    reward = (beta_m >= 0)*((1 + delta_K/(K_o_norm + abs(delta_K)))^2 - 1);
                     if (isnan(reward)); this.reward_ = 0; else this.reward_ = reward; end
                     
                     % For data metrics
@@ -252,14 +256,12 @@ classdef AdviceEnhancement < Advice
                     
                     % Get advice from the next adviser (if available)
                     if(n ~= this.max_advisers_) 
-                        n = n + 1;
-                        m = adviser_order(n);
+                        m = adviser_order(n + 1);
                         K_m = this.askAdviser(m, state_vector);
                         
                         % Find the new state
                         state2 = this.formState(K_o, K_m);
                     else
-                        n = n + 1;
                         state2 = this.formState(K_hat, K_m);
                     end
                     
@@ -267,7 +269,7 @@ classdef AdviceEnhancement < Advice
                     state2 = state1;
                     K_hat = K_o;
                     delta_K = 0;
-                    this.reward_ = K_o_norm;
+                    this.reward_ = this.reject_reward_bias_*((1 + K_o_norm)^2 - 1);
                     
                     % For data maetrics
                     reject_beta_hat(m) = (beta_m > 0) - (beta_m < 0);
@@ -285,6 +287,7 @@ classdef AdviceEnhancement < Advice
                 
                 state1 = state2;
                 K_o = K_hat;
+                n = n + 1;
                 
             end
             K_hat_norm = sum(abs(K_hat));
@@ -317,7 +320,8 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.reject_beta_hat_iter(:, this.iters_) = reject_beta_hat;
             this.advice_data_.a_enh.accept_reward_iter(:, this.iters_) = accept_reward;
             this.advice_data_.a_enh.reject_reward_iter(:, this.iters_) = reject_reward;
-            this.advice_data_.a_enh.reward_iter(this.iters_) = sum(accept_reward) + sum(reject_reward);
+            this.advice_data_.a_enh.reward_iter(this.iters_) = (sum(accept_reward) + sum(reject_reward))/(n - 1);
+            this.advice_data_.a_enh.round_accept_flag_iter(this.iters_) = (accept_count >= 1);
             this.advice_data_.a_enh.round_accept_count_iter(this.iters_) = accept_count;
             
             this.postAdviceUpdate();
@@ -419,10 +423,11 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.accept_reward_epoch(:, this.epoch_) = sum(this.advice_data_.a_enh.accept_reward_iter(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
             this.advice_data_.a_enh.reject_reward_epoch(:, this.epoch_) = sum(this.advice_data_.a_enh.reject_reward_iter(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
             this.advice_data_.a_enh.reward_epoch(this.epoch_) = sum(this.advice_data_.a_enh.reward_iter(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.a_enh.round_accept_flag_epoch(this.epoch_) = sum(this.advice_data_.a_enh.round_accept_flag_iter(this.epoch_start_iters_:this.iters_))/num_iters;
             this.advice_data_.a_enh.round_accept_count_epoch(this.epoch_) = sum(this.advice_data_.a_enh.round_accept_count_iter(this.epoch_start_iters_:this.iters_))/num_iters;
             
             % Manually extract the benevolent and evil advice instances
-            for i = 1: this.max_advisers_
+            for i = 1:this.max_advisers_
                 evil_instances = this.advice_data_.a_enh.evil_advice_iter(i, this.epoch_start_iters_:this.iters_);
                 accept_instances = this.advice_data_.a_enh.accept_action_iter(i, this.epoch_start_iters_:this.iters_);
                 this.advice_data_.a_enh.accept_action_benev_epoch(i, this.epoch_) = sum(accept_instances.*(~evil_instances))/num_iters;
