@@ -15,6 +15,7 @@
 %   Metrics:
 %     - Acceptance and rejection ratios for the advisers advice
 %         - Benevolent advice vs. evil advice
+%     - Team iterations
 %
 % Experiment 3: Compatible with advisers of varying skill level and similarity
 %   Setup:
@@ -43,6 +44,7 @@ num_sims = 10;
 num_runs = 100;
 version = 1;
 
+% Flags and settings for each experiment:
 exp1 = false;
 exp1_settings.num_robots = 8;
 
@@ -53,7 +55,7 @@ exp2_settings.fake_adviser_files = {'E640'};
 exp3a = false;
 exp3a_settings.fake_adviser_files = {'E1'; 'E10'; 'E100'; 'E640'};
 
-exp4 = true;
+exp4 = false;
 exp4_settings.num_robots = 8;
 exp4_settings.fake_adviser_files = {'E10'; 'E100'};
 
@@ -140,8 +142,8 @@ if(exp4)
 	config.numTargets = exp4_settings.num_robots;
     config.a_enh_fake_advisers = true;
     for j = 1:length(exp4_settings.fake_adviser_files);
-        % Append a, b, c, etc. to the name using the decimal value
-        sim_name_base = ['v', num2str(version), '_experiment_4', char(96 + j), '/sim_'];
+        % Append 1, 2, 3, etc. to the name
+        sim_name_base = sprintf('v%d_experiment_4_%d/sim_', version, j);
         config.a_enh_fake_adviser_files = exp4_settings.fake_adviser_files(j);
         for i=1:num_sims
             % Create simulation object
