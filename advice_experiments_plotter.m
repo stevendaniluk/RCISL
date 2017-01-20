@@ -11,6 +11,8 @@
 % The filenames have the form "folder_name/sim_name_", and a number is
 % appended to the filenames to load in the data for each simulation.
 
+close all
+
 % General Metrics Plot Settings
 mechanism_metrics = false;
 mechanism_metrics_settings.sim_folder = 'test';
@@ -25,7 +27,7 @@ exp1 = false;
 exp1_settings.sim_folder = sprintf('v%d_experiment_1', version);
 exp1_settings.ref_folder = 'ref/8N';
 
-exp2 = true;
+exp2 = false;
 exp2_settings.sim_folder = sprintf('v%d_experiment_2', version);
 exp2_settings.ref_folder = 'ref/N';
 
@@ -91,7 +93,7 @@ if(exp3a)
     
     dp = DataProcessor();
     dp.loadAdviceData(exp3a_settings.sim_folder);
-    dp.plotAdviserAcceptanceRates(fig);
+    dp.plotAdviserValue(fig);
 end
 
 %% Experiment 4

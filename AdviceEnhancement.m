@@ -11,7 +11,7 @@ classdef AdviceEnhancement < Advice
         max_advisers_ = [];         % Number of advisers to use
         reject_reward_bias_ = [];   % Coefficient applied to reject reward
         eps_ = [];                  % Base probability value
-        adviser_accept_rate_ = [];  % Moving average of adviser acceptance rates
+        adviser_value_ = [];        % Moving average adviser's accept reward
         accept_rate_alpha_ = [];    % Coeff. for acceptance rate moving average
         used_advisers_ = [];        % Flags for which advisers have been used this round
         e_greedy_ = [];             % Coefficient for e-greedy action selection
@@ -94,7 +94,7 @@ classdef AdviceEnhancement < Advice
             % Initialize mechanism properties
             this.eps_ = 1/this.num_robot_actions_;            
             this.epoch_start_iters_ = 1;
-            this.adviser_accept_rate_ = 0.0*ones(this.max_advisers_, 1);
+            this.adviser_value_ = 0.0*ones(this.max_advisers_, 1);
             
             % Instantiate Q-learning
             gamma = config.a_enh_gamma;
@@ -114,7 +114,7 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.iter.K_hat_norm = 0;
             this.advice_data_.a_enh.iter.delta_K = 0;
             this.advice_data_.a_enh.iter.beta_hat = 0;
-            this.advice_data_.a_enh.iter.adviser_acceptance_rates = zeros(this.max_advisers_, 1);
+            this.advice_data_.a_enh.iter.adviser_value = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.iter.evil_advice = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.iter.accept_action = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.iter.accept_delta_K = zeros(this.max_advisers_, 1);
@@ -131,7 +131,7 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.epoch.K_hat_norm = 0;
             this.advice_data_.a_enh.epoch.delta_K = 0;
             this.advice_data_.a_enh.epoch.beta_hat = 0;
-            this.advice_data_.a_enh.epoch.adviser_acceptance_rates = zeros(this.max_advisers_, 1);
+            this.advice_data_.a_enh.epoch.adviser_value = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.epoch.accept_action_benev = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.epoch.accept_action_evil = zeros(this.max_advisers_, 1);
             this.advice_data_.a_enh.epoch.accept_delta_K = zeros(this.max_advisers_, 1);
@@ -184,7 +184,7 @@ classdef AdviceEnhancement < Advice
             % Determine order of advisers for this round
             % (when an adviser's rate is zero, randomize it to ensure
             % random selection)
-            rates = this.adviser_accept_rate_;
+            rates = this.adviser_value_;
             random_rates = -rand(this.max_advisers_, 1);
             rates(rates == 0) = random_rates(rates == 0);
             adviser_rank = sortrows([rates, (1:this.max_advisers_)']);
@@ -226,15 +226,6 @@ classdef AdviceEnhancement < Advice
                     this.action_ = action;
                 end
                 
-                % Update adviser acceptance rate
-                this.adviser_accept_rate_(m) = this.accept_rate_alpha_*this.adviser_accept_rate_(m) + (1 - this.accept_rate_alpha_)*(this.action_ == this.accept_);
-                
-                % DEVELOPMENT - Variation of acceptance rate update
-                %new_acceptance = zeros(this.max_advisers_, 1);
-                %new_acceptance(m) = (this.action_ == this.accept_) - (this.action_ == this.reject_);
-                %this.adviser_accept_rate_ = this.accept_rate_alpha_*this.adviser_accept_rate_ + (1 - this.accept_rate_alpha_)*new_acceptance;
-                %this.adviser_accept_rate_ = max(this.adviser_accept_rate_, 0);
-                
                 K_o_norm = sum(abs(K_o));
                 beta_m = K_m'*K_o;
                 
@@ -248,6 +239,9 @@ classdef AdviceEnhancement < Advice
                     % Calculate the reward (and ensure it is valid)
                     reward = (beta_m >= 0)*((1 + delta_K/(K_o_norm + abs(delta_K)))^2 - 1);
                     if (isnan(reward)); this.reward_ = 0; else this.reward_ = reward; end
+                    
+                    % Update adviser value
+                    this.adviser_value_(m) = this.accept_rate_alpha_*this.adviser_value_(m) + (1 - this.accept_rate_alpha_)*this.reward_;
                     
                     % For data metrics
                     accept_beta_hat(m) = (beta_m > 0) - (beta_m < 0);
@@ -271,6 +265,9 @@ classdef AdviceEnhancement < Advice
                     K_hat = K_o;
                     delta_K = 0;
                     this.reward_ = this.reject_reward_bias_*((1 + K_o_norm)^2 - 1);
+                    
+                    % Update adviser value
+                    this.adviser_value_(m) = this.accept_rate_alpha_*this.adviser_value_(m);
                     
                     % For data maetrics
                     reject_beta_hat(m) = (beta_m > 0) - (beta_m < 0);
@@ -313,7 +310,7 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.iter.K_hat_norm(this.iters_) = K_hat_norm;
             this.advice_data_.a_enh.iter.delta_K(this.iters_) = delta_K;
             this.advice_data_.a_enh.iter.beta_hat(this.iters_) = K_hat'*K_o_initial;
-            this.advice_data_.a_enh.iter.adviser_acceptance_rates(:, this.iters_) = this.adviser_accept_rate_;
+            this.advice_data_.a_enh.iter.adviser_value(:, this.iters_) = this.adviser_value_;
             this.advice_data_.a_enh.iter.accept_action(:, this.iters_) = accept_selected;
             this.advice_data_.a_enh.iter.accept_delta_K(:, this.iters_) = accept_delta_K;
             this.advice_data_.a_enh.iter.accept_beta_hat(:, this.iters_) = accept_beta_hat;
@@ -418,7 +415,7 @@ classdef AdviceEnhancement < Advice
             this.advice_data_.a_enh.epoch.K_hat_norm(this.epoch_) = sum(this.advice_data_.a_enh.iter.K_hat_norm(this.epoch_start_iters_:this.iters_))/num_iters;
             this.advice_data_.a_enh.epoch.delta_K(this.epoch_) = sum(this.advice_data_.a_enh.iter.delta_K(this.epoch_start_iters_:this.iters_))/num_iters;
             this.advice_data_.a_enh.epoch.beta_hat(this.epoch_) = sum(this.advice_data_.a_enh.iter.beta_hat(this.epoch_start_iters_:this.iters_))/num_iters;
-            this.advice_data_.a_enh.epoch.adviser_acceptance_rates(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.adviser_acceptance_rates(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.a_enh.epoch.adviser_value(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.adviser_value(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
             this.advice_data_.a_enh.epoch.accept_delta_K(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.accept_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
             this.advice_data_.a_enh.epoch.accept_beta_hat(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.accept_beta_hat(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
             this.advice_data_.a_enh.epoch.reject_delta_K(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.reject_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;

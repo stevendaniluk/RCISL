@@ -9,10 +9,10 @@ classdef DataProcessor < handle
     % There are methods for plotting individual data:
     %   -Team iterations
     %   -Team average reward
-    %   -Adviser acceptance rates
+    %   -Adviser value
     %   -Advice action ratios
     %   -All advice mechanism metrics together (K values, reward,
-    %    acceptance rates)
+    %    adviser value)
     %   -All adviser metrics together (action ratios, action delta K,
     %    action reward)
     %
@@ -66,7 +66,7 @@ classdef DataProcessor < handle
         %   -K_hat_norm
         %   -delta_K
         %   -beta_hat
-        %   -adviser_acceptance_rates
+        %   -adviser_value
         %   -accept_action_benev
         %   -accept_action_evil
         %   -accept_delta_K
@@ -427,8 +427,8 @@ classdef DataProcessor < handle
             axis([1, this.advice_plots_.x_length, 0, 100]);
             legend('Advisers Used', 'Advice Usage')
             
-            % Acceptance Rates
-            this.plotAdviserAcceptanceRates(fig, [4,1,4])
+            % Adviser value
+            this.plotAdviserValue(fig, [4,1,4])
             
         end
         
@@ -481,16 +481,16 @@ classdef DataProcessor < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   plotAdviserAcceptanceRates
+        %   plotAdviserValue
         %
-        %   Plots the acceptance rates for each adviser. Legend names are
-        %   taken from the property advice_plots_.adviser_names.
+        %   Plots the value (accept reward for each adviser. Legend names
+        %   are taken from the property advice_plots_.adviser_names.
         %
         %   INPUTS:
         %     fig - Figure handle to plot onto
         %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
         
-        function plotAdviserAcceptanceRates(this, fig, subplot_vector)
+        function plotAdviserValue(this, fig, subplot_vector)
             set(0,'CurrentFigure',fig);
             
             % Handle subplots
@@ -501,12 +501,12 @@ classdef DataProcessor < handle
             % Plot the data
             hold on
             for i = 1:this.advice_plots_.num_advisers
-                plot(this.advice_plots_.x_vector, this.advice_data_.adviser_acceptance_rates(i, :))
+                plot(this.advice_plots_.x_vector, this.advice_data_.adviser_value(i, :))
             end
             legend_string = char(this.advice_plots_.adviser_names);
-            title('Acceptance Rate of Each Adviser');
+            title('Value of Each Adviser');
             xlabel(this.advice_plots_.x_label_string);
-            ylabel('Acceptance Rate');
+            ylabel('Accept Reward');
             axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
             legend(legend_string);            
         end
