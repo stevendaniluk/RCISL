@@ -121,11 +121,11 @@ classdef Configuration < handle
         % Advice Enhancement Parameters
         a_enh_num_advisers = inf;                  % Max number of advisers to use (inf means use all available)
         a_enh_reject_reward_bias = 1.5;            % Coefficient applied to reject reward
-        a_enh_gamma = 0.1;                         % Q-learning discount factor
+        a_enh_gamma = 0.3;                         % Q-learning discount factor
         a_enh_alpha_max = 0.9;                     % Q-learning maximum value of learning rate
         a_enh_alpha_rate = 20000;                  % Q-learning coefficient in alpha update equation
         a_enh_state_resolution = [100, 2, 2];      % Q-learning state resolution
-        a_enh_num_actions = 2;                     % Number of possible actions for the mechanism
+        a_enh_num_actions = 3;                     % Number of possible actions for the mechanism
         a_enh_e_greedy = 0.05;                     % Probability fo selecting a random action
         a_enh_accept_rate_alpha = 0.99;            % Adviser acceptance rate update coefficient
         a_enh_evil_advice_prob = 0.0;              % Probability that an adviser will be evil

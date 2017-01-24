@@ -467,11 +467,12 @@ classdef DataProcessor < handle
                 hold on
                 plot(this.advice_plots_.x_vector, this.advice_data_.accept_reward(i, :))
                 plot(this.advice_plots_.x_vector, this.advice_data_.reject_reward(i, :))
+                plot(this.advice_plots_.x_vector, this.advice_data_.skip_reward(i, :))
                 title([this.advice_plots_.adviser_names{i}, ': Reward For Each Action']);
                 xlabel(this.advice_plots_.x_label_string);
                 ylabel('R');
                 axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
-                legend('Accept', 'Reject');
+                legend('Accept', 'Reject', 'Skip');
                 ref_line = refline([0, 0]);
                 ref_line.Color = 'r';
                 ref_line.LineStyle = '--';
@@ -538,9 +539,14 @@ classdef DataProcessor < handle
             if (this.advice_plots_.plot_by_epoch && this.config_advice_.a_enh_evil_advice_prob > 0)
                 plot(this.advice_plots_.x_vector, this.advice_data_.accept_action_evil(adviser, :)*100)
                 plot(this.advice_plots_.x_vector, this.advice_data_.accept_action_benev(adviser, :)*100)
-                legend('Evil', 'Benevolent');
+                plot(this.advice_plots_.x_vector, this.advice_data_.reject_action(adviser, :)*100)
+                plot(this.advice_plots_.x_vector, this.advice_data_.skip_action(adviser, :)*100)
+                legend('Accept-Evil', 'Accept-Benevolent', 'Reject', 'Skip');
             else
-                plot(this.advice_plots_.x_vector, this.advice_data_.accept_action_benev(adviser, :)*100)
+                plot(this.advice_plots_.x_vector, this.advice_data_.accept_action(adviser, :)*100)
+                plot(this.advice_plots_.x_vector, this.advice_data_.reject_action(adviser, :)*100)
+                plot(this.advice_plots_.x_vector, this.advice_data_.skip_action(adviser, :)*100)
+                legend('Accept', 'Reject', 'Skip');
             end
             title([this.advice_plots_.adviser_names{adviser}, ': Accept Action Selection Percentage']);
             xlabel(this.advice_plots_.x_label_string);
