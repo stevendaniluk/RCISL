@@ -40,6 +40,7 @@ classdef DataProcessor < handle
         %   -axis_min_runs
         %   -iter_legend_strings
         %   -reward_legend_strings
+        %   -titles_on
         
         % team_data_ struct fields:
         %   -iterations
@@ -60,6 +61,7 @@ classdef DataProcessor < handle
         %   -adviser_names
         %   -plot_by_epoch
         %   -plot_iter_sim_num
+        %   -titles_on
         
         % advice_data_ struct elemnts:
         %   -K_o_norm
@@ -103,8 +105,10 @@ classdef DataProcessor < handle
             this.team_plots_.axis_min_runs = true;
             this.team_plots_.iter_legend_strings = [];
             this.team_plots_.reward_legend_strings = [];
+            this.team_plots_.titles_on = true;
             this.advice_plots_.plot_by_epoch = true;
             this.advice_plots_.plot_iter_sim_num = 1;
+            this.advice_plots_.titles_on = true;
             
             
             if nargin == 2
@@ -323,19 +327,22 @@ classdef DataProcessor < handle
             
             % Plot the data
             hold on
+            grid on
             this.team_plots_.num_runs_iter(end + 1) = length(this.team_data_.iterations);
             plot(1:this.team_plots_.num_runs_iter(end), this.team_data_.iterations);
-            title('Mission Iterations');
-            xlabel('Run Number');
+            if(this.team_plots_.titles_on)
+                title('Mission Iterations');
+            end
+            xlabel('Epochs');
             ylabel('Iterations');
             if(this.team_plots_.axis_min_runs)
-                axis([0, min(this.team_plots_.num_runs_iter), 0, this.team_plots_.iter_axis_max]);
+                axis([1, min(this.team_plots_.num_runs_iter), 0, this.team_plots_.iter_axis_max]);
             else
-                axis([0, max(this.team_plots_.num_runs_iter), 0, this.team_plots_.iter_axis_max]);
+                axis([1, max(this.team_plots_.num_runs_iter), 0, this.team_plots_.iter_axis_max]);
             end
             
             % Add legend strings, if provided
-            if(nargin == 3)
+            if(nargin >= 2)
                 this.team_plots_.iter_legend_strings{end + 1} = name;
             else
                 this.team_plots_.iter_legend_strings = [];
@@ -365,19 +372,22 @@ classdef DataProcessor < handle
             
             % Plot the data
             hold on
+            grid on
             this.team_plots_.num_runs_reward(end + 1) = length(this.team_data_.iterations);
             plot(1:this.team_plots_.num_runs_reward(end), this.team_data_.avg_reward)
-            title('Mission Average Reward');
-            xlabel('Run Number');
-            ylabel('Reward');
+            if(this.team_plots_.titles_on)
+                title('Mission Average Reward');
+            end
+            xlabel('Epochs');
+            ylabel('$$R$$', 'Interpreter', 'latex');
             if(this.team_plots_.axis_min_runs)
-                axis([0, min(this.team_plots_.num_runs_reward), 0, this.team_plots_.reward_axis_max]);
+                axis([1, min(this.team_plots_.num_runs_reward), 0, this.team_plots_.reward_axis_max]);
             else
-                axis([0, max(this.team_plots_.num_runs_reward), 0, this.team_plots_.reward_axis_max]);
+                axis([1, max(this.team_plots_.num_runs_reward), 0, this.team_plots_.reward_axis_max]);
             end
             
             % Add legend strings, if provided
-            if(nargin == 3)
+            if(nargin >= 2)
                 this.team_plots_.reward_legend_strings{end + 1} = name;
             else
                 this.team_plots_.reward_legend_strings = [];
@@ -404,17 +414,18 @@ classdef DataProcessor < handle
             plot(this.advice_plots_.x_vector, this.advice_data_.K_o_norm)
             title('Knowledge Values');
             xlabel(this.advice_plots_.x_label_string);
-            ylabel('||K||_1');
+            ylabel('$$||K||_1$$', 'Interpreter', 'latex');
             axis([1, this.advice_plots_.x_length, 0, 0.4]);
-            legend('K_h_a_t', 'K_o');
+            my_legend = legend('$$\hat{K}$$', '$$K_o$$');
+            set(my_legend, 'Interpreter', 'latex')
             
             % Mechanism reward
             subplot(4,1,2)
             plot(this.advice_plots_.x_vector, this.advice_data_.round_reward)
             title('Mechanism Reward');
             xlabel(this.advice_plots_.x_label_string);
-            ylabel('R');
-            axis([1, this.advice_plots_.x_length, 0.0, 1.5]);
+            ylabel('$$R$$', 'Interpreter', 'latex');
+            axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
             
             % Round accept count
             subplot(4,1,3)
@@ -500,14 +511,14 @@ classdef DataProcessor < handle
             end
             
             % Plot the data
-            hold on
-            for i = 1:this.advice_plots_.num_advisers
-                plot(this.advice_plots_.x_vector, this.advice_data_.adviser_value(i, :))
-            end
+            plot(this.advice_plots_.x_vector, this.advice_data_.adviser_value);
+            grid on
             legend_string = char(this.advice_plots_.adviser_names);
-            title('Value of Each Adviser');
+            if(this.advice_plots_.titles_on)
+                title('Value of Each Adviser');
+            end
             xlabel(this.advice_plots_.x_label_string);
-            ylabel('Accept Reward');
+            ylabel('Adviser Value \omega');
             axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
             legend(legend_string);            
         end
