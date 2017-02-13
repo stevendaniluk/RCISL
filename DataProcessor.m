@@ -186,8 +186,8 @@ classdef DataProcessor < handle
             
             % Add up all the advisers
             this.advice_plots_.num_advisers = this.config_advice_.numRobots - 1;
-            if (this.config_advice_.a_enh_fake_advisers)
-                this.advice_plots_.num_advisers = this.advice_plots_.num_advisers + length(this.config_advice_.a_enh_fake_adviser_files);
+            if (this.config_advice_.advice_fake_advisers)
+                this.advice_plots_.num_advisers = this.advice_plots_.num_advisers + length(this.config_advice_.advice_fake_adviser_files);
             end
             
             % Load the advice data
@@ -195,7 +195,7 @@ classdef DataProcessor < handle
             if (this.advice_plots_.plot_by_epoch)
                 
                 load(['results/', filename, sprintf('%d', 1), '/', 'advice_data']);
-                this.advice_data_ = advice_data{this.robot_}.a_enh.epoch;
+                this.advice_data_ = advice_data{this.robot_}.epoch;
                 
                 % Loop through remaining sims and add up data
                 num_sims = 1;
@@ -206,7 +206,7 @@ classdef DataProcessor < handle
                         break
                     end
                     num_sims = num_sims + 1;
-                    this.advice_data_ = this.addStructFields(this.advice_data_, advice_data{this.robot_}.a_enh.epoch);
+                    this.advice_data_ = this.addStructFields(this.advice_data_, advice_data{this.robot_}.epoch);
                 end
                 
                 % Divide by number of sims to average
@@ -215,7 +215,7 @@ classdef DataProcessor < handle
                 smooth_pts = this.epoch_smooth_pts_;
             else
                 load(['results/', filename, sprintf('%d', this.advice_plots_.plot_iter_sim_num), '/', 'advice_data']);
-                this.advice_data_ = advice_data{this.robot_}.a_enh.iter;
+                this.advice_data_ = advice_data{this.robot_}.iter;
                 
                 % Ignore benevolent vs evil accepts
                 this.advice_data_.accept_action_benev = this.advice_data_.accept_action;
@@ -241,9 +241,9 @@ classdef DataProcessor < handle
             j = 1;
             for i = 1:(this.advice_plots_.num_advisers + 1)
                 if (i ~= this.robot_)
-                    if(this.config_advice_.a_enh_fake_advisers && j > (this.config_advice_.numRobots - 1))
+                    if(this.config_advice_.advice_fake_advisers && j > (this.config_advice_.numRobots - 1))
                         % Name them according to their file names
-                        this.advice_plots_.adviser_names{j} = ['Expert ', this.config_advice_.a_enh_fake_adviser_files{j - (this.config_advice_.numRobots - 1)}];
+                        this.advice_plots_.adviser_names{j} = ['Expert ', this.config_advice_.advice_fake_adviser_files{j - (this.config_advice_.numRobots - 1)}];
                     else
                         % Name them according to their id number
                         this.advice_plots_.adviser_names{j} = ['Robot ', num2str(i)];
@@ -529,7 +529,7 @@ classdef DataProcessor < handle
         %
         %   Plots the advice action ratios for a specific adviser. Will
         %   plot the beenvolent and evil advice accept ratio when the 
-        %   configuration parameter a_enh_evil_advice_prob is ~-0, and 
+        %   configuration parameter advice_evil_advice_prob is ~-0, and 
         %   will plot only the accept ratio otherwise.
         %
         %   INPUTS:
@@ -547,7 +547,7 @@ classdef DataProcessor < handle
             
             % Plot the data
             hold on
-            if (this.advice_plots_.plot_by_epoch && this.config_advice_.a_enh_evil_advice_prob > 0)
+            if (this.advice_plots_.plot_by_epoch && this.config_advice_.advice_evil_advice_prob > 0)
                 plot(this.advice_plots_.x_vector, this.advice_data_.accept_action_evil(adviser, :)*100)
                 plot(this.advice_plots_.x_vector, this.advice_data_.accept_action_benev(adviser, :)*100)
                 plot(this.advice_plots_.x_vector, this.advice_data_.reject_action(adviser, :)*100)

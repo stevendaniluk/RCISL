@@ -1,7 +1,22 @@
-classdef AdviceEnhancement < Advice
+classdef AdviceEnhancement < handle
     % AdviceDev - Developmental advice mechanism
     
     properties
+        % Configuration settings
+        config_ = [];
+        num_robots_ = [];
+        id_ = [];
+        iters_ = [];
+        epoch_ = [];
+        
+        % Advisor Properties
+        adviser_handles_ = [];
+        advisers_initialized_ = [];
+        all_robots_ = [];
+        
+        % Structure of data to save
+        advice_data_ = [];
+                
         % General simulation properties
         num_robot_actions_ = [];     % How many actions each robot can make
         il_softmax_temp_ = [];       % Temp setting for IL softmax distribution 
@@ -38,6 +53,10 @@ classdef AdviceEnhancement < Advice
         skip_ = 3;
     end
     
+    events
+        RequestRobotHandle;
+    end
+    
     methods
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -48,32 +67,40 @@ classdef AdviceEnhancement < Advice
         %   be recorded.
         
         function this = AdviceEnhancement(config, id)
-            % Pass arguments to superclass
-            this@Advice(config, id);
+            
+            % General parameters
+            this.config_ = config;
+            this.id_ = id;
+            this.epoch_ = 1;
+            this.iters_ = 0;
             
             % Get parameters from config
+            this.num_robots_ = config.numRobots;
             this.num_robot_actions_ = config.num_actions;
             this.il_softmax_temp_ = config.softmax_temp;
-            this.reject_reward_bias_ = config.a_enh_reject_reward_bias;
-            this.evil_advice_prob_ = config.a_enh_evil_advice_prob;
-            this.ql_state_res_ = config.a_enh_state_resolution;
-            this.ql_num_actions_ = config.a_enh_num_actions;
-            this.e_greedy_ = config.a_enh_e_greedy;
-            this.accept_rate_alpha_ = config.a_enh_accept_rate_alpha;
-            this.fake_advisers_on_ = config.a_enh_fake_advisers;
-            this.all_accept_ = config.a_enh_all_accept;
-            this.all_reject_ = config.a_enh_all_reject;
+            this.reject_reward_bias_ = config.advice_reject_reward_bias;
+            this.evil_advice_prob_ = config.advice_evil_advice_prob;
+            this.ql_state_res_ = config.advice_state_resolution;
+            this.ql_num_actions_ = config.advice_num_actions;
+            this.e_greedy_ = config.advice_e_greedy;
+            this.accept_rate_alpha_ = config.advice_accept_rate_alpha;
+            this.fake_advisers_on_ = config.advice_fake_advisers;
+            this.all_accept_ = config.advice_all_accept;
+            this.all_reject_ = config.advice_all_reject;
+            this.max_advisers_ = min(config.advice_num_advisers, this.num_robots_ - 1);
             
-            this.max_advisers_ = min(config.a_enh_num_advisers, this.num_robots_ - 1);
+            % Allocate cells for storing adviser handles
+            this.adviser_handles_ = cell(this.num_robots_ - 1, 1);
+            this.advisers_initialized_ = false;
             
             % When fake advisers are used their data needs to be loaded in
             if (this.fake_advisers_on_)
-                num_fake_advisers = length(config.a_enh_fake_adviser_files);
+                num_fake_advisers = length(config.advice_fake_adviser_files);
                 % Create the fake advisers (first adviser is this agent)
                 this.fake_advisers_ = cell(num_fake_advisers, 1);
                 for i = 1:num_fake_advisers
                     % Load the quality and experience files
-                    filename = config.a_enh_fake_adviser_files(i);
+                    filename = config.advice_fake_adviser_files(i);
                     q_tables = [];
                     exp_tables = [];
                     load(['expert_data/', filename{1}, '/q_tables.mat']);
@@ -98,9 +125,9 @@ classdef AdviceEnhancement < Advice
             this.adviser_value_ = 0.0*ones(this.max_advisers_, 1);
             
             % Instantiate Q-learning
-            gamma = config.a_enh_gamma;
-            alpha_max = config.a_enh_alpha_max;
-            alpha_rate = config.a_enh_alpha_rate;
+            gamma = config.advice_gamma;
+            alpha_max = config.advice_alpha_max;
+            alpha_rate = config.advice_alpha_rate;
             num_state_vrbls = length(this.ql_state_res_);
             
             this.q_learning_ = QLearning(gamma, alpha_max, alpha_rate, ...
@@ -110,50 +137,61 @@ classdef AdviceEnhancement < Advice
             this.action_ = 1;
             this.reward_ = 0;
                         
-            % Advice data being recorded
-            this.advice_data_.a_enh.iter.K_o_norm = 0;
-            this.advice_data_.a_enh.iter.K_hat_norm = 0;
-            this.advice_data_.a_enh.iter.delta_K = 0;
-            this.advice_data_.a_enh.iter.beta_hat = 0;
-            this.advice_data_.a_enh.iter.adviser_value = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.evil_advice = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.accept_action = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.accept_delta_K = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.accept_beta_hat = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.reject_action = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.reject_delta_K = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.reject_beta_hat = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.skip_action = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.accept_reward = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.reject_reward = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.skip_reward = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.iter.round_reward = 0;
-            this.advice_data_.a_enh.iter.round_accept_flag = 0;
-            this.advice_data_.a_enh.iter.round_accept_count = 0;
-                        
-            this.advice_data_.a_enh.epoch.K_o_norm = 0;
-            this.advice_data_.a_enh.epoch.K_hat_norm = 0;
-            this.advice_data_.a_enh.epoch.delta_K = 0;
-            this.advice_data_.a_enh.epoch.beta_hat = 0;
-            this.advice_data_.a_enh.epoch.adviser_value = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.accept_action = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.accept_action_benev = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.accept_action_evil = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.accept_delta_K = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.accept_beta_hat = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.reject_action = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.reject_delta_K = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.reject_beta_hat = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.skip_action = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.accept_reward = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.reject_reward = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.skip_reward = zeros(this.max_advisers_, 1);
-            this.advice_data_.a_enh.epoch.round_reward = 0;
-            this.advice_data_.a_enh.epoch.round_accept_flag = 0;
-            this.advice_data_.a_enh.epoch.round_accept_count = 0;
+            % Initialize advice data being recorded
+            % Iteration and epoch data will have some common fields
+            common_fields.K_o_norm = 0;
+            common_fields.K_hat_norm = 0;
+            common_fields.delta_K = 0;
+            common_fields.beta_hat = 0;
+            common_fields.adviser_value = zeros(this.max_advisers_, 1);
+            common_fields.evil_advice = zeros(this.max_advisers_, 1);
+            common_fields.accept_action = zeros(this.max_advisers_, 1);
+            common_fields.accept_delta_K = zeros(this.max_advisers_, 1);
+            common_fields.accept_beta_hat = zeros(this.max_advisers_, 1);
+            common_fields.reject_action = zeros(this.max_advisers_, 1);
+            common_fields.reject_delta_K = zeros(this.max_advisers_, 1);
+            common_fields.reject_beta_hat = zeros(this.max_advisers_, 1);
+            common_fields.skip_action = zeros(this.max_advisers_, 1);
+            common_fields.accept_reward = zeros(this.max_advisers_, 1);
+            common_fields.reject_reward = zeros(this.max_advisers_, 1);
+            common_fields.skip_reward = zeros(this.max_advisers_, 1);
+            common_fields.round_reward = 0;
+            common_fields.round_accept_flag = 0;
+            common_fields.round_accept_count = 0;
+            
+            this.advice_data_.iter = common_fields;
+            this.advice_data_.iter.evil_advice = zeros(this.max_advisers_, 1);
+            
+            this.advice_data_.epoch = common_fields;
+            this.advice_data_.epoch.accept_action_benev = zeros(this.max_advisers_, 1);
+            this.advice_data_.epoch.accept_action_evil = zeros(this.max_advisers_, 1);
                                                 
         end
         
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   preAdviceUpdate
+        %
+        %   To be called before each time advice is retrieved. 
+        
+        function  preAdviceUpdate(this)
+            this.iters_ = this.iters_ + 1;
+            
+            % Need to initialize the advisers once
+            if (~this.advisers_initialized_)
+                % Get robot handles from ExecutiveSimulation
+                this.notify('RequestRobotHandle');
+                
+                j = 1;
+                for i = 1:this.num_robots_
+                    if i ~= this.id_
+                        this.adviser_handles_{j, 1} = this.all_robots_(i, 1).individual_learning_.q_learning_;
+                        j = j + 1;
+                    end
+                end
+                this.advisers_initialized_ = true;
+            end
+        end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
@@ -340,31 +378,29 @@ classdef AdviceEnhancement < Advice
             end
             
             % Record tracking metrics
-            this.advice_data_.a_enh.iter.K_o_norm(this.iters_) = K_o_norm_initial;
-            this.advice_data_.a_enh.iter.K_hat_norm(this.iters_) = K_hat_norm;
-            this.advice_data_.a_enh.iter.delta_K(this.iters_) = delta_K;
-            this.advice_data_.a_enh.iter.beta_hat(this.iters_) = K_hat'*K_o_initial;
-            this.advice_data_.a_enh.iter.adviser_value(:, this.iters_) = this.adviser_value_;
-            this.advice_data_.a_enh.iter.accept_action(:, this.iters_) = accept_action;
-            this.advice_data_.a_enh.iter.accept_delta_K(:, this.iters_) = accept_delta_K;
-            this.advice_data_.a_enh.iter.accept_beta_hat(:, this.iters_) = accept_beta_hat;
-            this.advice_data_.a_enh.iter.reject_action(:, this.iters_) = reject_action;
-            this.advice_data_.a_enh.iter.reject_delta_K(:, this.iters_) = reject_delta_K;
-            this.advice_data_.a_enh.iter.reject_beta_hat(:, this.iters_) = reject_beta_hat;
-            this.advice_data_.a_enh.iter.skip_action(:, this.iters_) = skip_action;
-            this.advice_data_.a_enh.iter.accept_reward(:, this.iters_) = accept_reward;
-            this.advice_data_.a_enh.iter.reject_reward(:, this.iters_) = reject_reward;
-            this.advice_data_.a_enh.iter.skip_reward(:, this.iters_) = skip_reward;
-            this.advice_data_.a_enh.iter.round_reward(this.iters_) = (sum(accept_reward) + sum(reject_reward))/(n - 1);
-            this.advice_data_.a_enh.iter.round_accept_flag(this.iters_) = (accept_count >= 1);
-            this.advice_data_.a_enh.iter.round_accept_count(this.iters_) = accept_count;
-                        
-            this.postAdviceUpdate();
-            
+            this.advice_data_.iter.K_o_norm(this.iters_) = K_o_norm_initial;
+            this.advice_data_.iter.K_hat_norm(this.iters_) = K_hat_norm;
+            this.advice_data_.iter.delta_K(this.iters_) = delta_K;
+            this.advice_data_.iter.beta_hat(this.iters_) = K_hat'*K_o_initial;
+            this.advice_data_.iter.adviser_value(:, this.iters_) = this.adviser_value_;
+            this.advice_data_.iter.accept_action(:, this.iters_) = accept_action;
+            this.advice_data_.iter.accept_delta_K(:, this.iters_) = accept_delta_K;
+            this.advice_data_.iter.accept_beta_hat(:, this.iters_) = accept_beta_hat;
+            this.advice_data_.iter.reject_action(:, this.iters_) = reject_action;
+            this.advice_data_.iter.reject_delta_K(:, this.iters_) = reject_delta_K;
+            this.advice_data_.iter.reject_beta_hat(:, this.iters_) = reject_beta_hat;
+            this.advice_data_.iter.skip_action(:, this.iters_) = skip_action;
+            this.advice_data_.iter.accept_reward(:, this.iters_) = accept_reward;
+            this.advice_data_.iter.reject_reward(:, this.iters_) = reject_reward;
+            this.advice_data_.iter.skip_reward(:, this.iters_) = skip_reward;
+            this.advice_data_.iter.round_reward(this.iters_) = (sum(accept_reward) + sum(reject_reward))/(n - 1);
+            this.advice_data_.iter.round_accept_flag(this.iters_) = (accept_count >= 1);
+            this.advice_data_.iter.round_accept_count(this.iters_) = accept_count;
+                                    
             % Output the result
             result = action_id;
         end
-        
+                
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
         %   convertPToK
@@ -402,7 +438,7 @@ classdef AdviceEnhancement < Advice
             if (this.fake_advisers_on_ && m > (this.num_robots_ - 1))
                 [q_m, ~] = this.fake_advisers_{m - (this.num_robots_ - 1)}.getUtility(state_vector);
             else
-                [q_m, ~] = this.adviser_handles_{m}.individual_learning_.q_learning_.getUtility(state_vector);
+                [q_m, ~] = this.adviser_handles_{m}.getUtility(state_vector);
             end
             
             % Make them evil?
@@ -410,9 +446,9 @@ classdef AdviceEnhancement < Advice
                 % Rearrange the vector so the best action, is now the
                 % worst, and the worst is now the best
                 q_m = min(q_m) + max(q_m) - q_m;
-                this.advice_data_.a_enh.iter.evil_advice(m, this.iters_) = 1;
+                this.advice_data_.iter.evil_advice(m, this.iters_) = 1;
             else
-                this.advice_data_.a_enh.iter.evil_advice(m, this.iters_) = 0;
+                this.advice_data_.iter.evil_advice(m, this.iters_) = 0;
             end
             
             % Convert Q values to K values
@@ -448,37 +484,36 @@ classdef AdviceEnhancement < Advice
             num_iters = this.iters_ - this.epoch_start_iters_ + 1;
             
             % Average of data over this epoch
-            this.advice_data_.a_enh.epoch.K_o_norm(this.epoch_) = sum(this.advice_data_.a_enh.iter.K_o_norm(this.epoch_start_iters_:this.iters_))/num_iters;
-            this.advice_data_.a_enh.epoch.K_hat_norm(this.epoch_) = sum(this.advice_data_.a_enh.iter.K_hat_norm(this.epoch_start_iters_:this.iters_))/num_iters;
-            this.advice_data_.a_enh.epoch.delta_K(this.epoch_) = sum(this.advice_data_.a_enh.iter.delta_K(this.epoch_start_iters_:this.iters_))/num_iters;
-            this.advice_data_.a_enh.epoch.beta_hat(this.epoch_) = sum(this.advice_data_.a_enh.iter.beta_hat(this.epoch_start_iters_:this.iters_))/num_iters;
-            this.advice_data_.a_enh.epoch.adviser_value(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.adviser_value(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.accept_action(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.accept_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.accept_delta_K(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.accept_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.accept_beta_hat(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.accept_beta_hat(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.reject_action(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.reject_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.reject_delta_K(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.reject_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.reject_beta_hat(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.reject_beta_hat(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.skip_action(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.skip_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.accept_reward(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.accept_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.reject_reward(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.reject_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.skip_reward(:, this.epoch_) = sum(this.advice_data_.a_enh.iter.skip_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-            this.advice_data_.a_enh.epoch.round_reward(this.epoch_) = sum(this.advice_data_.a_enh.iter.round_reward(this.epoch_start_iters_:this.iters_))/num_iters;
-            this.advice_data_.a_enh.epoch.round_accept_flag(this.epoch_) = sum(this.advice_data_.a_enh.iter.round_accept_flag(this.epoch_start_iters_:this.iters_))/num_iters;
-            this.advice_data_.a_enh.epoch.round_accept_count(this.epoch_) = sum(this.advice_data_.a_enh.iter.round_accept_count(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.epoch.K_o_norm(this.epoch_) = sum(this.advice_data_.iter.K_o_norm(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.epoch.K_hat_norm(this.epoch_) = sum(this.advice_data_.iter.K_hat_norm(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.epoch.delta_K(this.epoch_) = sum(this.advice_data_.iter.delta_K(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.epoch.beta_hat(this.epoch_) = sum(this.advice_data_.iter.beta_hat(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.epoch.adviser_value(:, this.epoch_) = sum(this.advice_data_.iter.adviser_value(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.accept_action(:, this.epoch_) = sum(this.advice_data_.iter.accept_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.accept_delta_K(:, this.epoch_) = sum(this.advice_data_.iter.accept_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.accept_beta_hat(:, this.epoch_) = sum(this.advice_data_.iter.accept_beta_hat(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.reject_action(:, this.epoch_) = sum(this.advice_data_.iter.reject_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.reject_delta_K(:, this.epoch_) = sum(this.advice_data_.iter.reject_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.reject_beta_hat(:, this.epoch_) = sum(this.advice_data_.iter.reject_beta_hat(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.skip_action(:, this.epoch_) = sum(this.advice_data_.iter.skip_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.accept_reward(:, this.epoch_) = sum(this.advice_data_.iter.accept_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.reject_reward(:, this.epoch_) = sum(this.advice_data_.iter.reject_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.skip_reward(:, this.epoch_) = sum(this.advice_data_.iter.skip_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
+            this.advice_data_.epoch.round_reward(this.epoch_) = sum(this.advice_data_.iter.round_reward(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.epoch.round_accept_flag(this.epoch_) = sum(this.advice_data_.iter.round_accept_flag(this.epoch_start_iters_:this.iters_))/num_iters;
+            this.advice_data_.epoch.round_accept_count(this.epoch_) = sum(this.advice_data_.iter.round_accept_count(this.epoch_start_iters_:this.iters_))/num_iters;
             
             % Manually extract the benevolent and evil advice instances
             for i = 1:this.max_advisers_
-                evil_instances = this.advice_data_.a_enh.iter.evil_advice(i, this.epoch_start_iters_:this.iters_);
-                accept_instances = this.advice_data_.a_enh.iter.accept_action(i, this.epoch_start_iters_:this.iters_);
-                this.advice_data_.a_enh.epoch.accept_action_benev(i, this.epoch_) = sum(accept_instances.*(~evil_instances))/num_iters;
-                this.advice_data_.a_enh.epoch.accept_action_evil(i, this.epoch_) = sum(accept_instances.*evil_instances)/num_iters;
+                evil_instances = this.advice_data_.iter.evil_advice(i, this.epoch_start_iters_:this.iters_);
+                accept_instances = this.advice_data_.iter.accept_action(i, this.epoch_start_iters_:this.iters_);
+                this.advice_data_.epoch.accept_action_benev(i, this.epoch_) = sum(accept_instances.*(~evil_instances))/num_iters;
+                this.advice_data_.epoch.accept_action_evil(i, this.epoch_) = sum(accept_instances.*evil_instances)/num_iters;
             end
             this.epoch_start_iters_ = this.iters_ + 1;
 
             % Increment epochs
             this.epoch_ = this.epoch_ + 1;
-            this.data_initialized_ = false;
         end
                         
     end

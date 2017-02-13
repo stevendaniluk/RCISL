@@ -68,19 +68,15 @@ classdef ExecutiveSimulation < handle
             % Create the intial world state
             this.world_state_=WorldState(this.config_);
             
-            % Create the robots
+            % Create the robots, and add listener for handle request
             this.robots_ = Robot.empty(1,0);
             for id = 1:this.num_robots_;
-                this.robots_(id,1) = Robot(id, this.config_, this.world_state_);
+                this.robots_(id, 1) = Robot(id, this.config_, this.world_state_);
+                addlistener(this.robots_(id, 1).individual_learning_.advice_, 'RequestRobotHandle', @(src, event)this.handleRequestRobotHandle(src));
             end
-                        
+                                    
             % Create the team learning
             this.team_learning_ = TeamLearning(this.config_);
-            
-            % Create the advice mechanism (if required)
-            if (this.config_.advice_on)
-                this.advice_database_ = AdviceDatabase(this.config_, this.robots_);
-            end
                         
             %Initialize physics engine
             this.physics_ = Physics(this.config_);
@@ -89,6 +85,18 @@ classdef ExecutiveSimulation < handle
             disp(['Running ', sprintf('%d', this.num_robots_), ' robots.']);
             disp(['Max iterations: ', sprintf('%d', this.max_iterations_), '.']);
             disp(' ');
+        end
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %
+        %   handleRequestRobotHandle
+        %
+        %   Receives requests for a robot handle and returns the
+        %   ExecutiveSimulation cell containing all robot handles.
+        %   Used by advice mechanism.
+        
+        function handleRequestRobotHandle(this, src)
+            src.all_robots_ = this.robots_;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -227,11 +235,6 @@ classdef ExecutiveSimulation < handle
             for id = 1:this.num_robots_;
                 this.robots_(id,1).resetForNextRun(this.world_state_);
             end
-            
-            % Reset the advice (if necessary)
-            if (this.config_.advice_on)
-                this.advice_database_.epochFinished();
-            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -312,13 +315,8 @@ classdef ExecutiveSimulation < handle
                 advice_data = cell(this.num_robots_, 1);
                 for i = 1:this.num_robots_
                     advice_data{i} = this.robots_(i, 1).individual_learning_.advice_.advice_data_;
-                    advice_data{i}.advised_actions_ratio = max(advice_data{i}.advised_actions./advice_data{i}.total_actions, 0);
-                    
-                    % Save the advice Q-table (if present)
-                    if (strcmp(this.config_.advice_mechanism, 'advice_enhancement'))
-                        %advice_data{i}.a_dev.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
-                        %advice_data{i}.a_dev.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
-                    end
+                    advice_data{i}.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
+                    advice_data{i}.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
                 end
                 save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
             end

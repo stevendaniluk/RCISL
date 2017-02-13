@@ -119,27 +119,20 @@ classdef Configuration < handle
         greedy_override = false;              % Overrides the policy with a greedy selection
         
         % Advice Enhancement Parameters
-        a_enh_num_advisers = inf;                  % Max number of advisers to use (inf means use all available)
-        a_enh_reject_reward_bias = 1.5;            % Coefficient applied to reject reward
-        a_enh_gamma = 0.3;                         % Q-learning discount factor
-        a_enh_alpha_max = 0.9;                     % Q-learning maximum value of learning rate
-        a_enh_alpha_rate = 20000;                  % Q-learning coefficient in alpha update equation
-        a_enh_state_resolution = [100, 2, 2];      % Q-learning state resolution
-        a_enh_num_actions = 3;                     % Number of possible actions for the mechanism
-        a_enh_e_greedy = 0.05;                     % Probability fo selecting a random action
-        a_enh_accept_rate_alpha = 0.99;            % Adviser acceptance rate update coefficient
-        a_enh_evil_advice_prob = 0.0;              % Probability that an adviser will be evil
-        a_enh_fake_advisers = false;               % Flag for using fake advisers (as opposed to other robots)
-        a_enh_fake_adviser_files = {'E100'; 'E10'};% Filenames for fake adviser data (fromt he expert folder)
-        a_enh_all_accept = false;                  % Flag to override all actions with accept
-        a_enh_all_reject = false;                  % Flag to override all actions with reject
-        
-        % Advice Exchange Parameters
-        ae_alpha = 0.80;                      % Coefficient for current average quality update
-        ae_beta = 0.95;                       % Coefficient for best average quality update
-        ae_delta = 0.00;                      % Coefficient for quality comparison
-        ae_rho = 1.00;                        % Coefficient for quality comparison
-        
+        advice_num_advisers = inf;                  % Max number of advisers to use (inf means use all available)
+        advice_reject_reward_bias = 1.5;            % Coefficient applied to reject reward
+        advice_gamma = 0.3;                         % Q-learning discount factor
+        advice_alpha_max = 0.9;                     % Q-learning maximum value of learning rate
+        advice_alpha_rate = 20000;                  % Q-learning coefficient in alpha update equation
+        advice_state_resolution = [100, 2, 2];      % Q-learning state resolution
+        advice_num_actions = 3;                     % Number of possible actions for the mechanism
+        advice_e_greedy = 0.05;                     % Probability fo selecting a random action
+        advice_accept_rate_alpha = 0.99;            % Adviser acceptance rate update coefficient
+        advice_evil_advice_prob = 0.0;              % Probability that an adviser will be evil
+        advice_fake_advisers = false;               % Flag for using fake advisers (as opposed to other robots)
+        advice_fake_adviser_files = {'E100'; 'E10'};% Filenames for fake adviser data (fromt he expert folder)
+        advice_all_accept = false;                  % Flag to override all actions with accept
+        advice_all_reject = false;                  % Flag to override all actions with reject
     end
     
 end

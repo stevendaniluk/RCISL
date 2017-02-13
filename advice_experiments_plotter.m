@@ -130,7 +130,7 @@ if(exp2)
     plot(dp.advice_plots_.x_vector, dp.advice_data_.accept_action_evil(1, :)*100)
     legend('Benevolent', 'Evil');
     if(titles_on)
-        title([dp.advice_plots_.adviser_names{adviser}, ': Accept Action Selection Percentage']);
+        title([dp.advice_plots_.adviser_names{1}, ': Accept Action Selection Percentage']);
     end
     xlabel(dp.advice_plots_.x_label_string);
     ylabel('Percentage [%]');
@@ -178,7 +178,7 @@ if(exp4)
         folder = sprintf('%s_%d', exp4_settings.sim_folder, i);
         if(isdir(sprintf('results/%s', folder)))
             dp.loadTeamData(folder);
-            name = dp.config_team_.a_enh_fake_adviser_files{1};
+            name = dp.config_team_.advice_fake_adviser_files{1};
             dp.plotIterations(fig_iter, name);
             dp.plotTeamReward(fig_reward, name);
             i = i + 1;

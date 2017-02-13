@@ -106,12 +106,7 @@ classdef IndividualLearning < handle
             
             this.advice_on_ = config.advice_on;
             if (this.advice_on_)
-                % Load the proper mechanism
-                if (strcmp(config.advice_mechanism, 'advice_exchange'))
-                    this.advice_ = AdviceExchange(config, id);
-                elseif (strcmp(config.advice_mechanism, 'advice_enhancement'))
-                    this.advice_ = AdviceEnhancement(config, id);
-                end
+                this.advice_ = AdviceEnhancement(config, id);
                 this.greedy_override_ = config.greedy_override;
             end
             
@@ -227,6 +222,9 @@ classdef IndividualLearning < handle
         function resetForNextRun(this)
             this.prev_learning_iterations_ = this.learning_iterations_;
             this.epoch_iterations_ = 0;
+            if (this.advice_on_)
+                this.advice_.resetForNextRun();
+            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
