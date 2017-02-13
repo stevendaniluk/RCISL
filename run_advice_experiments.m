@@ -62,6 +62,9 @@ exp4_settings.fake_adviser_files = {'E10'; 'E100'};
 %% Set the initial config data
 % Each case will set, and unset, their params
 config = Configuration();
+config.save_simulation_data = true;
+config.save_IL_data = false;
+config.save_advice_data = true;
 config.advice_on = true;
 config.numRobots = 1;
 config.numTargets = 1;
@@ -86,7 +89,7 @@ if(exp1)
         sim_name = [sim_name_base, sprintf('%d', i)];
         
         % Make runs
-        Simulation.consecutiveRuns(num_runs, true, sim_name);
+        Simulation.consecutiveRuns(num_runs, sim_name);
     end
     config.numRobots = 1;
 	config.numTargets = 1;
@@ -108,7 +111,7 @@ if(exp2)
         sim_name = [sim_name_base, sprintf('%d', i)];
         
         % Make runs
-        Simulation.consecutiveRuns(num_runs, true, sim_name);
+        Simulation.consecutiveRuns(num_runs, sim_name);
     end
 	config.advice_evil_advice_prob = 0;
     config.advice_fake_advisers = false;
@@ -130,7 +133,7 @@ if(exp3a)
         sim_name = [sim_name_base, sprintf('%d', i)];
         
         % Make runs
-        Simulation.consecutiveRuns(num_runs, true, sim_name);
+        Simulation.consecutiveRuns(num_runs, sim_name);
     end
     config.advice_fake_advisers = false;
     config.advice_fake_adviser_files = [];
@@ -155,7 +158,7 @@ if(exp4)
             sim_name = [sim_name_base, sprintf('%d', i)];
             
             % Make runs
-            Simulation.consecutiveRuns(num_runs, true, sim_name);
+            Simulation.consecutiveRuns(num_runs, sim_name);
         end
         
     end

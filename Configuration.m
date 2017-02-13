@@ -5,6 +5,12 @@ classdef Configuration < handle
         % General Simulation Settings
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
+        % Data Saving Parameters (turn off for speed)
+        save_simulation_data = true;
+        save_IL_data = true;
+        save_TL_data = true;
+        save_advice_data = true;
+        
         % Graphics Parameters
         show_live_graphics = false
         show_track_graphics = false;

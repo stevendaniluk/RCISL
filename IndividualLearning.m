@@ -32,22 +32,16 @@ classdef IndividualLearning < handle
         random_actions_ = [];           % Counter for number of random actions
         learned_actions_ = [];          % Counter for number of learned actions
         softmax_temp_ = [];             % Temperature for policy softmax distribution
-        advised_actions_ = [];          % Counter for number of advised actions
-        state_resolution_ = [];               % Bits in state_vector
+        state_resolution_ = [];         % Vector of state descritizations
         look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
-        reward_data_ = [];              % For tracking reward at each iteration
-        state_q_data_ = [];             % For tracking Q values at each step
+        state_data_ = [];               % For tracking state vector, utility, reward, and actions
+        epoch_reward_ = [];             % Counter for total reward this epoch
         
-        advice_on_ = [];
-        advice_ = [];               % Advice mechanism between robots
-        greedy_override_ = [];
+        advice_on_ = [];                % Flag for if advice is used
+        advice_ = [];                   % Advice mechanism between robots
+        greedy_override_ = [];          % Flag for using greedy selection with advice
+    end
         
-    end
-    
-    events
-        PerfMetrics;
-    end
-    
     methods (Access = public)
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -63,16 +57,19 @@ classdef IndividualLearning < handle
         function this = IndividualLearning(config, id)
             this.config_ = config;
             this.robot_id_ = id;
-            this.epoch_iterations_ = 0;
+            
+            % Get configuration parameters
             this.learning_on_ = config.individual_learning_on;
-            this.learning_iterations_ = 0;
-            this.prev_learning_iterations_ = 0;
-            this.random_actions_ = 0;
-            this.advised_actions_ = 0;
             this.policy_ = config.policy;
             this.softmax_temp_ = config.softmax_temp;
             this.state_resolution_ = config.state_resolution;
             this.look_ahead_dist_ = config.look_ahead_dist;
+            
+            % Initialize coutners
+            this.epoch_iterations_ = 0;
+            this.learning_iterations_ = 0;
+            this.prev_learning_iterations_ = 0;
+            this.random_actions_ = 0;
             
             % No learning when this robot is an expert
             if (this.config_.expert_on && sum(this.robot_id_ == this.config_.expert_id) ~= 0)
@@ -95,21 +92,20 @@ classdef IndividualLearning < handle
                 end
             end
             
-            % Form structure for tracking Q values
-            % Need to know the values, and if a +ve reward was received
-            this.state_q_data_.q_vals = [];
-            this.state_q_data_.state_vector = [];
-            this.state_q_data_.action = [];
-            this.state_q_data_.reward = [];
-            this.state_q_data_.delta_q = [];
-            this.state_q_data_.delta_h = [];
+            % Initialize structure for state data
+            if(this.config_.save_IL_data)
+                this.state_data_.q_vals = [];
+                this.state_data_.state_vector = [];
+                this.state_data_.action = [];
+                this.state_data_.reward = [];
+            end
             
+            % Instantiate advice (if needed)
             this.advice_on_ = config.advice_on;
             if (this.advice_on_)
                 this.advice_ = AdviceEnhancement(config, id);
                 this.greedy_override_ = config.greedy_override;
             end
-            
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -146,21 +142,11 @@ classdef IndividualLearning < handle
                     % Advice has returned an action id
                     action_id = result;
                 end
-                
-                this.advised_actions_ = this.advised_actions_ + 1;
             else
                 % Select action with our policy (no greedy override)
                 greedy_override = false;
                 action_id = this.Policy(quality, greedy_override);
             end
-                        
-            % Notify AdviceDatabase listener of quality update
-            %this.notify('PerfMetrics', PerfMetricsEventData('quality', this.robot_id_, quality(action_id), this.epoch_iterations_));
-            
-            %q_exponents = exp(quality/this.softmax_temp_);
-            %q_prob = q_exponents./sum(q_exponents);
-            %h = sum(-q_prob.*log2(q_prob));
-            %this.notify('PerfMetrics', PerfMetricsEventData('entropy', this.robot_id_, h, this.epoch_iterations_));
             
             % Assign and output the action that was decided
             robot_state.action_id_ = action_id;
@@ -177,7 +163,7 @@ classdef IndividualLearning < handle
             
             % Find reward, and store it as well
             reward = this.determineReward(robot_state);
-            this.reward_data_(this.learning_iterations_, 1) = reward;
+            this.epoch_reward_ = this.epoch_reward_ + reward;
             
             % Get previous state vector for Q-learning
             prev_state_vector = this.stateMatrixToStateVector(robot_state.prev_state_matrix_);
@@ -187,29 +173,13 @@ classdef IndividualLearning < handle
             if (this.learning_on_)
                 this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);
             end
-            % Save q values and reward
-            this.state_q_data_.q_vals(size(this.state_q_data_.q_vals, 1) + 1, :) = prev_quality';
-            this.state_q_data_.state_vector(size(this.state_q_data_.state_vector, 1) + 1, :) = prev_state_vector;
-            this.state_q_data_.action(size(this.state_q_data_.action, 1) + 1, :) = robot_state.action_id_;
-            this.state_q_data_.reward(size(this.state_q_data_.reward, 1) + 1, 1) = reward;
-            
-            % Notify AdviceDatabase listener of change in quality
-            %[new_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
-            %delta_q = new_quality(robot_state.action_id_) - prev_quality(robot_state.action_id_);
-            %this.state_q_data_.delta_q(size(this.state_q_data_.delta_q, 1) + 1, 1) = delta_q;
-            %this.notify('PerfMetrics', PerfMetricsEventData('delta_q', this.robot_id_, delta_q, this.learning_iterations_));
-            
-            % Notify AdviceDatabase listener of change in entropy
-            %q_exponents = exp(prev_quality/this.softmax_temp_);
-            %q_prob = q_exponents./sum(q_exponents);
-            %old_h = sum(-q_prob.*log2(q_prob));
-            %q_exponents = exp(new_quality/this.softmax_temp_);
-            %q_prob = q_exponents./sum(q_exponents);
-            %new_h = sum(-q_prob.*log2(q_prob));
-            
-            %delta_h = new_h - old_h;
-            %this.state_q_data_.delta_h(size(this.state_q_data_.delta_h, 1) + 1, 1) = delta_h;
-            %this.notify('PerfMetrics', PerfMetricsEventData('delta_h', this.robot_id_, delta_h, this.learning_iterations_));
+            % Save the state data
+            if(this.config_.save_IL_data)
+                this.state_data_.q_vals(size(this.state_data_.q_vals, 1) + 1, :) = prev_quality';
+                this.state_data_.state_vector(size(this.state_data_.state_vector, 1) + 1, :) = prev_state_vector;
+                this.state_data_.action(size(this.state_data_.action, 1) + 1, :) = robot_state.action_id_;
+                this.state_data_.reward(size(this.state_data_.reward, 1) + 1, 1) = reward;
+            end
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -222,6 +192,7 @@ classdef IndividualLearning < handle
         function resetForNextRun(this)
             this.prev_learning_iterations_ = this.learning_iterations_;
             this.epoch_iterations_ = 0;
+            this.epoch_reward_ = 0;
             if (this.advice_on_)
                 this.advice_.resetForNextRun();
             end

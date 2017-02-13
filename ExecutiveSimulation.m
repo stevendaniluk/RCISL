@@ -70,9 +70,12 @@ classdef ExecutiveSimulation < handle
             
             % Create the robots, and add listener for handle request
             this.robots_ = Robot.empty(1,0);
+            
             for id = 1:this.num_robots_;
                 this.robots_(id, 1) = Robot(id, this.config_, this.world_state_);
-                addlistener(this.robots_(id, 1).individual_learning_.advice_, 'RequestRobotHandle', @(src, event)this.handleRequestRobotHandle(src));
+                if this.num_robots_ > 1
+                    addlistener(this.robots_(id, 1).individual_learning_.advice_, 'RequestRobotHandle', @(src, event)this.handleRequestRobotHandle(src));
+                end
             end
                                     
             % Create the team learning
@@ -191,7 +194,7 @@ classdef ExecutiveSimulation < handle
         %   save_data = Boolean type to indicate if data should be saved
         %   sim_name = String with name of the test, used for saving data
         
-        function consecutiveRuns(this, num_runs, save_data, sim_name)
+        function consecutiveRuns(this, num_runs, sim_name)
             for run=1:num_runs
                 tic
                 disp(['Mission ', sprintf('%d', run), ' started.'])
@@ -202,19 +205,14 @@ classdef ExecutiveSimulation < handle
                 disp(' ');
                                 
                 % Save the data from this run (if desired)
-                if (save_data)
-                    this.storeSimulationData(time, run);
+                if (this.config_.save_simulation_data)
+                    this.updateSimData(time, run);
                 end
-                
                 this.resetForNextRun();
             end
             
-            if (save_data)
-                % Save simulation tracking metrics
-                this.saveSimulationData(sim_name);
-                % Save our learned utility tables for each robot
-                this.saveLearningData(sim_name);
-            end
+            % Save simulation tracking metrics (if desired)
+            this.saveSimulationData(sim_name);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -239,52 +237,37 @@ classdef ExecutiveSimulation < handle
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %
-        %   storeSimulationData
+        %   updateSimData
         %
-        %   Will save data from the simulation to the results 
-        %   folder. A folder will be created with the inputted sim_name, 
-        %   and the current data.
+        %   Will add metrics from the previous run into the class
+        %   properties, to be saved later.
         %
-        %   An structu is saved with:
+        %   An struct is formed with:
         %       -Iterations
         %       -Time
-        %       -Total Effort
         %       -Average Reward
+        %       -Average Effort
         %
         %   INPUTS:
         %   time = Simulation time in seconds
         %   run = Run number in this simulation
         
-        function storeSimulationData (this, time, run)            
+        function updateSimData (this, time, run)            
             % Add iterations and time
             this.simulation_data_.iterations(run) = this.world_state_.iterations_;
             this.simulation_data_.time(run) = time;
             
-            % Get effort and reward from robot state
-            total_effort = zeros(1, this.num_robots_);
+            % Get reward and effort from robot state
+            % (Need to manually reset effort counter)
             avg_reward = zeros(1, this.num_robots_);
-            total_reward = zeros(1, this.num_robots_);
+            effort = zeros(1, this.num_robots_);
             for i = 1:this.num_robots_
-                total_effort(1, i) = this.robots_(i, 1).robot_state_.effort_;
-                
-                % Need indices for reward values 
-                reward_start = this.robots_(i, 1).individual_learning_.prev_learning_iterations_ + 1;
-                reward_end = this.robots_(i, 1).individual_learning_.learning_iterations_;
-                
-                avg_reward(:, i) = sum(this.robots_(i, 1).individual_learning_.reward_data_(reward_start:reward_end, 1))/this.world_state_.iterations_;
-                total_reward(1, i) = sum(this.robots_(i, 1).individual_learning_.reward_data_(reward_start:reward_end, 1));
+                avg_reward(i) = sum(this.robots_(i, 1).individual_learning_.epoch_reward_)/this.world_state_.iterations_;
+                effort(i) = this.robots_(i, 1).robot_state_.effort_;
+                this.robots_(i, 1).robot_state_.effort_ = 0;
             end
-            
-            % Store effort and reward
             this.simulation_data_.avg_reward(run) = sum(avg_reward)/this.num_robots_;
-            if (run <= 1)
-                this.simulation_data_.total_effort(run) = sum(total_effort);
-                this.simulation_data_.total_reward(run) = sum(total_reward);
-            else
-                this.simulation_data_.total_effort(run) = this.simulation_data_.total_effort(run - 1) + sum(total_effort);
-                this.simulation_data_.total_reward(run) = this.simulation_data_.total_reward(run - 1) + sum(total_reward);
-            end
-            
+            this.simulation_data_.avg_effort(run) = sum(effort)/this.num_robots_;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -299,67 +282,53 @@ classdef ExecutiveSimulation < handle
         
         function saveSimulationData (this, sim_name)
             
-            % Create new directory if needed
-            if ~exist(['results/', sim_name], 'dir')
-                mkdir('results', sim_name);
-            end
-            
-            % Get state related data
-            state_q_data = cell(this.num_robots_, 1);
-            for i = 1:this.num_robots_
-                state_q_data{i} = this.robots_(i, 1).individual_learning_.state_q_data_;
-            end
-            
-            % Get advice related data
-            if (this.config_.advice_on)
-                advice_data = cell(this.num_robots_, 1);
-                for i = 1:this.num_robots_
-                    advice_data{i} = this.robots_(i, 1).individual_learning_.advice_.advice_data_;
-                    advice_data{i}.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
-                    advice_data{i}.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
+            if(this.config_.save_simulation_data || this.config_.save_IL_data || this.config_.save_TL_data || this.config_.save_advice_data)
+                if ~exist(['results/', sim_name], 'dir')
+                    mkdir('results', sim_name);
                 end
-                save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
+                config = this.config_;
+                save(['results/', sim_name, '/', 'configuration'], 'config');
+            end
+            
+            % Save simulation data
+            if(this.config_.save_simulation_data)
+                simulation_data = this.simulation_data_;
+                save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
             end
                         
-            % Have to make copies of variables in order to save
-            config = this.config_;
-            simulation_data = this.simulation_data_;
-            save(['results/', sim_name, '/', 'configuration'], 'config');
-            save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
-            save(['results/', sim_name, '/', 'state_q_data'], 'state_q_data');
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %
-        %   saveLearningData
-        %
-        %   Saves the utility table and experience for each robot into a 
-        %   cell array, as well as the team learning data
-        %
-        %   INPUTS
-        %   sim_name = String with test name, to be appended to file name
-        
-        function saveLearningData (this, sim_name)
-            % Add utility table for each robot to cell array
-            q_tables = cell(this.num_robots_, 1);
-            exp_tables = cell(this.num_robots_, 1);
-            for id = 1:this.num_robots_;
-                q_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.q_table_;
-                exp_tables{id} = this.robots_(id,1).individual_learning_.q_learning_.exp_table_;
+            % Save individual learning data
+            if(this.config_.save_IL_data)
+                individual_learning_data = cell(this.num_robots_, 1);
+                for i = 1:this.num_robots_
+                    individual_learning_data{i}.state_data = this.robots_(i, 1).individual_learning_.state_data_;
+                    individual_learning_data{i}.q_table = this.robots_(i, 1).individual_learning_.q_learning_.q_table_;
+                    individual_learning_data{i}.exp_table = this.robots_(i, 1).individual_learning_.q_learning_.exp_table_;
+                end
+                save(['results/', sim_name, '/', 'individual_learning_data'], 'individual_learning_data');
             end
             
-            if (strcmp(this.config_.task_allocation, 'l_alliance'))
-                % Get L-Alliance data array
-                l_alliance_data = this.team_learning_.l_alliance_.data_;
-                save(['results/', sim_name, '/', 'l_alliance_data'], 'l_alliance_data');
+            % Save team learning data
+            if(this.config_.save_TL_data)
+                if (strcmp(this.config_.task_allocation, 'l_alliance'))
+                    l_alliance_data = this.team_learning_.l_alliance_.data_;
+                    save(['results/', sim_name, '/', 'l_alliance_data'], 'l_alliance_data');
+                end
+            end
+            
+            % Save advice data
+            if(this.config_.save_advice_data)
+                if (this.config_.advice_on)
+                    advice_data = cell(this.num_robots_, 1);
+                    for i = 1:this.num_robots_
+                        advice_data{i} = this.robots_(i, 1).individual_learning_.advice_.advice_data_;
+                        advice_data{i}.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
+                        advice_data{i}.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
+                    end
+                    save(['results/', sim_name, '/', 'advice_data'], 'advice_data');
+                end
+            end
+        end
                 
-            end
-            
-            save(['results/', sim_name, '/', 'q_tables'], 'q_tables');
-            save(['results/', sim_name, '/', 'exp_tables'], 'exp_tables');
-            disp('Utility tables saved.');
-        end
-        
     end
     
 end
