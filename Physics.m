@@ -116,7 +116,7 @@ classdef Physics < handle
                             target_dist_to_goal = sqrt(sum(target_dist_to_goal.^2));
                             
                             % Mark as returned if close enough
-                            if ((target_dist_to_goal + world_state.target_size_) < world_state.goal_size_)
+                            if ((target_dist_to_goal + this.config_.scenario.target_size) < this.config_.scenario.goal_size)
                                 world_state.targetProperties(target_id, world_state.tpid_isReturned) = 1;
                                 world_state.targetProperties(target_id, world_state.tpid_carriedBy) = 0;
                             end
@@ -143,35 +143,29 @@ classdef Physics < handle
         %   new_point = Vector [X, Y, Z] with new point coordinates
         %   robot_id = ID number of robot
   
-        function valid = validPoint(~, world_state, new_point, robot_id)
+        function valid = validPoint(this, world_state, new_point, robot_id)
             % Get size of robot
-            robot_size = world_state.robot_size_;
+            robot_size = this.config_.scenario.robot_size;
             
             %Test X world boundary
-            if ((new_point(1) - robot_size < 0) || (new_point(1) + robot_size > world_state.world_width_))
+            if ((new_point(1) - robot_size < 0) || (new_point(1) + robot_size > this.config_.scenario.world_width))
                 valid = false; 
                 return; 
             end
             
             %Test Y world boundary
-            if ((new_point(2) - robot_size < 0) || (new_point(2) + robot_size > world_state.world_height_))
+            if ((new_point(2) - robot_size < 0) || (new_point(2) + robot_size > this.config_.scenario.world_height))
                 valid = false; 
                 return; 
             end
-            
-            % Test Z world boundary
-            if ((new_point(3) < 0) || (new_point(3)  > world_state.world_depth_))
-                valid = false; 
-                return; 
-            end
-            
+                        
             % Get distances to obstacles
             obs_dist = bsxfun(@minus,world_state.obstacle_pos_, new_point);
             obs_dist = sqrt(obs_dist(:,1).^2 + obs_dist(:,2).^2 + obs_dist(:,3).^2);
             [min_obs_dist, ~] = min(obs_dist);
             
             % Check for collision with obstacles
-            if min_obs_dist < robot_size + world_state.obstacle_size_
+            if min_obs_dist < robot_size + this.config_.scenario.obstacle_size
                 valid = false;
                 return;
             end
@@ -183,7 +177,7 @@ classdef Physics < handle
             % Must ignore robots in the goal area
             dist_from_goal = bsxfun(@minus, world_state.robot_pos_, world_state.goal_pos_);
             dist_from_goal = sqrt(dist_from_goal(:,1).^2 + dist_from_goal(:,2).^2);
-            void_robots = dist_from_goal < world_state.goal_size_;
+            void_robots = dist_from_goal < this.config_.scenario.goal_size;
             
             % Also ignore this robot for collisions
             void_robots(robot_id, 1) = true;
@@ -195,7 +189,7 @@ classdef Physics < handle
                 [min_robot_dist, ~] = min(robot_dist);
                 
                 % Check for collision with other robots
-                if min_robot_dist < robot_size + world_state.robot_size_
+                if min_robot_dist < robot_size + this.config_.scenario.robot_size
                     valid = false;
                     return;
                 end

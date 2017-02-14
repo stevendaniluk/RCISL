@@ -20,26 +20,18 @@ classdef IndividualLearning < handle
     %       - Compressing the state variables to a vector of integers
     
     properties
-        config_ = [];                   % Current configuration object
-        robot_id_ = [];                 % Id number for owner robot
-        q_learning_ = [];               % QLearning object
-        state_vector_ = [];             % Current state vector
-        policy_ = [];                   % The policy being used
-        epoch_iterations_ = [];         % Counter for iterations in each epoch
-        learning_on_ = [];              % If Q-learning should be updated
-        learning_iterations_ = [];      % Counter for how many times learning is performed
-        prev_learning_iterations_ = []; % For tracking iterations between epochs
-        random_actions_ = [];           % Counter for number of random actions
-        learned_actions_ = [];          % Counter for number of learned actions
-        softmax_temp_ = [];             % Temperature for policy softmax distribution
-        state_resolution_ = [];         % Vector of state descritizations
-        look_ahead_dist_ = [];          % Distance robot looks ahead for obstacle state info
-        state_data_ = [];               % For tracking state vector, utility, reward, and actions
-        epoch_reward_ = [];             % Counter for total reward this epoch
-        
-        advice_on_ = [];                % Flag for if advice is used
-        advice_ = [];                   % Advice mechanism between robots
-        greedy_override_ = [];          % Flag for using greedy selection with advice
+        config_;                   % Current configuration object
+        id_;                       % Id number for owner robot
+        q_learning_;               % Q-Learning object
+        advice_;                   % Advice mechanism object
+        state_vector_;             % Current state vector
+        learning_enabled_;         % If learning should be updated
+        learning_iterations_;      % Counter for how many times learning is performed
+        epoch_iterations_;         % Counter for iterations in each epoch
+        random_actions_;           % Counter for number of random actions
+        learned_actions_;          % Counter for number of learned actions
+        epoch_reward_;             % Counter for total reward this epoch
+        state_data_;               % Struct For storing state vector, utility, reward, and actions
     end
         
     methods (Access = public)
@@ -56,44 +48,38 @@ classdef IndividualLearning < handle
         
         function this = IndividualLearning(config, id)
             this.config_ = config;
-            this.robot_id_ = id;
+            this.id_ = id;
             
-            % Get configuration parameters
-            this.learning_on_ = config.individual_learning_on;
-            this.policy_ = config.policy;
-            this.softmax_temp_ = config.softmax_temp;
-            this.state_resolution_ = config.state_resolution;
-            this.look_ahead_dist_ = config.look_ahead_dist;
-            
-            % Initialize coutners
+            % Initialize counters
             this.epoch_iterations_ = 0;
             this.learning_iterations_ = 0;
-            this.prev_learning_iterations_ = 0;
             this.random_actions_ = 0;
             
             % No learning when this robot is an expert
-            if (this.config_.expert_on && sum(this.robot_id_ == this.config_.expert_id) ~= 0)
-                this.learning_on_ = false;
+            if (this.config_.IL.expert_on && sum(this.id_ == this.config_.IL.expert_id) ~= 0)
+                this.learning_enabled_ = false;
+            else
+                this.learning_enabled_ = this.config_.IL.enabled;
             end
-                        
+            
             % Initialize Q-learning
-            this.q_learning_ = QLearning(config.gamma, config.alpha_max, config.alpha_rate, ...
-                                config.num_state_vrbls, config.state_resolution, config.num_actions);
+            this.q_learning_ = QLearning(this.config_.IL.QL.gamma, this.config_.IL.QL.alpha_max, this.config_.IL.QL.alpha_rate, ...
+                                this.config_.IL.num_state_vrbls, this.config_.IL.state_resolution, this.config_.IL.num_actions);
             
             % Load expert (if necessary)
-            if (config.expert_on)
-                index = find(this.robot_id_ == config.expert_id);
-                if (~isempty(index) && this.robot_id_ == config.expert_id(index))
-                    filename = config.expert_filename(index);
+            if (this.config_.IL.expert_on)
+                index = find(this.id_ == this.config_.IL.expert_id);
+                if (~isempty(index) && this.id_ == this.config_.IL.expert_id(index))
+                    filename = this.config_.IL.expert_filename(index);
                     load(['expert_data/', filename{1}, '/q_tables.mat']);
                     load(['expert_data/', filename{1}, '/exp_tables.mat']);
-                    this.q_learning_.q_table_ = q_tables{this.robot_id_};
-                    this.q_learning_.exp_table_ = exp_tables{this.robot_id_};
+                    this.q_learning_.q_table_ = q_tables{this.id_};
+                    this.q_learning_.exp_table_ = exp_tables{this.id_};
                 end
             end
             
             % Initialize structure for state data
-            if(this.config_.save_IL_data)
+            if(this.config_.sim.save_IL_data)
                 this.state_data_.q_vals = [];
                 this.state_data_.state_vector = [];
                 this.state_data_.action = [];
@@ -101,10 +87,8 @@ classdef IndividualLearning < handle
             end
             
             % Instantiate advice (if needed)
-            this.advice_on_ = config.advice_on;
-            if (this.advice_on_)
-                this.advice_ = AdviceEnhancement(config, id);
-                this.greedy_override_ = config.greedy_override;
+            if (this.config_.advice.enabled)
+                this.advice_ = AdviceEnhancement(this.config_, this.id_);
             end
         end
         
@@ -130,22 +114,21 @@ classdef IndividualLearning < handle
             [quality, ~] = this.q_learning_.getUtility(this.state_vector_);
             
             % Get advised action (if necessary)
-            if (this.advice_on_)
+            if (this.config_.advice.enabled)
                 % Get advice from advisor (overwrite quality and experience)
                 result = this.advice_.getAdvice(this.state_vector_, quality);
                 
                 if length(result) ~= 1
                     % Advice has returned Q values
                     % Select action with policy (including greedy override)
-                    action_id = this.Policy(quality, this.greedy_override_);
+                    action_id = this.Policy(quality);
                 else
                     % Advice has returned an action id
                     action_id = result;
                 end
             else
                 % Select action with our policy (no greedy override)
-                greedy_override = false;
-                action_id = this.Policy(quality, greedy_override);
+                action_id = this.Policy(quality);
             end
             
             % Assign and output the action that was decided
@@ -170,11 +153,11 @@ classdef IndividualLearning < handle
             [prev_quality, ~] = this.q_learning_.getUtility(prev_state_vector);
             
             % Do one step of QLearning
-            if (this.learning_on_)
+            if (this.learning_enabled_)
                 this.q_learning_.learn(prev_state_vector, this.state_vector_, robot_state.action_id_, reward);
             end
             % Save the state data
-            if(this.config_.save_IL_data)
+            if(this.config_.sim.save_IL_data)
                 this.state_data_.q_vals(size(this.state_data_.q_vals, 1) + 1, :) = prev_quality';
                 this.state_data_.state_vector(size(this.state_data_.state_vector, 1) + 1, :) = prev_state_vector;
                 this.state_data_.action(size(this.state_data_.action, 1) + 1, :) = robot_state.action_id_;
@@ -190,10 +173,9 @@ classdef IndividualLearning < handle
         %   while maintatining learning data
         
         function resetForNextRun(this)
-            this.prev_learning_iterations_ = this.learning_iterations_;
             this.epoch_iterations_ = 0;
             this.epoch_reward_ = 0;
-            if (this.advice_on_)
+            if (this.config_.advice.enabled)
                 this.advice_.resetForNextRun();
             end
         end
@@ -237,7 +219,10 @@ classdef IndividualLearning < handle
             %      5        2        2    |     13       4        2
             %      6        2        3    |     14       4        3
             %      7        2        4    |     15       4        4
-                                
+            
+            state_res = this.config_.IL.state_resolution;
+            max_dist = this.config_.IL.look_ahead_dist;
+            
             % In case an values are outside the world bounds, they need to
             % be adjusted to be within the bounds by at least this much
             delta = 0.0001;
@@ -253,31 +238,31 @@ classdef IndividualLearning < handle
             % it is within the look ahead distance, then convert to the
             % proper state resolution
             target_dist = sqrt(state_matrix(4, 1).^2 + state_matrix(4, 2).^2);
-            target_dist = min(target_dist, this.look_ahead_dist_ - delta);
-            target_dist = floor((target_dist/this.look_ahead_dist_)*this.state_resolution_(2));
+            target_dist = min(target_dist, max_dist - delta);
+            target_dist = floor((target_dist/max_dist)*state_res(2));
             
             goal_dist = sqrt(state_matrix(5, 1).^2 + state_matrix(5, 2).^2);
-            goal_dist = min(goal_dist, this.look_ahead_dist_ - delta);
-            goal_dist = floor((goal_dist/this.look_ahead_dist_)*this.state_resolution_(4));
+            goal_dist = min(goal_dist, max_dist - delta);
+            goal_dist = floor((goal_dist/max_dist)*state_res(4));
             
             obst_dist = sqrt(state_matrix(6, 1).^2 + state_matrix(6, 2).^2);
-            obst_dist = min(obst_dist, this.look_ahead_dist_ - delta);
-            obst_dist = floor((obst_dist/this.look_ahead_dist_)*this.state_resolution_(6));            
+            obst_dist = min(obst_dist, max_dist - delta);
+            obst_dist = floor((obst_dist/max_dist)*state_res(6));            
             
             % Get relative angles of targets/goal/obstacles, offset by half
             % of resolution (so that straight forward is the centre of a
             % quadrant), then convert to the proper state resolution
             target_angle = atan2(state_matrix(4, 2), state_matrix(4, 1)) - orient;
-            target_angle = mod((target_angle + pi/this.state_resolution_(3)), 2*pi);
-            target_angle = floor(target_angle*this.state_resolution_(3)/(2*pi));
+            target_angle = mod((target_angle + pi/state_res(3)), 2*pi);
+            target_angle = floor(target_angle*state_res(3)/(2*pi));
             
             goal_angle = atan2(state_matrix(5, 2), state_matrix(5, 1)) - orient;
-            goal_angle = mod((goal_angle + pi/this.state_resolution_(5)), 2*pi);
-            goal_angle = floor(goal_angle*this.state_resolution_(5)/(2*pi));
+            goal_angle = mod((goal_angle + pi/state_res(5)), 2*pi);
+            goal_angle = floor(goal_angle*state_res(5)/(2*pi));
             
             obst_angle = atan2(state_matrix(6, 2), state_matrix(6, 1)) - orient;
-            obst_angle = mod((obst_angle + pi/this.state_resolution_(7)), 2*pi);
-            obst_angle = floor(obst_angle*this.state_resolution_(7)/(2*pi));
+            obst_angle = mod((obst_angle + pi/state_res(7)), 2*pi);
+            obst_angle = floor(obst_angle*state_res(7)/(2*pi));
             
             % Assemble, and correct elements in case an are over the max
             % bit amount (shouldn't happen, but if it does we want to know)
@@ -288,10 +273,10 @@ classdef IndividualLearning < handle
                             goal_angle;
                             obst_dist;
                             obst_angle]';            
-            if (sum(state_vector >= this.state_resolution_) ~= 0)
+            if (sum(state_vector >= state_res) ~= 0)
                 warning(['state_vector values greater than max allowed. Reducing to max value. State Vector: ', ...
                          sprintf('%d, %d, %d, %d, %d %d, %d\n', state_vector(1), state_vector(2), state_vector(3), state_vector(4), state_vector(5), state_vector(6), state_vector(7))]);
-                state_vector = mod(state_vector, this.state_resolution_');
+                state_vector = mod(state_vector, state_res');
             end
         end
         
@@ -310,7 +295,7 @@ classdef IndividualLearning < handle
         
         function reward = determineReward(this, robot_state)
             % Set distance threshold for rewards
-            threshold = this.config_.reward_activation_dist;
+            threshold = this.config_.IL.reward_activation_dist;
             
             % First handle the case where no target is assigned first, since
             % we cannot calculate target distance if we don't have a target
@@ -329,7 +314,7 @@ classdef IndividualLearning < handle
                 if (delta_goal_dist < -threshold)
                     reward = 1;
                 else
-                    reward = this.config_.empty_reward_value;
+                    reward = this.config_.IL.empty_reward_value;
                 end
                 % Record reward in robot state
                 return;
@@ -357,22 +342,22 @@ classdef IndividualLearning < handle
             % Rewards depend on if we are going to an item, or carrying one
             if (robot_state.carrying_target_ && delta_item_goal_dist < -threshold)
                 % Item has moved closer
-                reward = this.config_.item_closer_reward;
+                reward = this.config_.IL.item_closer_reward;
             elseif (robot_state.carrying_target_ && delta_item_goal_dist > threshold)
                 % Item has moved further away
-                reward = this.config_.item_further_reward;
+                reward = this.config_.IL.item_further_reward;
             elseif (~robot_state.carrying_target_ && delta_robot_item_dist < -threshold)
                 % Robot moved closer to item
-                reward = this.config_.robot_closer_reward;
+                reward = this.config_.IL.robot_closer_reward;
             elseif (~robot_state.carrying_target_ && delta_robot_item_dist > threshold)
                 % Robot moved further away from item
-                reward = this.config_.robot_further_reward;
+                reward = this.config_.IL.robot_further_reward;
             elseif (target_state ~= 1 && prev_target_state == 1)
-                reward = this.config_.return_reward;
+                reward = this.config_.IL.return_reward;
             else
                 % When no reward is given, make sure empty rewards are not
                 % discouraged due to purtebations in item position
-                reward = this.config_.empty_reward_value;
+                reward = this.config_.IL.empty_reward_value;
             end
         end
         
@@ -390,10 +375,10 @@ classdef IndividualLearning < handle
         %   OUTPUTS
         %   action_index = The ID (index) of the selected action
         
-        function action_index = Policy(this, utility_vals, greedy_override)
+        function action_index = Policy(this, utility_vals)
             % If all utility is zero, select a random action
             if(sum(utility_vals) == 0)
-                action_index = ceil(rand*this.config_.num_actions);
+                action_index = ceil(rand*this.config_.IL.num_actions);
                 this.random_actions_ = this.random_actions_ + 1;
                 return;
             end
@@ -405,10 +390,10 @@ classdef IndividualLearning < handle
             utility_vals(utility_vals == 0) = total_utility.*0.05;
             
             % Use the policy indicated in the configuration
-            if (strcmp(this.policy_, 'greedy') || greedy_override)
+            if (strcmp(this.config_.IL.policy, 'greedy'))
                 % Simply select the max utility
                 [~, action_index] = max(utility_vals);
-            elseif (strcmp(this.policy_, 'e-greedy'))
+            elseif (strcmp(this.config_.IL.policy, 'e-greedy'))
                 % Epsilon-Greedy Policy
                 rand_action = rand;
                 if (rand_action <= this.config_.e_greedy_epsilon)
@@ -416,21 +401,21 @@ classdef IndividualLearning < handle
                 else
                     [~, action_index] = max(utility_vals);
                 end
-            elseif (strcmp(this.policy_, 'softmax'))
+            elseif (strcmp(this.config_.IL.policy, 'softmax'))
                 % Softmax action selection [Girard, 2015]
-                exponents = exp(utility_vals/this.softmax_temp_);
+                exponents = exp(utility_vals/this.config_.IL.softmax_temp);
                 action_prob = exponents/sum(exponents);
                 rand_action = rand;
-                for i=1:this.config_.num_actions
+                for i=1:this.config_.IL.num_actions
                     if (rand_action < sum(action_prob(1:i)))
                         action_index = i;
                         break;
-                    elseif (i == this.config_.num_actions)
+                    elseif (i == this.config_.IL.num_actions)
                         action_index = i;
                     end
                 end
             else
-                error(['No policy matching ', this.policy_, ...
+                error(['No policy matching ', this.config_.IL.policy, ...
                     '. Options are "greedy", "e-greedy", or "softmax"']);
             end
             
@@ -439,5 +424,3 @@ classdef IndividualLearning < handle
     end
     
 end
-
-

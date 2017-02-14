@@ -39,16 +39,16 @@ classdef QLearning <handle
     
     properties (Access = public)        
         % Main Q-learning parameters
-        gamma_ = [];                % Gamma coefficient in Q-learning update
-        alpha_max_ = [];            % Maximum value of alpha
-        alpha_rate_ = [];           % Coefficient in alpha update
-        num_state_vrbls_ = [];      % Number of variables in state vector
-        num_actions_ = [];          % Number of possible actions
-        state_resolution_ = [];     % Bits required to express state values
-        encoder_vector_ = [];       % Multiplying vector to convert state vector to key value
-        table_size_ = [];           % Length of Q-table
-        q_table_ = [];              % Sparse array  of Q-values
-        exp_table_ = [];            % Sparse array  of experience values
+        gamma_;                % Gamma coefficient in Q-learning update
+        alpha_max_;            % Maximum value of alpha
+        alpha_rate_;           % Coefficient in alpha update
+        num_state_vrbls_;      % Number of variables in state vector
+        num_actions_;          % Number of possible actions
+        state_resolution_;     % Bits required to express state values
+        encoder_vector_;       % Multiplying vector to convert state vector to key value
+        table_size_;           % Length of Q-table
+        q_table_;              % Sparse array  of Q-values
+        exp_table_;            % Sparse array  of experience values
     end
     
     methods (Access = public)
@@ -192,9 +192,6 @@ classdef QLearning <handle
         %   action_id = Action number [1,num_actions_]
         
         function key= getKey(this, state_vector, action_id)
-            % Ensure the state_vector elements are within bounds
-            state_vector = mod(state_vector, 2.^this.state_resolution_);
-            
             % Multipy by the encoder vector and add the action num to 
             % convert to a unique key value
             key = action_id + state_vector * this.encoder_vector_';

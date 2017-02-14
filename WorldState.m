@@ -9,59 +9,35 @@ classdef WorldState < handle
 
     properties
         
-        config_ = [];
-        iterations_ = 0;
-        
-        % World parameters set by Configuration
-        world_width_ = [];  % World X size
-        world_height_ = []; % World Y size
-        world_depth_ = [];  % World Z size
-        
-        grid_size_ = [];                % Grid sizing for random initial positions
-        random_pos_padding_ = [];       % Padding distance between objects when randomizing world state
-        random_border_padding_ = [];    % Padding distance between objects and world borders when randomizing world state
-        
-        num_robots_ = [];               % Number of robots
-        num_targets_ = [];              % Number of tagerts
-        num_obstacles_ = [];            % Number of obstacles
-        
-        robot_size_ = [];               %
-        robot_mass_ = [];
-        
-        obstacle_size_ = [];
-        obstacle_mass_ = [];
-        
-        target_size_ = [];
-        target_mass_ = [];
-        
-        goal_size_ = [];
-                
+        config_;
+        iters_;
+                        
         % Current state variables
         % One row for each robot/target/obstacle
-        robot_pos_ = [];            % [x, y, z,] positions
-        robot_orient_ = [];         % [rx, ry, rz,] angles
-        robot_vel_ = [];            % [vx, vy, vz] velocities
+        robot_pos_;            % [x, y, z,] positions
+        robot_orient_;         % [rx, ry, rz,] angles
+        robot_vel_;            % [vx, vy, vz] velocities
         
-        obstacle_pos_ = [];         % [x, y, z,] positions
-        obstacle_orient_ = [];      % [rx, ry, rz,] angles
-        obstacle_vel_ = [];         % [vx, vy, vz] velocities
+        obstacle_pos_;         % [x, y, z,] positions
+        obstacle_orient_;      % [rx, ry, rz,] angles
+        obstacle_vel_;         % [vx, vy, vz] velocities
         
-        target_pos_ = [];           % [x, y, z,] positions
-        target_orient_ = [];        % [rx, ry, rz,] angles
-        target_vel_ = [];           % [vx, vy, vz] velocities
+        target_pos_;           % [x, y, z,] positions
+        target_orient_;        % [rx, ry, rz,] angles
+        target_vel_;           % [vx, vy, vz] velocities
         
-        goal_pos_ = [];             % [x, y, z,] positions
+        goal_pos_;             % [x, y, z,] positions
         
         % Robot type (ss, sf, ws, wf), one row for each robot
-        robot_type_ = [];
+        robot_type_;
         
         % Is this world all 'finished' == 1
-        converged_ = 0;
+        converged_;
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         % Robot Properties array and indicies 
-        robotProperties = [];
+        robotProperties;
         rpid_currentTarget = 1;
         rpid_rotationStep = 2;
         rpid_mass = 3;
@@ -69,7 +45,7 @@ classdef WorldState < handle
         rpid_reachId = 5;
         
         % Target Properties  array and indicies      
-        targetProperties = [];
+        targetProperties;
         tpid_isReturned = 1;
         tpid_weight = 2;
         tpid_type12 = 3;
@@ -86,8 +62,8 @@ classdef WorldState < handle
         
         % Configures whether or not the boxes may be 
         % 'Picked Up'
-        boxPickup = [];
-        groupPickup = [];
+        boxPickup;
+        groupPickup;
         
     end
     
@@ -102,24 +78,8 @@ classdef WorldState < handle
         
         function this = WorldState(config)
             this.config_ = config;
-            
-            % Load configuration
-            this.world_width_ = config.world_width;
-            this.world_height_ = config.world_height;
-            this.world_depth_ = config.world_depth;
-            this.grid_size_ = config.grid_size;
-            this.random_pos_padding_ = config.random_pos_padding;
-            this.random_border_padding_ = config.random_border_padding;
-            this.num_robots_ = config.numRobots;
-            this.num_targets_ = config.numTargets;
-            this.num_obstacles_ = config.numObstacles;
-            this.robot_size_ = config.robot_size;
-            this.robot_mass_ = config.robot_mass;
-            this.obstacle_size_ = config.obstacle_size;
-            this.obstacle_mass_ = config.obstacle_mass;
-            this.target_size_ = config.target_size;
-            this.target_mass_ = config.target_mass;
-            this.goal_size_ = config.goal_size;
+            this.iters_ = 0;
+            this.converged_ = 0;
             
             % Assign all robot and target properties
             this.assignProperties();
@@ -137,31 +97,31 @@ classdef WorldState < handle
         
         function assignProperties (this)
             % Form robot properties array
-            this.robotProperties = [zeros(this.num_robots_, 1), ...
-                ones(this.num_robots_, 1)*0.5, ...
-                ones(this.num_robots_, 1), ...
-                ones(this.num_robots_, 2), ...
-                ones(this.num_robots_, 1)*this.config_.robot_Reach, ...
-                zeros(this.num_robots_, 1)];
+            this.robotProperties = [zeros(this.config_.scenario.num_robots, 1), ...
+                ones(this.config_.scenario.num_robots, 1)*0.5, ...
+                ones(this.config_.scenario.num_robots, 1), ...
+                ones(this.config_.scenario.num_robots, 2), ...
+                ones(this.config_.scenario.num_robots, 1)*this.config_.scenario.robot_reach, ...
+                zeros(this.config_.scenario.num_robots, 1)];
             
             % Form target properties array
-            this.targetProperties = [zeros(this.num_targets_, 1), ...
-                0.5*ones(this.num_targets_, 1), ...
-                ones(this.num_targets_, 1), ...
-                zeros(this.num_targets_, 1), ...
-                ones(this.num_targets_, 1)*0.5, ...
-                zeros(this.num_targets_, 1), ...
-                zeros(this.num_targets_, 1)];
+            this.targetProperties = [zeros(this.config_.scenario.num_targets, 1), ...
+                0.5*ones(this.config_.scenario.num_targets, 1), ...
+                ones(this.config_.scenario.num_targets, 1), ...
+                zeros(this.config_.scenario.num_targets, 1), ...
+                ones(this.config_.scenario.num_targets, 1)*0.5, ...
+                zeros(this.config_.scenario.num_targets, 1), ...
+                zeros(this.config_.scenario.num_targets, 1)];
             
             % Get how many types of robots have been defined
-            robotTypes = this.config_.robot_Type;
+            robotTypes = this.config_.scenario.robot_types;
             [num_robot_types, ~] = size(robotTypes);
             
             properties_indices = [this.rpid_rotationStep this.rpid_mass ...
                 this.rpid_typeId this.rpid_reachId ];
             
             % Loop through each robot and assign properties
-            for i=1:this.num_robots_
+            for i=1:this.config_.scenario.num_robots
                 % Loop back to first type, if there aren't enough defined
                 type_index = mod((i - 1), num_robot_types) + 1;
 
@@ -169,11 +129,11 @@ classdef WorldState < handle
             end
             
             % Get how many types of targets have been defined
-            targetTypes = this.config_.target_Type;
+            targetTypes = this.config_.scenario.target_types;
             [num_target_types, ~] = size(targetTypes);
             
             % Loop through each target and assign properties
-            for i=1:this.num_targets_
+            for i=1:this.config_.scenario.num_targets
                 % Loop back to first type, if there aren't enough defined
                 type_index = mod((i - 1), num_target_types) + 1;
 
@@ -193,20 +153,20 @@ classdef WorldState < handle
 
         function randomizeState(this)
             % Must initialize velocity, since it is not randomly set
-            this.obstacle_vel_ = zeros(this.num_obstacles_, 3);
-            this.robot_vel_ = zeros(this.num_robots_, 3);
-            this.target_vel_ = zeros(this.num_targets_, 3);
+            this.obstacle_vel_ = zeros(this.config_.scenario.num_obstacles, 3);
+            this.robot_vel_ = zeros(this.config_.scenario.num_robots, 3);
+            this.target_vel_ = zeros(this.config_.scenario.num_targets, 3);
             
             % Total potential positions
-            num_x_pos = (this.world_width_ - 2*this.random_border_padding_)/this.grid_size_ - 1;
-            num_y_pos = (this.world_height_ - 2*this.random_border_padding_)/this.grid_size_ - 1;
+            num_x_pos = (this.config_.scenario.world_width - 2*this.config_.scenario.random_border_padding)/this.config_.scenario.grid_size - 1;
+            num_y_pos = (this.config_.scenario.world_height - 2*this.config_.scenario.random_border_padding)/this.config_.scenario.grid_size - 1;
             
             % Vectors of each potential positions in each direction
-            x_grid = linspace(this.random_border_padding_, (this.world_width_ - this.random_border_padding_), num_x_pos);
-            y_grid = linspace(this.random_border_padding_, (this.world_height_ - this.random_border_padding_), num_y_pos);
+            x_grid = linspace(this.config_.scenario.random_border_padding, (this.config_.scenario.world_width - this.config_.scenario.random_border_padding), num_x_pos);
+            y_grid = linspace(this.config_.scenario.random_border_padding, (this.config_.scenario.world_height - this.config_.scenario.random_border_padding), num_y_pos);
             
             % Total amount of valid positions we need
-            num_positions = this.num_robots_ + this.num_targets_ + this.num_obstacles_ + 1;
+            num_positions = this.config_.scenario.num_robots + this.config_.scenario.num_targets + this.config_.scenario.num_obstacles + 1;
             
             % Form empty arrays
             positions = zeros(num_x_pos * num_y_pos, 3);
@@ -245,8 +205,8 @@ classdef WorldState < handle
                         x_delta_dist = abs(valid_positions(1:i, 1) - random_positions(index, 1));
                         y_delta_dist = abs(valid_positions(1:i, 2) - random_positions(index, 2));
                         % Check the violations
-                        x_violations = x_delta_dist < this.random_pos_padding_;
-                        y_violations = y_delta_dist < this.random_pos_padding_;
+                        x_violations = x_delta_dist < this.config_.scenario.random_pos_padding;
+                        y_violations = y_delta_dist < this.config_.scenario.random_pos_padding;
                         % Get instances where there are x and y violations
                         violations = x_violations.*y_violations;
                         
@@ -280,18 +240,18 @@ classdef WorldState < handle
             % Assign the random positions to robots, targets, obstacles, 
             % and the goal, as well as random orientations                  
             index = 1;
-            this.robot_pos_ = valid_positions(index:(index + this.num_robots_ - 1), :);
-            this.robot_orient_ = [zeros(this.num_robots_, 2), rand(this.num_robots_, 1)*2*pi];
+            this.robot_pos_ = valid_positions(index:(index + this.config_.scenario.num_robots - 1), :);
+            this.robot_orient_ = [zeros(this.config_.scenario.num_robots, 2), rand(this.config_.scenario.num_robots, 1)*2*pi];
             
-            index = index + this.num_robots_;
-            this.target_pos_ = valid_positions(index:(index + this.num_targets_ - 1), :);
-            this.target_orient_ = [zeros(this.num_targets_, 2) rand(this.num_targets_, 1)*2*pi];
+            index = index + this.config_.scenario.num_robots;
+            this.target_pos_ = valid_positions(index:(index + this.config_.scenario.num_targets - 1), :);
+            this.target_orient_ = [zeros(this.config_.scenario.num_targets, 2) rand(this.config_.scenario.num_targets, 1)*2*pi];
             
-            index = index + this.num_targets_;
-            this.obstacle_pos_ = valid_positions(index:(index + this.num_obstacles_ - 1), :);
-            this.obstacle_orient_ = [zeros(this.num_obstacles_, 2) rand(this.num_obstacles_, 1)*2*pi];
+            index = index + this.config_.scenario.num_targets;
+            this.obstacle_pos_ = valid_positions(index:(index + this.config_.scenario.num_obstacles - 1), :);
+            this.obstacle_orient_ = [zeros(this.config_.scenario.num_obstacles, 2) rand(this.config_.scenario.num_obstacles, 1)*2*pi];
             
-            index = index + this.num_obstacles_;
+            index = index + this.config_.scenario.num_obstacles;
             this.goal_pos_ = valid_positions(index, :);
         end
         
@@ -314,7 +274,7 @@ classdef WorldState < handle
         function conv = GetConvergence(this)
             num_returned = sum(this.targetProperties(:,this.tpid_isReturned));
             
-            if num_returned == this.num_targets_
+            if num_returned == this.config_.scenario.num_targets
                 this.converged_ = true;
             else
                 this.converged_ = false;

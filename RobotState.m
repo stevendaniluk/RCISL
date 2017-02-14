@@ -2,51 +2,49 @@ classdef RobotState < handle
     % ROBOTSTATE - Contains all robot specific state info for one robot
     
     properties
-        config_ = [];
-        world_state_ = [];
+        config_;
+        world_state_;
         
         % Robot details
-        id_ = [];
-        step_size_ = [];
-        rot_size_ = [];
-        type_ = [];
-        robot_properties_ = [];
+        id_;
+        step_size_;
+        rot_size_;
+        type_;
+        robot_properties_;
         
         % Current state variables
-        pos_ = [];
-        orient_ = [];
-        obstacle_pos_ = [];
-        target_pos_ = [];
-        goal_pos_ = [];
+        pos_;
+        orient_;
+        obstacle_pos_;
+        target_pos_;
+        goal_pos_;
         
         % State matrices
-        state_matrix_ = [];
-        prev_state_matrix_ = [];
+        state_matrix_;
+        prev_state_matrix_;
         
         % State variables from the previous iteration
-        prev_pos_ = [];
-        prev_orient_ = [];
-        prev_obstacle_pos_ = [];
-        prev_target_pos_ = [];
+        prev_pos_;
+        prev_orient_;
+        prev_obstacle_pos_;
+        prev_target_pos_;
         
         % Target information
-        target_id_ = [];    % [0,num_targets]
-        target_type_ = [];  % 1=light, 2=heavy
-        target_properties_ = [];
-        prev_target_id_ = [];
-        prev_target_properties_ = [];
-        carrying_target_ = [];
+        target_id_;    % [0,num_targets]
+        target_type_;  % 1=light, 2=heavy
+        target_properties_;
+        prev_target_id_;
+        prev_target_properties_;
+        carrying_target_;
         
         % Action information
-        action_id_ = [];
-        experience_ = [];
-        action_label_ = [];
-        effort_ = [];               % Counter for how many times it has moved an item
+        action_id_;
+        experience_;
+        action_label_;
+        effort_;               % Counter for how many times it has moved an item
                 
         % Noise/Particle filter related
-        noise_sigma_ = [];
-        particle_filer_on_ = [];
-        particle_filter_ = [];
+        particle_filter_;
         belief_task = [0 0];
         belief_self = [0 0 0];
         belief_goal = [0 0];     
@@ -90,8 +88,6 @@ classdef RobotState < handle
             end
            
            this.particle_filter_ = [ParticleFilter(); ParticleFilter(); ParticleFilter()];
-           this.particle_filer_on_ = config.particle_filer_on;
-           this.noise_sigma_ = config.noise_sigma;
         end
         
                 
@@ -147,11 +143,11 @@ classdef RobotState < handle
             end
                         
            %Apply noise to state if requested
-           if(this.noise_sigma_ > 0)
+           if(this.config_.noise.sigma > 0)
                this.ApplyNoise();
                
                % Apply particle filter to noisy data (if requested)
-               if(this.particle_filer_on_)
+               if(this.config_.noise.PF.enabled)
                    this.ApplyParticleFilter();
                end
                
@@ -175,7 +171,7 @@ classdef RobotState < handle
         function ApplyNoise(this)
             
             mu = 0;
-            sigma = this.noise_sigma_;
+            sigma = this.config_.noise.sigma;
             
             % Add noise to robot position
             sz = size(this.pos_) ;
@@ -284,11 +280,11 @@ classdef RobotState < handle
             sz = size(reading);
             values = [];
             
-            numParticles = this.config_.particle_Number;
-            pruneThreshold = this.config_.particle_PruneNumber;
-            resampleStd = this.config_.particle_ResampleNoiseSTD;
-            controlStd =  this.config_.particle_ControlStd;
-            sensorStd  = this.config_.particle_SensorStd;
+            numParticles = this.config_.noise.PF.num_particles;
+            pruneThreshold = this.config_.noise.PF.prune_number;
+            resampleStd = this.config_.noise.PF.resample_std;
+            controlStd =  this.config_.noise.PF.control_std;
+            sensorStd  = this.config_.noise.PF.sensor_std;
             
             for i=1:sz(1)
                 % initalize if new
@@ -345,15 +341,15 @@ classdef RobotState < handle
             
             % Relative distances from robot to borders
             rel_border_pos_left = -robot_pos(1);
-            rel_border_pos_right = this.config_.world_width - robot_pos(1);
+            rel_border_pos_right = this.config_.scenario.world_width - robot_pos(1);
             rel_border_pos_bottom = -robot_pos(2);
-            rel_border_pos_top = this.config_.world_height - robot_pos(2);
+            rel_border_pos_top = this.config_.scenario.world_height - robot_pos(2);
             % Relative distances from robot to all obstacles
             rel_obstacle_pos_x = this.obstacle_pos_(:,1) - robot_pos(1);
             rel_obstacle_pos_y = this.obstacle_pos_(:,2) - robot_pos(2);
             rel_obstacle_angle = atan2(rel_obstacle_pos_y, rel_obstacle_pos_x);
-            rel_obstacle_pos_x = rel_obstacle_pos_x - cos(rel_obstacle_angle)*this.config_.obstacle_size;
-            rel_obstacle_pos_y = rel_obstacle_pos_y - sin(rel_obstacle_angle)*this.config_.obstacle_size;
+            rel_obstacle_pos_x = rel_obstacle_pos_x - cos(rel_obstacle_angle)*this.config_.scenario.obstacle_size;
+            rel_obstacle_pos_y = rel_obstacle_pos_y - sin(rel_obstacle_angle)*this.config_.scenario.obstacle_size;
             rel_obstacle_pos_l = sqrt(rel_obstacle_pos_x.^2 + rel_obstacle_pos_y.^2);
             % Combine them into an array
             rel_obstacle_pos = [abs(rel_border_pos_left),   rel_border_pos_left,   0; ...

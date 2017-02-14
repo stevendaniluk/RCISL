@@ -80,7 +80,6 @@ classdef DataProcessor < handle
         %   -advice_reward
         %   -round_accept_flag
         %   -round_accept_count
-        
     end
     
     methods
@@ -185,9 +184,9 @@ classdef DataProcessor < handle
             this.config_advice_ = config;
             
             % Add up all the advisers
-            this.advice_plots_.num_advisers = this.config_advice_.numRobots - 1;
-            if (this.config_advice_.advice_fake_advisers)
-                this.advice_plots_.num_advisers = this.advice_plots_.num_advisers + length(this.config_advice_.advice_fake_adviser_files);
+            this.advice_plots_.num_advisers = this.config_advice_.scenario.num_robots - 1;
+            if (this.config_advice_.advice.fake_advisers)
+                this.advice_plots_.num_advisers = this.advice_plots_.num_advisers + length(this.config_advice_.advice.fake_adviser_files);
             end
             
             % Load the advice data
@@ -241,9 +240,9 @@ classdef DataProcessor < handle
             j = 1;
             for i = 1:(this.advice_plots_.num_advisers + 1)
                 if (i ~= this.robot_)
-                    if(this.config_advice_.advice_fake_advisers && j > (this.config_advice_.numRobots - 1))
+                    if(this.config_advice_.advice.fake_advisers && j > (this.config_advice_.scenario.num_robots - 1))
                         % Name them according to their file names
-                        this.advice_plots_.adviser_names{j} = ['Expert ', this.config_advice_.advice_fake_adviser_files{j - (this.config_advice_.numRobots - 1)}];
+                        this.advice_plots_.adviser_names{j} = ['Expert ', this.config_advice_.advice.fake_adviser_files{j - (this.config_advice_.scenario.num_robots - 1)}];
                     else
                         % Name them according to their id number
                         this.advice_plots_.adviser_names{j} = ['Robot ', num2str(i)];

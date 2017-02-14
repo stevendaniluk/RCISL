@@ -9,11 +9,14 @@ classdef LAlliance < handle
     % give up on a task.
     
     properties (Access = public)
-        % data is a multidimensional matrix, with one row for each robot,
-        % one column for each task, and one page for each of the following
-        % eleven parameters.        
-        data_ = [];
+        config_;  % Configuration object
+        
+        % data_ is a multidimensional matrix, with rows for robots, columns
+        % for tasks, and pages for each of the twelve parameters
+        data_;
+    end
     
+    properties (Constant)
         % Indices for data array
         tau_i_ = 1;     % Average trial time
         mi_ = 2;        % Motivation
@@ -27,17 +30,6 @@ classdef LAlliance < handle
         vi_ = 10;       % Number of attempts at a task
         ci_ = 11;       % Are we currently cooperating? A flag
         std_ = 12       % Standard deviation of tau values
-        
-        num_robots_ = [];          % Number of robots
-        num_tasks_ = [];           % Number of tasks
-        
-        % Algorithm parameters
-        motiv_freq_ = [];               % Frequency at which motivation updates
-        trial_time_update_ = [];        % Method for updating trial times
-        stochastic_update_theta1_ = []; % Coefficient for stochastic update
-        stochastic_update_theta2_ = []; % Coefficient for stochastic update
-        stochastic_update_theta3_ = []; % Coefficient for stochastic update
-        stochastic_update_theta4_ = []; % Coefficient for stochastic update
     end
     
     methods (Access = public)
@@ -45,29 +37,19 @@ classdef LAlliance < handle
         %
         %   Constructor
         
-        function this= LAlliance(config)            
-            % Set number of robots and number of tasks
-            this.num_robots_ = config.numRobots;
-            this.num_tasks_ = config.numTargets;
-            
-            % Load L-Alliance parameters from configuration
-            this.motiv_freq_ = config.motiv_freq;
-            this.trial_time_update_ = config.trial_time_update;
-            this.stochastic_update_theta1_ = config.stochastic_update_theta1;
-            this.stochastic_update_theta2_ = config.stochastic_update_theta2;
-            this.stochastic_update_theta3_ = config.stochastic_update_theta3;
-            this.stochastic_update_theta4_ = config.stochastic_update_theta4;
+        function this= LAlliance(config)
+            this.config_ = config;
             
             %Create empty multidimensional data array
-            this.data_ = zeros(this.num_robots_, this.num_tasks_, 12);      
-            this.data_(:, :, this.di_) = config.max_task_time;
+            this.data_ = zeros(this.config_.scenario.num_robots, this.config_.scenario.num_targets, 12);      
+            this.data_(:, :, this.di_) = this.config_.TL.LA.max_task_time;
             % Set initial average trial time to half of max allowed time
             % with some noise, so not all robots are equal
-            this.data_(:,:,this.tau_i_) = normrnd(0.5*config.max_task_time, 20, [this.num_robots_, this.num_tasks_]);
+            this.data_(:,:,this.tau_i_) = normrnd(0.5*this.config_.TL.LA.max_task_time, 20, [this.config_.scenario.num_robots, this.config_.scenario.num_targets]);
             
             % Initialize the tau standard deviation
             task_standard_dev = std(this.data_(:, :, this.tau_i_), 0, 2);
-            this.data_(:, :, this.std_) = repelem(task_standard_dev, 1, this.num_tasks_);
+            this.data_(:, :, this.std_) = repelem(task_standard_dev, 1, this.config_.scenario.num_targets);
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -129,10 +111,10 @@ classdef LAlliance < handle
             if(sum(this.data_(robot_id, :, this.ji_), 1) == 0)                
                 
                 % Task type categories
-                category1 = zeros(this.num_tasks_, 1);
-                category2 = zeros(this.num_tasks_, 1);
+                category1 = zeros(this.config_.scenario.num_targets, 1);
+                category2 = zeros(this.config_.scenario.num_targets, 1);
                 
-                for i=1:this.num_tasks_
+                for i=1:this.config_.scenario.num_targets
                     % Tasks are considered available when they are incomplete, 
                     % and either no avatar is assigned, or the assigned avatar 
                     % has been attempting the task for longer than their tau value
@@ -260,20 +242,20 @@ classdef LAlliance < handle
         
         function updateImpatience(this, robot_id)
             % Loop through each task (since impatiance rates vary)
-            for task = 1:this.num_tasks_
+            for task = 1:this.config_.scenario.num_targets
                 if (this.data_(robot_id, task, this.ui_) == 1 || this.data_(robot_id, task, this.ji_) == 1)
                     % Task belongs to this robot, or is completed, so no
                     % impatience needed
                     this.data_(robot_id, task, this.pi_) = 0;
                 else 
                     % Grow at slow rate
-                    slow_rate = this.stochastic_update_theta1_ / this.data_(robot_id, task, this.tau_i_);
+                    slow_rate = this.config_.TL.LA.theta1 / this.data_(robot_id, task, this.tau_i_);
                     this.data_(robot_id, task, this.pi_) = slow_rate;
                 end
             end
             
             % Multiply for how many iterations between updates
-            this.data_(robot_id, :, this.pi_) = this.data_(robot_id, :, this.pi_).*this.motiv_freq_;
+            this.data_(robot_id, :, this.pi_) = this.data_(robot_id, :, this.pi_).*this.config_.TL.LA.motiv_freq;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -337,16 +319,16 @@ classdef LAlliance < handle
         
         function updateTau(this, robot_id, task_id)
             % Update new tau value according to method dictated in config
-            if (strcmp(this.trial_time_update_, 'moving_average'))
+            if (strcmp(this.config_.TL.LA.trial_time_update, 'moving_avg'))
                 % Calculate a cumulative moving average for the tau values
                 tau_old = this.data_(robot_id, task_id, this.tau_i_);
                 time_on_task = this.data_(robot_id, task_id, this.psi_i_);
                 tau_new = tau_old + (time_on_task - tau_old)/2;
-            elseif (strcmp(this.trial_time_update_, 'recursive_stochastic'))
+            elseif (strcmp(this.config_.TL.LA.trial_time_update, 'stochastic'))
                 % Update according to formulation in [Girard, 2015]
-                theta2 = this.stochastic_update_theta2_;
-                theta3 = this.stochastic_update_theta3_;
-                theta4 = this.stochastic_update_theta4_;
+                theta2 = this.config_.TL.LA.theta2;
+                theta3 = this.config_.TL.LA.theta3;
+                theta4 = this.config_.TL.LA.theta4;
                 f = this.data_(robot_id, task_id, this.vi_);
                 beta = exp(f / theta4)/(theta3 + exp(f / theta4));
                 

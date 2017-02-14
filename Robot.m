@@ -12,15 +12,14 @@ classdef Robot < handle
     % IndividualLearning object, which contains all learning functionality.
     
     properties
-        id_ = [];                   % ID number of the robot [integer]
-        config_ = [];               % Current configuration object
-        robot_state_ = [];          % RobotState (robot's state variables)
-        world_state_ = [];          % WorldState (world's state varibales)
-        individual_learning_ = [];  % Individual learning class for this robot
-        action_ = [];               % The current action being performed 
-                                    % (determined by the individual learning layer)
-        iterations_ = [];           % Count of iterations performed
-        action_array_ = [];
+        id_;                   % Id number of the robot
+        config_;               % Configuration object
+        robot_state_;          % RobotState object (robot's state variables)
+        world_state_;          % WorldState objetc (world's state varibales)
+        individual_learning_;  % IndividualLearning object
+        action_;               % The current action being performed 
+        iterations_;           % Counter for iterations performed
+        action_array_;         % Array with action properties
     end
     
     methods (Access = public)
@@ -34,15 +33,16 @@ classdef Robot < handle
         %   objects.
         %   
         %   INPUTS
+        %   id = Id number of robot
         %   config = Configuration object
-        %   world_state = The current WorldState object
+        %   world_state = WorldState object
  
         function this = Robot(id, config, world_state)
             this.id_ = id;
             this.config_ = config;
             this.world_state_ = world_state;
             this.robot_state_ = RobotState(this.id_, this.world_state_, this.config_);
-            this.individual_learning_ = IndividualLearning(config, id);
+            this.individual_learning_ = IndividualLearning(this.config_, this.id_);
             this.iterations_ = 0;
                         
             % Form the action array
@@ -124,10 +124,8 @@ classdef Robot < handle
         %   at each iteration.
   
         function learn(this)
-            % TODO add learning frequency adjustment back in
-            
             % Update, and make individual learning learn
-            if (mod(this.iterations_, this.config_.learning_iterations) == 0)
+            if (mod(this.iterations_, this.config_.IL.learning_iterations) == 0)
                 this.robot_state_.update();
                 this.individual_learning_.learn(this.robot_state_);
             end

@@ -178,7 +178,7 @@ if(exp4)
         folder = sprintf('%s_%d', exp4_settings.sim_folder, i);
         if(isdir(sprintf('results/%s', folder)))
             dp.loadTeamData(folder);
-            name = dp.config_team_.advice_fake_adviser_files{1};
+            name = dp.config_team_.advice.fake_adviser_files{1};
             dp.plotIterations(fig_iter, name);
             dp.plotTeamReward(fig_reward, name);
             i = i + 1;

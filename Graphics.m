@@ -17,16 +17,16 @@ function [] = Graphics(config, world_state, robots)
     [position, orientation, obstacles, targets, goal_position, targetProperties, robotProperties] = world_state.GetSnapshot();
 
     % If requested, display the live graphics during the run
-    if(config.show_live_graphics)
+    if(config.sim.show_live_graphics)
         clf
         cla
         hold on;
         
         % Display current iteration
-        text(1, 9, sprintf('%d', world_state.iterations_));
+        text(1, 9, sprintf('%d', world_state.iters_));
         
         % Draw the robots
-        for i=1:config.numRobots
+        for i=1:config.scenario.num_robots
             
             % Create arrow to represent each robot
             arrow=zeros(5,2);
@@ -52,10 +52,10 @@ function [] = Graphics(config, world_state, robots)
             text(position(i,1)+0.2, position(i,2)+0.2, lbl);
             
             % If noise is present, plot the state estimates
-            if(config.noise_sigma > 0)
+            if(config.noise.sigma > 0)
                 % Draw the robots current belief about its own position
                 pos_belief = robots(i).robot_state_.belief_self(1:2);
-                boxPoints = GetBox(pos_belief, config.robot_size);
+                boxPoints = GetBox(pos_belief, config.scenario.robot_size);
                 plot(boxPoints(1,:),boxPoints(2,:),'g');
 
                 % Draw the robots current belief about its goal position
@@ -65,7 +65,7 @@ function [] = Graphics(config, world_state, robots)
 
                 % Draw the robots current belief about its target position
                 target_belief = robots(i).robot_state_.belief_task(1:2);
-                boxPoints = GetBox(target_belief, 0.5*config.target_size);
+                boxPoints = GetBox(target_belief, 0.5*config.scenario.target_size);
                 plot(boxPoints(1,:),boxPoints(2,:),'b');
             end
             
@@ -77,7 +77,7 @@ function [] = Graphics(config, world_state, robots)
             end
             
             % Draw a line to current advisor (if we have one)
-            if(config.advice_on == 1)
+            if(config.advice.enabled == 1)
                 advisor_id = robots(i).individual_learning_.advice_.advisor_id_;
                 if (~isempty(advisor_id))
                     start_pt = position(i,1:2);
@@ -91,14 +91,14 @@ function [] = Graphics(config, world_state, robots)
         end
 
         % Draw the obstacles
-        for i = 1:config.numObstacles
-            boxPoints = GetBox(obstacles(i,:), config.obstacle_size);
+        for i = 1:config.scenario.num_obstacles
+            boxPoints = GetBox(obstacles(i,:), config.scenario.obstacle_size);
             plot(boxPoints(1,:),boxPoints(2,:),'r');
         end
 
         % Draw the targets
-        for i = 1:config.numTargets
-            boxPoints = GetBox(targets(i,:), config.target_size);
+        for i = 1:config.scenario.num_targets
+            boxPoints = GetBox(targets(i,:), config.scenario.target_size);
             
             if targetProperties(i,1) == 0
                 plot(boxPoints(1,:),boxPoints(2,:),'g');
@@ -111,21 +111,21 @@ function [] = Graphics(config, world_state, robots)
         end
 
         % Draw the goal location
-        boxPoints = GetBox(goal_position, config.goal_size);
+        boxPoints = GetBox(goal_position, config.scenario.goal_size);
         plot(boxPoints(1,:),boxPoints(2,:),'k');
         
          % Set axis
-        axis([0 config.world_width 0 config.world_height]);
+        axis([0 config.scenario.world_width 0 config.scenario.world_height]);
         
         drawnow limitrate;
     end
 
 
     % If requested, plot the final robot and target tracks
-    if(config.show_track_graphics && (world_state.iterations_ >= config.max_iterations || world_state.GetConvergence() == 2))
+    if(config.sim.show_track_graphics && (world_state.iterations_ >= config.scenario.max_iterations || world_state.GetConvergence() == 2))
 
         % Open a new figure
-        figure
+        %figure
         
         % TODO
         % Need to store all related data somewhere
@@ -186,9 +186,9 @@ end
 %   For plotting purposes, returns an array of data
 %   points centred at 'point', and with radius of 'size'
 
-function boxPoints = GetBox(point,size)
-    ang=0:0.01:2*pi;
-    xp=size*cos(ang);
-    yp=size*sin(ang);
-    boxPoints = [point(1)+xp; point(2)+yp];
+function boxPoints = GetBox(point, size)
+    ang = 0:0.01:2*pi;
+    xp = size*cos(ang);
+    yp = size*sin(ang);
+    boxPoints = [point(1) + xp; point(2) + yp];
 end

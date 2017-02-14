@@ -15,23 +15,18 @@ classdef ExecutiveSimulation < handle
     % miminum necessary to run a simulation is as follows:
     %
     %     config = Configuration();
-    %     Simulation=ExecutiveSimulation(config);
+    %     Simulation = ExecutiveSimulation(config);
     %     Simulation.initialize();
     %     Simulation.run();
     
     properties     
-        config_ = [];           % Configration object
-        robots_ = [];           % Array of all robots
-        num_robots_ = [];       % From configuration
-        max_iterations_ = [];   % From configuration
-        world_state_ = [];      % Current world state
-        sim_time_ = [];         % Duration of each simulation
-        physics_ = [];          % Physics object, responsible for making changes in the worldstate
-        simulation_data_ = [];  % Struct for saving metrics about each run
-        team_learning_ = [];    % Object for team learning agent
-        advice_database_ = [];  % Object containing advice database
-        advice_data_ = [];      % Struct for saving advice performance data
-        
+        config_;           % Configration object
+        robots_;           % Array of Robot objetcs
+        world_state_;      % WorldState object, with data about the world
+        physics_;          % Physics object, responsible for making changes in the worldstate
+        team_learning_;    % TeamLearning object
+        simulation_data_;  % Struct for saving metrics about each run
+        advice_data_;      % Struct for saving advice performance data
     end
     
     methods (Access = public)
@@ -47,8 +42,6 @@ classdef ExecutiveSimulation < handle
         
         function this = ExecutiveSimulation(config)
             this.config_ = config;
-            this.simulation_data_ = struct;
-            this.advice_data_ = struct;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -60,20 +53,16 @@ classdef ExecutiveSimulation < handle
         %   instantiates the world state, the robots, and the physics
         %   engine.
         
-        function initialize(this)
-            % Set configuration parameters
-            this.num_robots_ = this.config_.numRobots;
-            this.max_iterations_ = this.config_.max_iterations;
-            
+        function initialize(this)            
             % Create the intial world state
-            this.world_state_=WorldState(this.config_);
+            this.world_state_ = WorldState(this.config_);
             
             % Create the robots, and add listener for handle request
-            this.robots_ = Robot.empty(1,0);
+            this.robots_ = Robot.empty(1, 0);
             
-            for id = 1:this.num_robots_;
+            for id = 1:this.config_.scenario.num_robots;
                 this.robots_(id, 1) = Robot(id, this.config_, this.world_state_);
-                if this.num_robots_ > 1
+                if(this.config_.advice.enabled && this.config_.scenario.num_robots > 1)
                     addlistener(this.robots_(id, 1).individual_learning_.advice_, 'RequestRobotHandle', @(src, event)this.handleRequestRobotHandle(src));
                 end
             end
@@ -85,8 +74,8 @@ classdef ExecutiveSimulation < handle
             this.physics_ = Physics(this.config_);
             
             disp('Simulation initialized.');
-            disp(['Running ', sprintf('%d', this.num_robots_), ' robots.']);
-            disp(['Max iterations: ', sprintf('%d', this.max_iterations_), '.']);
+            disp(['Running ', sprintf('%d', this.config_.scenario.num_robots), ' robots.']);
+            disp(['Max iterations: ', sprintf('%d', this.config_.scenario.max_iterations), '.']);
             disp(' ');
         end
         
@@ -123,12 +112,12 @@ classdef ExecutiveSimulation < handle
             [file_name, path_name] = uigetfile;
             exp_tables = load([path_name, file_name]);
                                     
-            for id = 1:this.num_robots_;
+            for id = 1:this.config_.scenario.num_robots;
                 this.robots_(id,1).individual_learning_.q_learning_.q_table_ = q_tables.q_tables{id, 1};
                 this.robots_(id,1).individual_learning_.q_learning_.exp_table_ = exp_tables.exp_tables{id, 1};
             end
             
-            if (strcmp(this.config_.task_allocation, 'l_alliance'))
+            if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
                 % Ask to select the file with L-Alliance data
                 disp('Please select the L-Alliance data to be loaded');
                 [file_name, path_name] = uigetfile;
@@ -153,14 +142,14 @@ classdef ExecutiveSimulation < handle
         
         function run(this)     
             % Step through iterations
-            while (this.world_state_.iterations_ < this.max_iterations_ && ~this.world_state_.GetConvergence())
+            while (this.world_state_.iters_ < this.config_.scenario.max_iterations && ~this.world_state_.GetConvergence())
                 
                 % Update tasks from team learning
                 this.team_learning_.getTasks(this.robots_);
                 % Update and learn from task allocation
                 this.team_learning_.learn(this.robots_);
                 
-                for i=1:this.num_robots_
+                for i=1:this.config_.scenario.num_robots
                     % Get the action for this robot
                     this.robots_(i,1).getAction();
                     % Make the action for this robot
@@ -172,7 +161,7 @@ classdef ExecutiveSimulation < handle
                 % Display live graphics, if requested in configuration
                 Graphics(this.config_, this.world_state_, this.robots_);
                 
-                this.world_state_.iterations_ = this.world_state_.iterations_ + 1;
+                this.world_state_.iters_ = this.world_state_.iters_ + 1;
             end 
                         
             % Call graphics for displaying tracks, if requested in configuration
@@ -200,12 +189,12 @@ classdef ExecutiveSimulation < handle
                 disp(['Mission ', sprintf('%d', run), ' started.'])
                 this.run();
                 disp(['Mission ', sprintf('%d', run), ' complete.'])
-                disp(['Number of iterations: ',sprintf('%d', this.world_state_.iterations_)])
+                disp(['Number of iterations: ',sprintf('%d', this.world_state_.iters_)])
                 time = toc;
                 disp(' ');
                                 
                 % Save the data from this run (if desired)
-                if (this.config_.save_simulation_data)
+                if (this.config_.sim.save_simulation_data)
                     this.updateSimData(time, run);
                 end
                 this.resetForNextRun();
@@ -224,13 +213,13 @@ classdef ExecutiveSimulation < handle
         
         function resetForNextRun (this)
             % Create a new world state
-            this.world_state_=WorldState(this.config_);
+            this.world_state_ = WorldState(this.config_);
             
             % Reset the team learning layer
             this.team_learning_.resetForNextRun();
             
             % Reset the robots
-            for id = 1:this.num_robots_;
+            for id = 1:this.config_.scenario.num_robots;
                 this.robots_(id,1).resetForNextRun(this.world_state_);
             end
         end
@@ -254,20 +243,20 @@ classdef ExecutiveSimulation < handle
         
         function updateSimData (this, time, run)            
             % Add iterations and time
-            this.simulation_data_.iterations(run) = this.world_state_.iterations_;
+            this.simulation_data_.iterations(run) = this.world_state_.iters_;
             this.simulation_data_.time(run) = time;
             
             % Get reward and effort from robot state
             % (Need to manually reset effort counter)
-            avg_reward = zeros(1, this.num_robots_);
-            effort = zeros(1, this.num_robots_);
-            for i = 1:this.num_robots_
-                avg_reward(i) = sum(this.robots_(i, 1).individual_learning_.epoch_reward_)/this.world_state_.iterations_;
+            avg_reward = zeros(1, this.config_.scenario.num_robots);
+            effort = zeros(1, this.config_.scenario.num_robots);
+            for i = 1:this.config_.scenario.num_robots
+                avg_reward(i) = sum(this.robots_(i, 1).individual_learning_.epoch_reward_)/this.world_state_.iters_;
                 effort(i) = this.robots_(i, 1).robot_state_.effort_;
                 this.robots_(i, 1).robot_state_.effort_ = 0;
             end
-            this.simulation_data_.avg_reward(run) = sum(avg_reward)/this.num_robots_;
-            this.simulation_data_.avg_effort(run) = sum(effort)/this.num_robots_;
+            this.simulation_data_.avg_reward(run) = sum(avg_reward)/this.config_.scenario.num_robots;
+            this.simulation_data_.avg_effort(run) = sum(effort)/this.config_.scenario.num_robots;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -281,8 +270,8 @@ classdef ExecutiveSimulation < handle
         %   sim_name = Folder to save data in
         
         function saveSimulationData (this, sim_name)
-            
-            if(this.config_.save_simulation_data || this.config_.save_IL_data || this.config_.save_TL_data || this.config_.save_advice_data)
+            % Save configuration data
+            if(this.config_.sim.save_simulation_data || this.config_.sim.save_IL_data || this.config_.sim.save_TL_data || this.config_.sim.save_advice_data)
                 if ~exist(['results/', sim_name], 'dir')
                     mkdir('results', sim_name);
                 end
@@ -291,15 +280,15 @@ classdef ExecutiveSimulation < handle
             end
             
             % Save simulation data
-            if(this.config_.save_simulation_data)
+            if(this.config_.sim.save_simulation_data)
                 simulation_data = this.simulation_data_;
                 save(['results/', sim_name, '/', 'simulation_data'], 'simulation_data');
             end
                         
             % Save individual learning data
-            if(this.config_.save_IL_data)
-                individual_learning_data = cell(this.num_robots_, 1);
-                for i = 1:this.num_robots_
+            if(this.config_.sim.save_IL_data)
+                individual_learning_data = cell(this.config_.scenario.num_robots, 1);
+                for i = 1:this.config_.scenario.num_robots
                     individual_learning_data{i}.state_data = this.robots_(i, 1).individual_learning_.state_data_;
                     individual_learning_data{i}.q_table = this.robots_(i, 1).individual_learning_.q_learning_.q_table_;
                     individual_learning_data{i}.exp_table = this.robots_(i, 1).individual_learning_.q_learning_.exp_table_;
@@ -308,18 +297,18 @@ classdef ExecutiveSimulation < handle
             end
             
             % Save team learning data
-            if(this.config_.save_TL_data)
-                if (strcmp(this.config_.task_allocation, 'l_alliance'))
+            if(this.config_.sim.save_TL_data)
+                if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
                     l_alliance_data = this.team_learning_.l_alliance_.data_;
                     save(['results/', sim_name, '/', 'l_alliance_data'], 'l_alliance_data');
                 end
             end
             
             % Save advice data
-            if(this.config_.save_advice_data)
-                if (this.config_.advice_on)
-                    advice_data = cell(this.num_robots_, 1);
-                    for i = 1:this.num_robots_
+            if(this.config_.sim.save_advice_data)
+                if (this.config_.advice.enabled)
+                    advice_data = cell(this.config_.scenario.num_robots, 1);
+                    for i = 1:this.config_.scenario.num_robots
                         advice_data{i} = this.robots_(i, 1).individual_learning_.advice_.advice_data_;
                         advice_data{i}.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
                         advice_data{i}.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;

@@ -2,48 +2,25 @@ classdef AdviceEnhancement < handle
     % AdviceDev - Developmental advice mechanism
     
     properties
-        % Configuration settings
-        config_ = [];
-        num_robots_ = [];
-        id_ = [];
-        iters_ = [];
-        epoch_ = [];
-        
-        % Advisor Properties
-        adviser_handles_ = [];
-        advisers_initialized_ = [];
-        all_robots_ = [];
-        
-        % Structure of data to save
-        advice_data_ = [];
-                
-        % General simulation properties
-        num_robot_actions_ = [];     % How many actions each robot can make
-        il_softmax_temp_ = [];       % Temp setting for IL softmax distribution 
-        epoch_start_iters_ = [];     % For saving epoch data
+        % General properties
+        config_;               % Configuration object
+        id_;                   % This robot's Id
+        iters_;                % Iteration counter during epoch
+        epoch_;                % Epoch counter
+        advice_data_;          % Structure of data to save
+        epoch_start_iters_;    % For saving epoch data
         
         % Mechanism properties
-        max_advisers_ = [];         % Number of advisers to use
-        reject_reward_bias_ = [];   % Coefficient applied to reject reward
-        eps_ = [];                  % Base probability value
-        adviser_value_ = [];        % Moving average adviser's accept reward
-        accept_rate_alpha_ = [];    % Coeff. for acceptance rate moving average
-        used_advisers_ = [];        % Flags for which advisers have been used this round
-        e_greedy_ = [];             % Coefficient for e-greedy action selection
-        evil_advice_prob_ = [];     % Probability that an adviser will be evil
-        fake_advisers_on_ = [];     % Flag for if fake advisers are used (as opposed to other robots)
-        fake_advisers_ = [];        % Cells containing fake adviser Q-learning objects
-        all_accept_ = [];           % Flag to override all actions with accept
-        all_reject_ = [];           % Flag to override all actions with reject
+        max_advisers_;         % Number of advisers to use
+        eps_;                  % Base probability value
+        adviser_value_;        % Moving average adviser's accept reward
+        q_learning_;           % Q-learning object
         
-        % Learning properties
-        q_learning_ = [];           % Q-learning object
-        ql_state_res_ = [];         % Resolution of each state variable
-        ql_num_actions_ = [];       % Number of possible actions
-        ql_initialized_ = [];       % Flag for if learning has started
-        action_ = [];               % Current action selected
-        reward_ = [];               % Reward received for current action
-        
+        % Advisor properties
+        advisers_initialized_; % Flag if all adviser data has been set
+        all_robots_;           % Handles of all robot objects
+        adviser_handles_;      % Cells containing adviser Q-learning objects
+        fake_advisers_;        % Cells containing fake adviser Q-learning objects
     end
     
     properties (Constant)
@@ -54,7 +31,7 @@ classdef AdviceEnhancement < handle
     end
     
     events
-        RequestRobotHandle;
+        RequestRobotHandle;  % For getting robot data from ExecutiveSimulation
     end
     
     methods
@@ -67,40 +44,25 @@ classdef AdviceEnhancement < handle
         %   be recorded.
         
         function this = AdviceEnhancement(config, id)
-            
             % General parameters
             this.config_ = config;
             this.id_ = id;
             this.epoch_ = 1;
             this.iters_ = 0;
-            
-            % Get parameters from config
-            this.num_robots_ = config.numRobots;
-            this.num_robot_actions_ = config.num_actions;
-            this.il_softmax_temp_ = config.softmax_temp;
-            this.reject_reward_bias_ = config.advice_reject_reward_bias;
-            this.evil_advice_prob_ = config.advice_evil_advice_prob;
-            this.ql_state_res_ = config.advice_state_resolution;
-            this.ql_num_actions_ = config.advice_num_actions;
-            this.e_greedy_ = config.advice_e_greedy;
-            this.accept_rate_alpha_ = config.advice_accept_rate_alpha;
-            this.fake_advisers_on_ = config.advice_fake_advisers;
-            this.all_accept_ = config.advice_all_accept;
-            this.all_reject_ = config.advice_all_reject;
-            this.max_advisers_ = min(config.advice_num_advisers, this.num_robots_ - 1);
-            
+                        
             % Allocate cells for storing adviser handles
-            this.adviser_handles_ = cell(this.num_robots_ - 1, 1);
+            this.max_advisers_ = min(this.config_.advice.num_advisers, this.config_.scenario.num_robots - 1);
+            this.adviser_handles_ = cell(this.config_.scenario.num_robots - 1, 1);
             this.advisers_initialized_ = false;
             
             % When fake advisers are used their data needs to be loaded in
-            if (this.fake_advisers_on_)
-                num_fake_advisers = length(config.advice_fake_adviser_files);
+            if (this.config_.advice.fake_advisers)
+                num_fake_advisers = length(config.advice.fake_adviser_files);
                 % Create the fake advisers (first adviser is this agent)
                 this.fake_advisers_ = cell(num_fake_advisers, 1);
                 for i = 1:num_fake_advisers
                     % Load the quality and experience files
-                    filename = config.advice_fake_adviser_files(i);
+                    filename = config.advice.fake_adviser_files(i);
                     q_tables = [];
                     exp_tables = [];
                     load(['expert_data/', filename{1}, '/q_tables.mat']);
@@ -108,7 +70,7 @@ classdef AdviceEnhancement < handle
                     
                     % Create a Q-learning object to load data into (only
                     % provide relevant input args)
-                    this.fake_advisers_{i} = QLearning(1, 1, 1, config.num_state_vrbls, config.state_resolution, config.num_actions);
+                    this.fake_advisers_{i} = QLearning(1, 1, 1, config.IL.num_state_vrbls, config.IL.state_resolution, config.IL.num_actions);
                     
                     % Load data into Q-learning object
                     this.fake_advisers_{i}.q_table_ = q_tables{1};
@@ -120,26 +82,22 @@ classdef AdviceEnhancement < handle
             end
                                     
             % Initialize mechanism properties
-            this.eps_ = 1/this.num_robot_actions_;            
+            this.eps_ = 1/this.config_.IL.num_actions;            
             this.epoch_start_iters_ = 1;
             this.adviser_value_ = 0.0*ones(this.max_advisers_, 1);
             
             % Instantiate Q-learning
-            gamma = config.advice_gamma;
-            alpha_max = config.advice_alpha_max;
-            alpha_rate = config.advice_alpha_rate;
-            num_state_vrbls = length(this.ql_state_res_);
+            gamma = config.advice.QL.gamma;
+            alpha_max = config.advice.QL.alpha_max;
+            alpha_rate = config.advice.QL.alpha_rate;
+            num_state_vrbls = length(this.config_.advice.QL.state_resolution);
             
-            this.q_learning_ = QLearning(gamma, alpha_max, alpha_rate, ...
-                                num_state_vrbls, this.ql_state_res_, this.ql_num_actions_);
+            this.q_learning_ = QLearning(gamma, alpha_max, alpha_rate, num_state_vrbls, ...
+                                this.config_.advice.QL.state_resolution, this.config_.advice.num_actions);
             
-            this.ql_initialized_ = false;
-            this.action_ = 1;
-            this.reward_ = 0;
-                        
             % Initialize advice data being recorded
             % Iteration and epoch data will have some common fields
-            if(this.config_.save_advice_data)
+            if(this.config_.sim.save_advice_data)
                 common_fields.K_o_norm = 0;
                 common_fields.K_hat_norm = 0;
                 common_fields.delta_K = 0;
@@ -184,7 +142,7 @@ classdef AdviceEnhancement < handle
                 this.notify('RequestRobotHandle');
                 
                 j = 1;
-                for i = 1:this.num_robots_
+                for i = 1:this.config_.scenario.num_robots
                     if i ~= this.id_
                         this.adviser_handles_{j, 1} = this.all_robots_(i, 1).individual_learning_.q_learning_;
                         j = j + 1;
@@ -213,7 +171,7 @@ classdef AdviceEnhancement < handle
             this.preAdviceUpdate();
                         
             % Variables for tracking metrics
-            if(this.config_.save_advice_data)
+            if(this.config_.sim.save_advice_data)
                 accept_action = zeros(this.max_advisers_, 1);
                 accept_delta_K = zeros(this.max_advisers_, 1);
                 accept_beta_hat = zeros(this.max_advisers_, 1);
@@ -243,20 +201,20 @@ classdef AdviceEnhancement < handle
             
             % Main advice loop
             accept_count = 0;
-            this.action_ = 0;
+            action = 0;
             n = 1;
             m = adviser_order(n);
             K_hat = K_o;
             K_m = this.askAdviser(m, state_vector);
             state1 = this.formState(K_o, K_m);
-            while (n <= this.max_advisers_ && this.action_ ~= this.reject_)
+            while (n <= this.max_advisers_ && action ~= this.reject_)
                 
                 % Get action from Q-learning
                 [action_q, ~] = this.q_learning_.getUtility(state1);
                 
                 % Select action with e-greedy policy
-                if (rand < this.e_greedy_)
-                    action = ceil(rand*this.ql_num_actions_);
+                if (rand < this.config_.advice.e_greedy)
+                    action = ceil(rand*this.config_.advice.num_actions);
                 else
                     % Pick best action
                     indices = find(max(action_q) == action_q);
@@ -269,19 +227,10 @@ classdef AdviceEnhancement < handle
                     end
                 end
                 
-                % DEVELOPMENT
-                if(this.all_accept_)
-                    this.action_ = this.accept_;
-                elseif(this.all_reject_)
-                    this.action_ = this.reject_;
-                else
-                    this.action_ = action;
-                end
-                
                 K_o_norm = sum(abs(K_o));
                 beta_m = K_m'*K_o;
                 
-                if(this.action_ == this.accept_)
+                if(action == this.accept_)
                     accept_count = accept_count + 1;
                                         
                     % Update K
@@ -290,15 +239,15 @@ classdef AdviceEnhancement < handle
                     
                     % Calculate the reward (and ensure it is valid)
                     reward = (beta_m >= 0)*((1 + delta_K/(K_o_norm + abs(delta_K)))^2 - 1);
-                    if (isnan(reward)); this.reward_ = 0; else this.reward_ = reward; end
+                    if (isnan(reward)); reward = 0; else reward = reward; end
                     
                     % Update adviser value
-                    this.adviser_value_(m) = this.accept_rate_alpha_*this.adviser_value_(m) + (1 - this.accept_rate_alpha_)*this.reward_;
+                    this.adviser_value_(m) = this.config_.advice.adviser_value_alpha*this.adviser_value_(m) + (1 - this.config_.advice.adviser_value_alpha)*reward;
                     
                     % For data metrics
-                    if(this.config_.save_advice_data)
+                    if(this.config_.sim.save_advice_data)
                         accept_action(m) =  1;
-                        accept_reward(m) = this.reward_;
+                        accept_reward(m) = reward;
                         accept_beta_hat(m) = (beta_m > 0) - (beta_m < 0);
                         accept_delta_K(m) = delta_K;
                     end
@@ -314,34 +263,34 @@ classdef AdviceEnhancement < handle
                         state2 = this.formState(K_hat, K_m);
                     end
                     
-                elseif (this.action_ == this.reject_)
+                elseif (action == this.reject_)
                     state2 = state1;
                     K_hat = K_o;
                     delta_K = 0;
-                    this.reward_ = this.reject_reward_bias_*((1 + K_o_norm)^2 - 1);
+                    reward = this.config_.advice.reject_reward_bias*((1 + K_o_norm)^2 - 1);
                     
                     % Update adviser value
-                    this.adviser_value_(m) = this.accept_rate_alpha_*this.adviser_value_(m);
+                    this.adviser_value_(m) = this.config_.advice.adviser_value_alpha*this.adviser_value_(m);
                     
                     % For data metrics
-                    if(this.config_.save_advice_data)
+                    if(this.config_.sim.save_advice_data)
                         reject_action(m) = 1;
-                        reject_reward(m) = this.reward_;
+                        reject_reward(m) = reward;
                         reject_beta_hat(m) = (beta_m > 0) - (beta_m < 0);
                         reject_delta_K(m) = delta_K;
                     end
-                elseif(this.action_ == this.skip_)
+                elseif(action == this.skip_)
                     K_hat = K_o;
                     delta_K = 0;
-                    this.reward_ = this.reject_reward_bias_*((1 + K_o_norm)^2 - 1);
+                    reward = this.config_.advice.reject_reward_bias*((1 + K_o_norm)^2 - 1);
                     
                     % Update adviser value
-                    this.adviser_value_(m) = this.accept_rate_alpha_*this.adviser_value_(m);
+                    this.adviser_value_(m) = this.config_.advice.adviser_value_alpha*this.adviser_value_(m);
                     
                     % For data metrics
-                    if(this.config_.save_advice_data)
+                    if(this.config_.sim.save_advice_data)
                         skip_action(m) = 1;
-                        skip_reward(m) = this.reward_;
+                        skip_reward(m) = reward;
                     end
                     
                     % Get advice from the next adviser (if available)
@@ -355,14 +304,14 @@ classdef AdviceEnhancement < handle
                         state2 = this.formState(K_hat, K_m);
                     end
                 else
-                    warning('Invalid advice action. Action=%d', this.action_)
+                    warning('Invalid advice action. Action=%d', action)
                 end
                 
                 % Update Q-learning
-                if (this.ql_initialized_)
-                    this.q_learning_.learn(state1, state2, this.action_, this.reward_);
+                % (Need a previous state in order to update)
+                if (this.iters_ > 1)
+                    this.q_learning_.learn(state1, state2, action, reward);
                 end
-                this.ql_initialized_ = true;
                 
                 state1 = state2;
                 K_o = K_hat;
@@ -381,13 +330,13 @@ classdef AdviceEnhancement < handle
                 if (rand_action < sum(action_prob(1:i)))
                     action_id = i;
                     break;
-                elseif (i == this.config_.num_actions)
+                elseif (i == this.config_.IL.num_actions)
                     action_id = i;
                 end
             end
             
             % Record tracking metrics
-            if(this.config_.save_advice_data)
+            if(this.config_.sim.save_advice_data)
                 this.advice_data_.iter.K_o_norm(this.iters_) = K_o_norm_initial;
                 this.advice_data_.iter.K_hat_norm(this.iters_) = K_hat_norm;
                 this.advice_data_.iter.delta_K(this.iters_) = delta_K;
@@ -431,7 +380,7 @@ classdef AdviceEnhancement < handle
         %   selection probabilities
         
         function p_a = convertQToP(this, q_a)
-            exponents = exp(q_a/this.il_softmax_temp_);
+            exponents = exp(q_a/this.config_.IL.softmax_temp);
             p_a = exponents/sum(exponents);
         end
         
@@ -445,22 +394,22 @@ classdef AdviceEnhancement < handle
         
         function K_m = askAdviser(this, m, state_vector)
             % Get their advice
-            if (this.fake_advisers_on_ && m > (this.num_robots_ - 1))
-                [q_m, ~] = this.fake_advisers_{m - (this.num_robots_ - 1)}.getUtility(state_vector);
+            if (this.config_.advice.fake_advisers && m > (this.config_.scenario.num_robots - 1))
+                [q_m, ~] = this.fake_advisers_{m - (this.config_.scenario.num_robots - 1)}.getUtility(state_vector);
             else
                 [q_m, ~] = this.adviser_handles_{m}.getUtility(state_vector);
             end
             
             % Make them evil?
-            if (rand < this.evil_advice_prob_)
+            if (rand < this.config_.advice.evil_advice_prob)
                 % Rearrange the vector so the best action, is now the
                 % worst, and the worst is now the best
                 q_m = min(q_m) + max(q_m) - q_m;
-                if(this.config_.save_advice_data)
+                if(this.config_.sim.save_advice_data)
                     this.advice_data_.iter.evil_advice(m, this.iters_) = 1;
                 end
             else
-                if(this.config_.save_advice_data)
+                if(this.config_.sim.save_advice_data)
                     this.advice_data_.iter.evil_advice(m, this.iters_) = 0;
                 end
             end
@@ -480,7 +429,7 @@ classdef AdviceEnhancement < handle
             K_o_norm = sum(abs(K_o));
             K_m_norm = sum(abs(K_m));
             
-            K_o_norm_discrit = min(floor(K_o_norm*this.ql_state_res_(1)), this.ql_state_res_(1) - 1);
+            K_o_norm_discrit = min(floor(K_o_norm*this.config_.advice.QL.state_resolution(1)), this.config_.advice.QL.state_resolution(1) - 1);
             K_m_bar = (K_m_norm > K_o_norm);
             beta_m_bar = (K_m'*K_o >= 0);
             
@@ -495,7 +444,7 @@ classdef AdviceEnhancement < handle
         
         function resetForNextRun(this)            
             % Save epoch data
-            if(this.config_.save_advice_data)
+            if(this.config_.sim.save_advice_data)
                 num_iters = this.iters_ - this.epoch_start_iters_ + 1;
                 
                 % Average of data over this epoch
