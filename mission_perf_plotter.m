@@ -8,7 +8,7 @@
 % appended to the filenames to load in the data for each simulation.
 
 % General settings
-folders = {'run_A'; 'run_B'};
+folders = {'test', 'ref/N'};
 legend_names = {};          % Optional: Manually set legend names
 plot_iter = true;           % Flag for if iterations should be plotted
 plot_reward = false;        % Flag for if average reward should be plotted
@@ -19,10 +19,10 @@ smooth_pts = 10;            % Number of points to smooth data over
 
 % Open windows
 if(plot_iter)
-    fig_iter = figure;
+  fig_iter = figure;
 end
 if(plot_reward)
-    fig_reward = figure;
+  fig_reward = figure;
 end
 
 % Instantiate the data processor
@@ -33,23 +33,23 @@ dp.team_plots_.reward_axis_max = reward_axis_max;
 dp.epoch_smooth_pts_ = smooth_pts;
 
 for i = 1:length(folders)
-    dp.loadTeamData(folders{i});
-    
-    % Form legend name
-    name = folders{i};
-    if(length(legend_names) >= i)
-        if(~isempty(legend_names{i}))
-            name = legend_names{i};
-        end
+  dp.loadTeamData(folders{i});
+  
+  % Form legend name
+  name = folders{i};
+  if(length(legend_names) >= i)
+    if(~isempty(legend_names{i}))
+      name = legend_names{i};
     end
-    
-    % Plot iterations
-    if(plot_iter)
-        dp.plotIterations(fig_iter, name)
-    end
-    
-    % Plot average reward
-    if(plot_reward)
-        dp.plotTeamReward(fig_reward, name)
-    end
+  end
+  
+  % Plot iterations
+  if(plot_iter)
+    dp.plotIterations(fig_iter, name)
+  end
+  
+  % Plot average reward
+  if(plot_reward)
+    dp.plotTeamReward(fig_reward, name)
+  end
 end

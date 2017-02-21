@@ -1,120 +1,116 @@
 classdef TeamLearning < handle
-    % TEAMLEARNING - Contains learning capabilities for the team of robots
+  % TEAMLEARNING - Contains learning capabilities for the team of robots
+  
+  % Merely a wrapper for LAlliance that provides an interface to be
+  % used by ExecutiveSimulation
+  
+  properties
+    config_;      % Configuration Object
+    l_alliance_;  % LAlliance object
+  end
+  
+  methods
     
-    % Merely a wrapper for LAlliance that provides an interface to be
-    % used by ExecutiveSimulation
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   Constructor
+    %
+    %   INPUTS:
+    %   config = Configuration object
     
-    properties
-        config_;      % Configuration Object
-        l_alliance_;  % LAlliance object
-        iterations_;  % Counter for iterations
+    function this = TeamLearning (config)
+      this.config_ = config;
+      
+      if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
+        this.l_alliance_ = LAlliance(this.config_);
+      elseif (strcmp(this.config_.TL.task_allocation, 'fixed'))
+        if(this.config_.scenario.num_robots ~= this.config_.scenario.num_targets)
+          error('Must have equal amounts of robots and targets with fixed task allocation strategy');
+        end
+      end
     end
     
-    methods
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   Constructor
-        %   
-        %   INPUTS:
-        %   config = Configuration object
-        
-        function this = TeamLearning (config)
-            this.config_ = config;
-            this.iterations_ = 0;
-            
-            if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
-                this.l_alliance_ = LAlliance(this.config_);
-            elseif (strcmp(this.config_.TL.task_allocation, 'fixed'))
-                if(this.config_.scenario.num_robots ~= this.config_.scenario.num_targets)
-                    error('Must have equal amounts of robots and targets with fixed task allocation strategy');
-                end
-            end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   getTasks
+    %
+    %   Calls upon L-Alliance to select the task, then stores in the
+    %   RobotState for each robot
+    %
+    %   INPUTS:
+    %   robots = Array of robot objects
+    %   world_state = WorldState object
+    
+    function getTasks(this, robots, world_state)
+      % Use appropriate task allocation strategy
+      if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
+        % Update L-Alliance for robots in a random order
+        rand_robot_id = randperm(this.config_.scenario.num_robots);
+        for i = 1:this.config_.scenario.num_robots
+          robot_id = robots(rand_robot_id(i), 1).robot_state_.id_;
+          % Save the old task
+          %robots(rand_id,1).robot_state_.prev_target_id_ = robots(rand_id,1).robot_state_.target_id_;
+          % Update task states
+          this.l_alliance_.updatetaskProperties(robot_id, world_state);
+          
+          % Recieve the updated task, and assign it
+          this.l_alliance_.chooseTask(robot_id);
+          robots(robot_id, 1).robot_state_.target_.id = this.l_alliance_.getCurrentTask(robot_id);
         end
         
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   getTasks
-        %   
-        %   Calls upon L-Alliance to select the task, then stores in the
-        %   RobotState for each robot
-        %
-        %   INPUTS:
-        %   robots = Array of robot objects
-        
-        function getTasks(this, robots)
-            
-            % Use appropriate task allocation strategy
-            if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
-                % Update L-Alliance for robots in a random order
-                rand_robot_id = randperm(this.config_.scenario.num_robots);
-                for i = 1:this.config_.scenario.num_robots
-                    rand_id = rand_robot_id(i);
-                    % Save the old task
-                    robots(rand_id,1).robot_state_.prev_target_id_ = robots(rand_id,1).robot_state_.target_id_;
-                    % Update task states
-                    this.l_alliance_.updatetaskProperties(robots(rand_id,1).robot_state_);
-                    
-                    % Recieve the updated task, and assign it
-                    this.l_alliance_.chooseTask(robots(rand_id,1).robot_state_.id_);
-                    robots(rand_id,1).robot_state_.target_id_ = this.l_alliance_.getCurrentTask(robots(rand_id,1).robot_state_.id_);
-                end
-                
-            elseif (strcmp(this.config_.TL.task_allocation, 'fixed'))
-                for i = 1:this.config_.scenario.num_robots
-                    % Save the old task
-                    robots(i,1).robot_state_.prev_target_id_ = robots(i,1).robot_state_.target_id_;
-                    prelim_task_id = robots(i,1).robot_state_.id_;
-                    
-                    % Only assign the task if it is not complete
-                    target_state = robots(i,1).robot_state_.target_properties_(prelim_task_id, 1);
-                    if target_state == 1
-                        robots(i,1).robot_state_.target_id_ = 0;
-                    else
-                        robots(i,1).robot_state_.target_id_ = prelim_task_id;
-                    end
-                end
-            end
- 
+      elseif (strcmp(this.config_.TL.task_allocation, 'fixed'))
+        for i = 1:this.config_.scenario.num_robots
+          prelim_task_id = robots(i,1).robot_state_.id_;
+          
+          % Only assign the task if it is not complete
+          returned = world_state.targets_(prelim_task_id).returned;
+          if returned == 1
+            robots(i,1).robot_state_.target_.id = -1;
+          else
+            robots(i,1).robot_state_.target_.id = prelim_task_id;
+          end
         end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % 
-        %   learn
-        %   
-        %   Updates all task properties, and when necessary it will update
-        %   the motivation of each robot towards the task
-        %
-        %   INPUTS:
-        %   robots = Array of robot objects
-        
-        function learn(this, robots)
-            this.iterations_ = this.iterations_ + 1;
-            % Update the motivation if necessary
-            if (mod(this.iterations_, this.config_.TL.LA.motiv_freq) == 0)
-                for i = 1:this.config_.scenario.num_robots
-                    if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
-                        this.l_alliance_.updateImpatience(robots(i,1).robot_state_.id_);
-                        this.l_alliance_.updateMotivation(robots(i,1).robot_state_.id_);
-                    end
-                end
-            end
-        end
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        %
-        %   resetForNextRun
-        %
-        %   Resets all the necessary data for performing consecutive runs,
-        %   while maintatining learning data
-        
-        function resetForNextRun(this)
-            if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
-                this.l_alliance_.reset();
-            end
-        end
-        
+      end
+      
     end
     
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   learn
+    %
+    %   Updates all task properties, and when necessary it will update
+    %   the motivation of each robot towards the task
+    %
+    %   INPUTS:
+    %   robots = Array of robot objects
+    %   world_state = WorldState object
+    
+    function learn(this, robots, world_state)
+      % Update the motivation if necessary
+      if (mod(world_state.mission_.iters, this.config_.TL.LA.motiv_freq) == 0)
+        for id = 1:this.config_.scenario.num_robots
+          if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
+            this.l_alliance_.updateImpatience(robots(id, 1).robot_state_.id_);
+            this.l_alliance_.updateMotivation(robots(id, 1).robot_state_.id_);
+          end
+        end
+      end
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   resetForNextRun
+    %
+    %   Resets all the necessary data for performing consecutive runs,
+    %   while maintatining learning data
+    
+    function resetForNextRun(this)
+      if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
+        this.l_alliance_.reset();
+      end
+    end
+    
+  end
+  
 end
 

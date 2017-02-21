@@ -23,15 +23,15 @@
 %         - One novice S-NR
 %         - S-NR experts trained for 5, 20, 80, and 320 epochs
 %     - Part b) Varying similarity
-%         - One novice S-NR 
+%         - One novice S-NR
 %         - One expert of each type (S-NR, S-R, F-NR, F-R)
 %   Metrics:
 %     - Adviser acceptance rates
 %
 % Experiment 4: Jumpstart novices with a single expert
 %   Setup:
-%     - 8 novices 
-%     - Novices have access to each other for advice, plus one fake expert 
+%     - 8 novices
+%     - Novices have access to each other for advice, plus one fake expert
 %       trained for X epochs
 %     - For each expert a seperate test is be performed (labeled a, b, etc.)
 %   Metrics:
@@ -74,94 +74,94 @@ config.advice.fake_adviser_files = [];
 
 %% Experiment 1
 if(exp1)
-    sim_name_base = ['v', num2str(version), '_experiment_1/sim_'];
-    config.scenario.num_robots = exp1_settings.num_robots;
-	config.scenario.num_targets = exp1_settings.num_robots;
-    for i=1:num_sims        
-        % Create simulation object
-        Simulation=ExecutiveSimulation(config);
-        % Initialize
-        Simulation.initialize();
-        
-        % Form sim name
-        sim_name = [sim_name_base, sprintf('%d', i)];
-        
-        % Make runs
-        Simulation.consecutiveRuns(num_runs, sim_name);
-    end
-    config.scenario.num_robots = 1;
-	config.scenario.num_targets = 1;
+  sim_name_base = ['v', num2str(version), '_experiment_1/sim_'];
+  config.scenario.num_robots = exp1_settings.num_robots;
+  config.scenario.num_targets = exp1_settings.num_robots;
+  for i=1:num_sims
+    % Create simulation object
+    Simulation=ExecutiveSimulation(config);
+    % Initialize
+    Simulation.initialize();
+    
+    % Form sim name
+    sim_name = [sim_name_base, sprintf('%d', i)];
+    
+    % Make runs
+    Simulation.consecutiveRuns(num_runs, sim_name);
+  end
+  config.scenario.num_robots = 1;
+  config.scenario.num_targets = 1;
 end
 
 %% Experiment 2
 if(exp2)
-    sim_name_base = ['v', num2str(version), '_experiment_2/sim_'];
-	config.advice.evil_advice_prob = exp2_settings.evil_advice_prob;
-    config.advice.fake_advisers = true;
-    config.advice.fake_adviser_files = exp2_settings.fake_adviser_files;
-    for i=1:num_sims
-        % Create simulation object
-        Simulation=ExecutiveSimulation(config);
-        % Initialize
-        Simulation.initialize();
-        
-        % Form sim name
-        sim_name = [sim_name_base, sprintf('%d', i)];
-        
-        % Make runs
-        Simulation.consecutiveRuns(num_runs, sim_name);
-    end
-	config.advice.evil_advice_prob = 0;
-    config.advice.fake_advisers = false;
-    config.advice.fake_adviser_files = [];
+  sim_name_base = ['v', num2str(version), '_experiment_2/sim_'];
+  config.advice.evil_advice_prob = exp2_settings.evil_advice_prob;
+  config.advice.fake_advisers = true;
+  config.advice.fake_adviser_files = exp2_settings.fake_adviser_files;
+  for i=1:num_sims
+    % Create simulation object
+    Simulation=ExecutiveSimulation(config);
+    % Initialize
+    Simulation.initialize();
+    
+    % Form sim name
+    sim_name = [sim_name_base, sprintf('%d', i)];
+    
+    % Make runs
+    Simulation.consecutiveRuns(num_runs, sim_name);
+  end
+  config.advice.evil_advice_prob = 0;
+  config.advice.fake_advisers = false;
+  config.advice.fake_adviser_files = [];
 end
 
 %% Experiment 3a
 if(exp3a)
-    sim_name_base = ['v', num2str(version), '_experiment_3a/sim_'];
-    config.advice.fake_advisers = true;
-    config.advice.fake_adviser_files = exp3a_settings.fake_adviser_files;
-    for i=1:num_sims
-        % Create simulation object
-        Simulation=ExecutiveSimulation(config);
-        % Initialize
-        Simulation.initialize();
-        
-        % Form sim name
-        sim_name = [sim_name_base, sprintf('%d', i)];
-        
-        % Make runs
-        Simulation.consecutiveRuns(num_runs, sim_name);
-    end
-    config.advice.fake_advisers = false;
-    config.advice.fake_adviser_files = [];
+  sim_name_base = ['v', num2str(version), '_experiment_3a/sim_'];
+  config.advice.fake_advisers = true;
+  config.advice.fake_adviser_files = exp3a_settings.fake_adviser_files;
+  for i=1:num_sims
+    % Create simulation object
+    Simulation=ExecutiveSimulation(config);
+    % Initialize
+    Simulation.initialize();
+    
+    % Form sim name
+    sim_name = [sim_name_base, sprintf('%d', i)];
+    
+    % Make runs
+    Simulation.consecutiveRuns(num_runs, sim_name);
+  end
+  config.advice.fake_advisers = false;
+  config.advice.fake_adviser_files = [];
 end
 
 %% Experiment 4
 if(exp4)
-    config.scenario.num_robots = exp4_settings.num_robots;
-	config.scenario.num_targets = exp4_settings.num_robots;
-    config.advice.fake_advisers = true;
-    for j = 1:length(exp4_settings.fake_adviser_files);
-        % Append 1, 2, 3, etc. to the name
-        sim_name_base = sprintf('v%d_experiment_4_%d/sim_', version, j);
-        config.advice.fake_adviser_files = exp4_settings.fake_adviser_files(j);
-        for i=1:num_sims
-            % Create simulation object
-            Simulation=ExecutiveSimulation(config);
-            % Initialize
-            Simulation.initialize();
-            
-            % Form sim name
-            sim_name = [sim_name_base, sprintf('%d', i)];
-            
-            % Make runs
-            Simulation.consecutiveRuns(num_runs, sim_name);
-        end
-        
+  config.scenario.num_robots = exp4_settings.num_robots;
+  config.scenario.num_targets = exp4_settings.num_robots;
+  config.advice.fake_advisers = true;
+  for j = 1:length(exp4_settings.fake_adviser_files);
+    % Append 1, 2, 3, etc. to the name
+    sim_name_base = sprintf('v%d_experiment_4_%d/sim_', version, j);
+    config.advice.fake_adviser_files = exp4_settings.fake_adviser_files(j);
+    for i=1:num_sims
+      % Create simulation object
+      Simulation=ExecutiveSimulation(config);
+      % Initialize
+      Simulation.initialize();
+      
+      % Form sim name
+      sim_name = [sim_name_base, sprintf('%d', i)];
+      
+      % Make runs
+      Simulation.consecutiveRuns(num_runs, sim_name);
     end
-    config.scenario.num_robots = 1;
-	config.scenario.num_targets = 1;
-    config.advice.fake_advisers = false;
-    config.advice.fake_adviser_files = [];
+    
+  end
+  config.scenario.num_robots = 1;
+  config.scenario.num_targets = 1;
+  config.advice.fake_advisers = false;
+  config.advice.fake_adviser_files = [];
 end
