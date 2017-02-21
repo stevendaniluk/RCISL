@@ -100,10 +100,7 @@ classdef RobotState < handle
         end
         
         % Obstacle data
-        for i = 1:this.config_.scenario.num_obstacles
-          this.obstacles_(i).x = world_state.obstacles_(i).x;
-          this.obstacles_(i).y = world_state.obstacles_(i).y;
-        end
+        this.obstacles_ = world_state.obstacles_;
         
         % Goal data
         this.goal_.x = world_state.goal_.x;

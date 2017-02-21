@@ -139,12 +139,9 @@ classdef Physics < handle
         return;
       end
       
-      % Function to determine distance of struct coord to new point
-      % (used with obstacles and robots)
-      new_pt_dist_fun = @(field) sqrt((field.x - new_pt.x)^2 + (field.y - new_pt.y)^2);
-      
       % Test against all obstacles
-      obstacle_ds = arrayfun(new_pt_dist_fun, world_state.obstacles_);
+      obstacles_array = reshape([world_state.obstacles_.x, world_state.obstacles_.y], size(world_state.obstacles_, 2), 2);
+      obstacle_ds = sqrt((obstacles_array(:, 1) - new_pt.x).^2 + (obstacles_array(:, 2) - new_pt.y).^2);
       if(sum(obstacle_ds < robot_size + this.config_.scenario.obstacle_size) > 0)
         valid = false;
         return;
@@ -162,7 +159,8 @@ classdef Physics < handle
       robots_in_collect = find(robot_goal_ds < this.config_.scenario.goal_size);
       robots(robots_in_collect) = [];  % Ignore matlab warning here, doesn't apply to structs
       
-      robot_ds = arrayfun(new_pt_dist_fun, robots);
+      robots_array = reshape([robots.x, robots.y], size(robots, 2), 2);
+      robot_ds = sqrt((robots_array(:, 1) - new_pt.x).^2 + (robots_array(:, 2) - new_pt.y).^2);
       if(sum(robot_ds < 2*robot_size) > 0)
         valid = false;
         return;
