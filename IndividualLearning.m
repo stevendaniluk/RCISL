@@ -290,7 +290,7 @@ classdef IndividualLearning < handle
       % considered as well. All obstacles are combined into a single
       % struct array, and the closes obstacle is used.
       
-      % Left border
+      % Left border      
       borders(1).x = 0;
       borders(1).y = robot_state.pose_.y;
       
@@ -309,11 +309,10 @@ classdef IndividualLearning < handle
       % Append all other obstacles
       obstacles = [borders, robot_state.obstacles_];
       
-      % Function to determine distance of struct coord to robot
-      dist_fun = @(field) sqrt((field.x - robot_state.pose_.x)^2 + (field.y - robot_state.pose_.y)^2);
+      % Convert to a array to find closest obstacle
+      obstacles_array = reshape([obstacles.x, obstacles.y], this.config_.scenario.num_obstacles + 4, 2);
+      obstacle_ds = sqrt((obstacles_array(:, 1) - robot_state.pose_.x).^2 + (obstacles_array(:, 2) - robot_state.pose_.y).^2);
       
-      % Find closest obstacle
-      obstacle_ds = arrayfun(dist_fun, obstacles);
       [rel_obstacle.d, obstacle_index] = min(obstacle_ds);
       rel_obstacle.x = obstacles(obstacle_index).x - robot_state.pose_.x;
       rel_obstacle.y = obstacles(obstacle_index).y - robot_state.pose_.y;
