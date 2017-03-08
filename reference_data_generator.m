@@ -27,8 +27,8 @@ end
 
 for i = 1:length(num_robots)
   % Set the number of robots and targets
-  config.scenario.num_robots = num_robots(1);
-  config.scenario.num_targets = num_robots(1);
+  config.scenario.num_robots = num_robots(i);
+  config.scenario.num_targets = num_robots(i);
   
   % Make sure there is a folder to save to
   set_name = sprintf('%dN', num_robots(i));
