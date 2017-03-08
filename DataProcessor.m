@@ -97,8 +97,8 @@ classdef DataProcessor < handle
     
     function this = DataProcessor(type, folder)
       % Set some default parameters
-      this.team_plots_.iter_axis_max = 1000;
-      this.team_plots_.reward_axis_max = 0.1;
+      this.team_plots_.iter_axis_max = 1500;
+      this.team_plots_.reward_axis_max = 0.05;
       this.team_plots_.num_runs_iter = [];
       this.team_plots_.num_runs_reward = [];
       this.team_plots_.axis_min_runs = true;
@@ -492,16 +492,16 @@ classdef DataProcessor < handle
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
-    %   plotAdviserValue
+    %   plotAdviserTrust
     %
-    %   Plots the value (accept reward for each adviser. Legend names
+    %   Plots the trust (accept reward for each adviser. Legend names
     %   are taken from the property advice_plots_.adviser_names.
     %
     %   INPUTS:
     %     fig - Figure handle to plot onto
     %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
     
-    function plotAdviserValue(this, fig, subplot_vector)
+    function plotAdviserTrust(this, fig, subplot_vector)
       set(0,'CurrentFigure',fig);
       
       % Handle subplots
@@ -514,10 +514,10 @@ classdef DataProcessor < handle
       grid on
       legend_string = char(this.advice_plots_.adviser_names);
       if(this.advice_plots_.titles_on)
-        title('Value of Each Adviser');
+        title('Trust of Each Adviser');
       end
       xlabel(this.advice_plots_.x_label_string);
-      ylabel('Adviser Value \omega');
+      ylabel('Trust \omega');
       axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
       legend(legend_string);
     end

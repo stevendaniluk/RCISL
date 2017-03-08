@@ -63,18 +63,18 @@ classdef AdviceEnhancement < handle
         for i = 1:num_fake_advisers
           % Load the quality and experience files
           filename = config.advice.fake_adviser_files(i);
-          q_tables = [];
-          exp_tables = [];
-          load(['expert_data/', filename{1}, '/q_tables.mat']);
-          load(['expert_data/', filename{1}, '/exp_tables.mat']);
+          q_table = [];
+          exp_table = [];
+          load(['expert_data/', filename{1}, '/q_table.mat']);
+          load(['expert_data/', filename{1}, '/exp_table.mat']);
           
           % Create a Q-learning object to load data into (only
           % provide relevant input args)
-          this.fake_advisers_{i} = QLearning(1, 1, 1, config.IL.num_state_vrbls, config.IL.state_resolution, config.IL.num_actions);
+          this.fake_advisers_{i} = QLearning(1, 1, 1, config.IL.state_resolution, config.IL.num_actions);
           
           % Load data into Q-learning object
-          this.fake_advisers_{i}.q_table_ = q_tables{1};
-          this.fake_advisers_{i}.exp_table_ = exp_tables{1};
+          this.fake_advisers_{i}.q_table_ = q_table;
+          this.fake_advisers_{i}.exp_table_ = exp_table;
         end
         
         % Add fake advisers to the list
@@ -90,7 +90,6 @@ classdef AdviceEnhancement < handle
       gamma = config.advice.QL.gamma;
       alpha_max = config.advice.QL.alpha_max;
       alpha_rate = config.advice.QL.alpha_rate;
-      num_state_vrbls = length(this.config_.advice.QL.state_resolution);
       
       this.q_learning_ = QLearning(gamma, alpha_max, alpha_rate, ...
         this.config_.advice.QL.state_resolution, this.config_.advice.num_actions);
@@ -234,12 +233,14 @@ classdef AdviceEnhancement < handle
           accept_count = accept_count + 1;
           
           % Update K
-          K_hat = K_o + abs(K_m - K_o).*K_m;
+          factor = (K_o >= 0).*K_o/(1 - this.eps_) + (K_o < 0).*K_o/(-this.eps_^2/(1 - this.eps_));
+          K_hat = K_o + this.config_.advice.adviser_discount*(1 - factor).*K_m;
+          
           delta_K = sum(abs(K_hat)) - K_o_norm;
           
           % Calculate the reward (and ensure it is valid)
           reward = (beta_m >= 0)*((1 + delta_K/(K_o_norm + abs(delta_K)))^2 - 1);
-          if (isnan(reward)); reward = 0; else reward = reward; end
+          if (isnan(reward)); reward = 0; end
           
           % Update adviser value
           this.adviser_value_(m) = this.config_.advice.adviser_value_alpha*this.adviser_value_(m) + (1 - this.config_.advice.adviser_value_alpha)*reward;

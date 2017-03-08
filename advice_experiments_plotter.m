@@ -153,7 +153,7 @@ if(exp3a)
   dp = DataProcessor();
   dp.advice_plots_.titles_on = titles_on;
   dp.loadAdviceData(exp3a_settings.sim_folder);
-  dp.plotAdviserValue(fig);
+  dp.plotAdviserTrust(fig);
   
   % Override the legend strings
   if(~isempty(exp3a_settings.legend_strings))

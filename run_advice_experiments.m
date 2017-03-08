@@ -45,23 +45,24 @@ num_runs = 100;
 version = 1;
 
 % Flags and settings for each experiment:
-exp1 = false;
+exp1 = true;
 exp1_settings.num_robots = 8;
 
-exp2 = false;
+exp2 = true;
 exp2_settings.evil_advice_prob = 0.2;
 exp2_settings.fake_adviser_files = {'E100'};
 
-exp3a = false;
+exp3a = true;
 exp3a_settings.fake_adviser_files = {'E1000'; 'E100'; 'E10'; 'E1'};
 
-exp4 = false;
+exp4 = true;
 exp4_settings.num_robots = 8;
-exp4_settings.fake_adviser_files = {'E100'; 'E10'};
+exp4_settings.fake_adviser_files = {'E100'; 'E50'; 'E10'};
 
 %% Set the initial config data
 % Each case will set, and unset, their params
 config = Configuration();
+config.sim.show_live_graphics = false;
 config.sim.save_simulation_data = true;
 config.sim.save_IL_data = false;
 config.sim.save_advice_data = true;

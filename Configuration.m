@@ -98,7 +98,7 @@ classdef Configuration < handle
       type_4.reach = 0.5;
       type_4.label = 'SF';
       
-      this.scenario.robot_types = [type_1, type_2, type_3, type_4];
+      this.scenario.robot_types = [type_1, type_1, type_1, type_1];
       this.scenario.target_types = {'light', 'light', 'light', 'light'};
       
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -185,6 +185,7 @@ classdef Configuration < handle
       this.advice.QL.state_resolution = [100, 2, 2];     % Q-learning state resolution
       this.advice.num_actions = 3;                       % Number of possible actions for the mechanism
       this.advice.e_greedy = 0.05;                       % Probability fo selecting a random action
+      this.advice.adviser_discount = 0.9;                % Value to discount advice from adviser
       this.advice.adviser_value_alpha = 0.99;            % Rate update coefficient for adviser value
       this.advice.evil_advice_prob = 0.0;                % Probability that an adviser will be evil
       this.advice.fake_advisers = false;                 % Flag for using fake advisers (as opposed to other robots)
