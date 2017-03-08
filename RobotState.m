@@ -28,6 +28,9 @@ classdef RobotState < handle
     goal_;       % Struct containing goal data
                  %   x - X position (estimated)
                  %   y - Y position (estimated)
+    terrain_;    % Struct containing terrain data
+                 %   x - X position of centre(estimated)
+                 %   y - Y position of centre (estimated)
   end
   
   methods
@@ -65,6 +68,10 @@ classdef RobotState < handle
       % Initialize goal data (use true position)
       this.goal_.x = world_state.goal_.x;
       this.goal_.y = world_state.goal_.y;
+      
+      % Initialize terrain data (use true position)
+      this.terrain_.x = world_state.terrain_.x;
+      this.terrain_.y = world_state.terrain_.y;
       
     end
     
@@ -108,6 +115,10 @@ classdef RobotState < handle
         % Goal data
         this.goal_.x = world_state.goal_.x;
         this.goal_.y = world_state.goal_.y;
+        
+        % Terrain data
+        this.terrain_.x = world_state.terrain_.x;
+        this.terrain_.y = world_state.terrain_.y;
       else
         % Update with particle filter
         % TODO

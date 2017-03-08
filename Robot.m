@@ -23,6 +23,7 @@ classdef Robot < handle
                            %   step_size - Distance moved for longitudinal movements
                            %   rotate_size - Angle rotated for rotational movements
                            %   strong - Flag for if the robot is strong
+                           %   rugged - Flag for if the robot can handle rough terrain
                            %   reach - Distance a robot can grab a target from
                            %   label - String for indicating robot type
   end
@@ -92,7 +93,7 @@ classdef Robot < handle
       % Depending on the action ID, make the appropriate action
       if(action_id <= 3)
         % Move in the direction specified by action
-        physics.MoveRobot(world_state, this.robot_state_, this.action_def_(action_id).step, this.action_def_(action_id).rotate);
+        physics.MoveRobot(world_state, this.robot_state_, this.prop_, this.action_def_(action_id).step, this.action_def_(action_id).rotate);
       else
         % Try to pick up item
         physics.interact(world_state, this.robot_state_, this.prop_);
