@@ -8,12 +8,14 @@ classdef AdviceEnhancement < handle
     iters_;                % Iteration counter during epoch
     epoch_;                % Epoch counter
     advice_data_;          % Structure of data to save
+    mechanism_metrics_;    % Mechanism specific metrics for the current epoch (for updating advice_data_)
+    adviser_metrics_;      % Adviser specific metrics for the current epoch (for updating advice_data_)
     epoch_start_iters_;    % For saving epoch data
     
     % Mechanism properties
     max_advisers_;         % Number of advisers to use
     eps_;                  % Base probability value
-    adviser_value_;        % Moving average adviser's accept reward
+    adviser_trusts_;        % Moving average adviser's accept reward
     q_learning_;           % Q-learning object
     
     % Advisor properties
@@ -26,8 +28,8 @@ classdef AdviceEnhancement < handle
   properties (Constant)
     % Action definitions
     accept_ = 1;
-    reject_ = 2;
-    skip_ = 3;
+    skip_ = 2;
+    cease_ = 3;
   end
   
   events
@@ -80,11 +82,12 @@ classdef AdviceEnhancement < handle
         % Add fake advisers to the list
         this.max_advisers_ = this.max_advisers_ + num_fake_advisers;
       end
+      this.advice_data_.num_advisers = this.max_advisers_;
       
       % Initialize mechanism properties
       this.eps_ = 1/this.config_.IL.num_actions;
       this.epoch_start_iters_ = 1;
-      this.adviser_value_ = 0.0*ones(this.max_advisers_, 1);
+      this.adviser_trusts_ = 0.0*ones(this.max_advisers_, 1);
       
       % Instantiate Q-learning
       gamma = config.advice.QL.gamma;
@@ -95,35 +98,41 @@ classdef AdviceEnhancement < handle
         this.config_.advice.QL.state_resolution, this.config_.advice.num_actions);
       
       % Initialize advice data being recorded
-      % Iteration and epoch data will have some common fields
       if(this.config_.sim.save_advice_data)
-        common_fields.K_o_norm = 0;
-        common_fields.K_hat_norm = 0;
-        common_fields.delta_K = 0;
-        common_fields.beta_hat = 0;
-        common_fields.adviser_value = zeros(this.max_advisers_, 1);
-        common_fields.evil_advice = zeros(this.max_advisers_, 1);
-        common_fields.accept_action = zeros(this.max_advisers_, 1);
-        common_fields.accept_delta_K = zeros(this.max_advisers_, 1);
-        common_fields.accept_beta_hat = zeros(this.max_advisers_, 1);
-        common_fields.reject_action = zeros(this.max_advisers_, 1);
-        common_fields.reject_delta_K = zeros(this.max_advisers_, 1);
-        common_fields.reject_beta_hat = zeros(this.max_advisers_, 1);
-        common_fields.skip_action = zeros(this.max_advisers_, 1);
-        common_fields.accept_reward = zeros(this.max_advisers_, 1);
-        common_fields.reject_reward = zeros(this.max_advisers_, 1);
-        common_fields.skip_reward = zeros(this.max_advisers_, 1);
-        common_fields.round_reward = 0;
-        common_fields.round_accept_flag = 0;
-        common_fields.round_accept_count = 0;
-        
-        this.advice_data_.iter = common_fields;
-        this.advice_data_.iter.evil_advice = zeros(this.max_advisers_, 1);
-        
-        this.advice_data_.epoch = common_fields;
-        this.advice_data_.epoch.accept_action_benev = zeros(this.max_advisers_, 1);
-        this.advice_data_.epoch.accept_action_evil = zeros(this.max_advisers_, 1);
+        this.initializeMetrics();
       end
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   initializeEpochMetrics
+    %
+    %   Resets the metrics properties for the next epoch
+    
+    function initializeMetrics(this)
+      % Mechanism metrics
+      this.mechanism_metrics_.K_o_norm = 0;
+      this.mechanism_metrics_.K_hat_norm = 0;
+      this.mechanism_metrics_.reward = 0;
+      this.mechanism_metrics_.advice_rate = 0;
+      this.mechanism_metrics_.requested_advice = 0;
+      this.mechanism_metrics_.advisers_polled = 0;
+      this.mechanism_metrics_.advice_accepted = 0;
+      this.mechanism_metrics_.adviser_trust = zeros(this.max_advisers_, 1);
+
+      % Adviser specific metrics
+      this.adviser_metrics_.adviser_usages = zeros(this.max_advisers_, 1);
+      
+      this.adviser_metrics_.accept_action = zeros(this.max_advisers_, 1);
+      this.adviser_metrics_.accept_reward = zeros(this.max_advisers_, 1);
+      this.adviser_metrics_.accept_delta_K = zeros(this.max_advisers_, 1);
+      this.adviser_metrics_.accept_action_evil = zeros(this.max_advisers_, 1);
+
+      this.adviser_metrics_.cease_action = zeros(this.max_advisers_, 1);
+      this.adviser_metrics_.cease_reward = zeros(this.max_advisers_, 1);
+      
+      this.adviser_metrics_.skip_action = zeros(this.max_advisers_, 1);
+      this.adviser_metrics_.skip_reward = zeros(this.max_advisers_, 1);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -165,161 +174,135 @@ classdef AdviceEnhancement < handle
     %   OUTPUTS:
     %   result = Either the action id, or vector of quality values
     
-    function result = getAdvice(this, state_vector, quality_in)
+    function result = getAdvice(this, state_vector, quality_in, alpha)
       % Prepare data
       this.preAdviceUpdate();
       
-      % Variables for tracking metrics
-      if(this.config_.sim.save_advice_data)
-        accept_action = zeros(this.max_advisers_, 1);
-        accept_delta_K = zeros(this.max_advisers_, 1);
-        accept_beta_hat = zeros(this.max_advisers_, 1);
-        reject_action = zeros(this.max_advisers_, 1);
-        reject_delta_K = zeros(this.max_advisers_, 1);
-        reject_beta_hat = zeros(this.max_advisers_, 1);
-        accept_reward = zeros(this.max_advisers_, 1);
-        reject_reward = zeros(this.max_advisers_, 1);
-        skip_reward = zeros(this.max_advisers_, 1);
-        skip_action = zeros(this.max_advisers_, 1);
-      end
-      
+      % Initialze counters for metrics
+      accept_count = 0;
+      reward_count = 0;
+            
       % Get advisee's knowledge
       p_o = this.convertQToP(quality_in);
       K_o = this.convertPToK(p_o);
       K_o_initial = K_o;
-      K_o_norm_initial = sum(abs(K_o));
+      K_hat = K_o;
       
       % Determine order of advisers for this round
       % (when an adviser's rate is zero, randomize it to ensure
       % random selection)
-      rates = this.adviser_value_;
+      rates = this.adviser_trusts_;
       random_rates = -rand(this.max_advisers_, 1);
       rates(rates == 0) = random_rates(rates == 0);
       adviser_rank = sortrows([rates, (1:this.max_advisers_)']);
       adviser_order = flipud(adviser_rank(:, 2));
       
-      % Main advice loop
-      accept_count = 0;
-      action = 0;
-      n = 1;
-      m = adviser_order(n);
-      K_hat = K_o;
-      K_m = this.askAdviser(m, state_vector);
-      state1 = this.formState(K_o, K_m);
-      while (n <= this.max_advisers_ && action ~= this.reject_)
-        
-        % Get action from Q-learning
-        [action_q, ~] = this.q_learning_.getUtility(state1);
-        
-        % Select action with e-greedy policy
-        if (rand < this.config_.advice.e_greedy)
-          action = ceil(rand*this.config_.advice.num_actions);
-        else
-          % Pick best action
-          indices = find(max(action_q) == action_q);
-          if (length(indices) > 1)
-            % There is more than one optimal action
-            action = indices(ceil(rand*length(indices)));
-          else
-            % There is a single optimal action
-            action = indices;
-          end
+      % Get action from Q-learning
+      state_initial = this.formState(K_o, K_o, alpha);
+      [action_q, ~] = this.q_learning_.getUtility(state_initial);
+      action = this.selectAction(action_q);
+      request_advice = (action ~= this.cease_);
+      
+      n = 0;
+      if(request_advice)
+        % Poll the first adviser
+        n = 1;
+        m = adviser_order(n);
+        [K_m, evil] = this.pollAdviser(m, state_vector);
+        state1 = this.formState(K_o, K_m, alpha);
+        if(this.config_.sim.save_advice_data)
+          this.adviser_metrics_.adviser_usages(m) = 1 + this.adviser_metrics_.adviser_usages(m);
         end
         
-        K_o_norm = sum(abs(K_o));
-        beta_m = K_m'*K_o;
-        
-        if(action == this.accept_)
-          accept_count = accept_count + 1;
+        % Start advice polling
+        while (n <= this.max_advisers_)
+          % Get accept/skip/cease action from Q-learning
+          [action_q, ~] = this.q_learning_.getUtility(state1);
+          action = this.selectAction(action_q);
           
-          % Update K
-          factor = (K_o >= 0).*K_o/(1 - this.eps_) + (K_o < 0).*K_o/(-this.eps_^2/(1 - this.eps_));
-          K_hat = K_o + this.config_.advice.adviser_discount*(1 - factor).*K_m;
+          % Update adviser trust
+          K_o_unit = max(0, K_o/sqrt(sum(K_o.^2)));
+          K_m_unit = max(0, K_m/sqrt(sum(K_m.^2)));
+          beta = sum(K_o_unit.*K_m_unit);
+          this.adviser_trusts_(m) = this.config_.advice.adviser_trust_alpha*this.adviser_trusts_(m) + (1 - this.config_.advice.adviser_trust_alpha)*beta;
           
-          delta_K = sum(abs(K_hat)) - K_o_norm;
+          % Set the initial knowledge level
+          K_o_norm = sum(abs(K_o));
           
-          % Calculate the reward (and ensure it is valid)
-          reward = (beta_m >= 0)*((1 + delta_K/(K_o_norm + abs(delta_K)))^2 - 1);
-          if (isnan(reward)); reward = 0; end
+          % Handle each action
+          poll_another_adviser = false;
+          switch action
+            case this.accept_
+              accept_count = accept_count + 1;
+              
+              % Update K
+              factor = (K_o >= 0).*K_o/(1 - this.eps_) + (K_o < 0).*K_o/(-this.eps_^2/(1 - this.eps_));
+              K_hat = K_o + alpha*(1 - factor).*K_m;
+              delta_K = sum(abs(K_hat)) - K_o_norm;
+              
+              % Calculate the reward
+              reward = (1 + this.config_.advice.accept_bias*delta_K)^2;
+              
+              poll_another_adviser = (n < this.max_advisers_);
+              
+              % Update adviser metrics
+              if(this.config_.sim.save_advice_data)
+                this.adviser_metrics_.accept_action(m) = 1 + this.adviser_metrics_.accept_action(m);
+                this.adviser_metrics_.accept_delta_K(m) = delta_K + this.adviser_metrics_.accept_delta_K(m);
+                this.adviser_metrics_.accept_reward(m) = reward + this.adviser_metrics_.accept_reward(m);
+                this.adviser_metrics_.accept_action_evil(m) = evil + this.adviser_metrics_.accept_action_evil(m);
+              end
+            case this.skip_
+              K_hat = K_o;
+              reward = (1 + K_o_norm)^2;
+              
+              poll_another_adviser = (n < this.max_advisers_);
+              
+              % Update adviser metrics
+              if(this.config_.sim.save_advice_data)
+                this.adviser_metrics_.skip_action(m) = 1 + this.adviser_metrics_.skip_action(m);
+                this.adviser_metrics_.skip_reward(m) = reward + this.adviser_metrics_.skip_reward(m);
+              end
+            case this.cease_
+              K_hat = K_o;
+              reward = (1 + K_o_norm)^2;
+              
+              % Update adviser metrics
+              if(this.config_.sim.save_advice_data)
+                this.adviser_metrics_.cease_action(m) = 1 + this.adviser_metrics_.cease_action(m);
+                this.adviser_metrics_.cease_reward(m) = reward + this.adviser_metrics_.cease_reward(m);
+              end
+            otherwise
+              warning('Invalid advice action. Action=%d', action)
+          end
+          reward_count = reward_count + reward;
           
-          % Update adviser value
-          this.adviser_value_(m) = this.config_.advice.adviser_value_alpha*this.adviser_value_(m) + (1 - this.config_.advice.adviser_value_alpha)*reward;
-          
-          % For data metrics
-          if(this.config_.sim.save_advice_data)
-            accept_action(m) =  1;
-            accept_reward(m) = reward;
-            accept_beta_hat(m) = (beta_m > 0) - (beta_m < 0);
-            accept_delta_K(m) = delta_K;
+          % Get advice for next round from the next adviser
+          if(poll_another_adviser)
+            n = n + 1;
+            m = adviser_order(n);
+            [K_m, evil] = this.pollAdviser(m, state_vector);
+            if(this.config_.sim.save_advice_data)
+              this.adviser_metrics_.adviser_usages(m) = 1 + this.adviser_metrics_.adviser_usages(m);
+            end
           end
           
-          % Get advice from the next adviser (if available)
-          if(n ~= this.max_advisers_)
-            m = adviser_order(n + 1);
-            K_m = this.askAdviser(m, state_vector);
-            
-            % Find the new state
-            state2 = this.formState(K_o, K_m);
-          else
-            state2 = this.formState(K_hat, K_m);
+          % Update mechanism Q-learning
+          state2 = this.formState(K_hat, K_m, alpha);
+          if (this.iters_ > 1)
+            this.q_learning_.learn(state1, state2, action, reward);
           end
           
-        elseif (action == this.reject_)
-          state2 = state1;
-          K_hat = K_o;
-          delta_K = 0;
-          reward = this.config_.advice.reject_reward_bias*((1 + K_o_norm)^2 - 1);
-          
-          % Update adviser value
-          this.adviser_value_(m) = this.config_.advice.adviser_value_alpha*this.adviser_value_(m);
-          
-          % For data metrics
-          if(this.config_.sim.save_advice_data)
-            reject_action(m) = 1;
-            reject_reward(m) = reward;
-            reject_beta_hat(m) = (beta_m > 0) - (beta_m < 0);
-            reject_delta_K(m) = delta_K;
-          end
-        elseif(action == this.skip_)
-          K_hat = K_o;
-          delta_K = 0;
-          reward = this.config_.advice.reject_reward_bias*((1 + K_o_norm)^2 - 1);
-          
-          % Update adviser value
-          this.adviser_value_(m) = this.config_.advice.adviser_value_alpha*this.adviser_value_(m);
-          
-          % For data metrics
-          if(this.config_.sim.save_advice_data)
-            skip_action(m) = 1;
-            skip_reward(m) = reward;
+          % End the advice round?
+          if(action == this.cease_ || ~poll_another_adviser)
+            break;
           end
           
-          % Get advice from the next adviser (if available)
-          if(n ~= this.max_advisers_)
-            m = adviser_order(n + 1);
-            K_m = this.askAdviser(m, state_vector);
-            
-            % Find the new state
-            state2 = this.formState(K_o, K_m);
-          else
-            state2 = this.formState(K_hat, K_m);
-          end
-        else
-          warning('Invalid advice action. Action=%d', action)
+          % Set K and state values for the next round
+          state1 = state2;
+          K_o = K_hat;
         end
-        
-        % Update Q-learning
-        % (Need a previous state in order to update)
-        if (this.iters_ > 1)
-          this.q_learning_.learn(state1, state2, action, reward);
-        end
-        
-        state1 = state2;
-        K_o = K_hat;
-        n = n + 1;
-        
       end
-      K_hat_norm = sum(abs(K_hat));
       
       % Convert K_hat to action selection probabilities
       p_a_new = this.eps_ + sign(K_hat).*sqrt((1 - this.eps_)*abs(K_hat));
@@ -336,27 +319,23 @@ classdef AdviceEnhancement < handle
         end
       end
       
-      % Record tracking metrics
+      % Record mechanism metrics
       if(this.config_.sim.save_advice_data)
-        this.advice_data_.iter.K_o_norm(this.iters_) = K_o_norm_initial;
-        this.advice_data_.iter.K_hat_norm(this.iters_) = K_hat_norm;
-        this.advice_data_.iter.delta_K(this.iters_) = delta_K;
-        this.advice_data_.iter.beta_hat(this.iters_) = K_hat'*K_o_initial;
-        this.advice_data_.iter.adviser_value(:, this.iters_) = this.adviser_value_;
-        this.advice_data_.iter.accept_action(:, this.iters_) = accept_action;
-        this.advice_data_.iter.accept_delta_K(:, this.iters_) = accept_delta_K;
-        this.advice_data_.iter.accept_beta_hat(:, this.iters_) = accept_beta_hat;
-        this.advice_data_.iter.reject_action(:, this.iters_) = reject_action;
-        this.advice_data_.iter.reject_delta_K(:, this.iters_) = reject_delta_K;
-        this.advice_data_.iter.reject_beta_hat(:, this.iters_) = reject_beta_hat;
-        this.advice_data_.iter.skip_action(:, this.iters_) = skip_action;
-        this.advice_data_.iter.accept_reward(:, this.iters_) = accept_reward;
-        this.advice_data_.iter.reject_reward(:, this.iters_) = reject_reward;
-        this.advice_data_.iter.skip_reward(:, this.iters_) = skip_reward;
-        this.advice_data_.iter.round_reward(this.iters_) = (sum(accept_reward) + sum(reject_reward))/(n - 1);
-        this.advice_data_.iter.round_accept_flag(this.iters_) = (accept_count >= 1);
-        this.advice_data_.iter.round_accept_count(this.iters_) = accept_count;
+        this.mechanism_metrics_.K_o_norm = sum(abs(K_o_initial)) + this.mechanism_metrics_.K_o_norm;
+        this.mechanism_metrics_.K_hat_norm = sum(abs(K_hat)) + this.mechanism_metrics_.K_hat_norm;
+        this.mechanism_metrics_.advice_rate = alpha + this.mechanism_metrics_.advice_rate;
+        this.mechanism_metrics_.adviser_trust = this.adviser_trusts_ + this.mechanism_metrics_.adviser_trust;
+        this.mechanism_metrics_.requested_advice = request_advice + this.mechanism_metrics_.requested_advice;
+        this.mechanism_metrics_.advisers_polled = n/this.max_advisers_ + this.mechanism_metrics_.advisers_polled;
+        
+        % Count of advice acceptance and reward is averaged of number of
+        % polls, but must default to zero when no advisers are polled
+        if(request_advice)
+          this.mechanism_metrics_.advice_accepted = accept_count/n + this.mechanism_metrics_.advice_accepted;
+          this.mechanism_metrics_.reward = reward_count/n + this.mechanism_metrics_.reward;
+        end
       end
+      
       % Output the result
       result = action_id;
     end
@@ -387,13 +366,13 @@ classdef AdviceEnhancement < handle
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
-    %   askAdviser
+    %   pollAdviser
     %
     %   Asks adviser m for their advice, and returns their K values.
     %   Advisers are numbered with real advisers (i.e. other robots)
     %   first, followed by fake advisers.
     
-    function K_m = askAdviser(this, m, state_vector)
+    function [K_m, evil] = pollAdviser(this, m, state_vector)
       % Get their advice
       if (this.config_.advice.fake_advisers && m > (this.config_.scenario.num_robots - 1))
         [q_m, ~] = this.fake_advisers_{m - (this.config_.scenario.num_robots - 1)}.getUtility(state_vector);
@@ -406,13 +385,9 @@ classdef AdviceEnhancement < handle
         % Rearrange the vector so the best action, is now the
         % worst, and the worst is now the best
         q_m = min(q_m) + max(q_m) - q_m;
-        if(this.config_.sim.save_advice_data)
-          this.advice_data_.iter.evil_advice(m, this.iters_) = 1;
-        end
+        evil = true;
       else
-        if(this.config_.sim.save_advice_data)
-          this.advice_data_.iter.evil_advice(m, this.iters_) = 0;
-        end
+        evil = false;
       end
       
       % Convert Q values to K values
@@ -426,15 +401,38 @@ classdef AdviceEnhancement < handle
     %
     %   Converts the K_o and K_m values to a discritized state vector
     
-    function state = formState(this, K_o, K_m)
+    function state = formState(this, K_o, K_m, alpha)
       K_o_norm = sum(abs(K_o));
       K_m_norm = sum(abs(K_m));
       
       K_o_norm_discrit = min(floor(K_o_norm*this.config_.advice.QL.state_resolution(1)), this.config_.advice.QL.state_resolution(1) - 1);
-      K_m_bar = (K_m_norm > K_o_norm);
-      beta_m_bar = (K_m'*K_o >= 0);
+      K_m_bar = (K_m_norm >= K_o_norm);
+      alpha_discrit = min(floor(alpha*this.config_.advice.QL.state_resolution(3)), this.config_.advice.QL.state_resolution(3) - 1);
       
-      state = [K_o_norm_discrit; K_m_bar; beta_m_bar];
+      state = [K_o_norm_discrit; K_m_bar; alpha_discrit];
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   selectAction
+    %
+    %   Select action with e-greedy policy
+    
+    function action = selectAction(this, q_vals)
+      % Select action with e-greedy policy
+      if (rand < this.config_.advice.e_greedy)
+        action = ceil(rand*this.config_.advice.num_actions);
+      else
+        % Pick best action
+        indices = find(max(q_vals) == q_vals);
+        if (length(indices) > 1)
+          % There is more than one optimal action
+          action = indices(ceil(rand*length(indices)));
+        else
+          % There is a single optimal action
+          action = indices;
+        end
+      end
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -446,38 +444,53 @@ classdef AdviceEnhancement < handle
     function resetForNextRun(this)
       % Save epoch data
       if(this.config_.sim.save_advice_data)
+        % For the mechanism metrics, simply divide each data field by the 
+        % number of iterations to obtain the epoch average
         num_iters = this.iters_ - this.epoch_start_iters_ + 1;
-        
-        % Average of data over this epoch
-        this.advice_data_.epoch.K_o_norm(this.epoch_) = sum(this.advice_data_.iter.K_o_norm(this.epoch_start_iters_:this.iters_))/num_iters;
-        this.advice_data_.epoch.K_hat_norm(this.epoch_) = sum(this.advice_data_.iter.K_hat_norm(this.epoch_start_iters_:this.iters_))/num_iters;
-        this.advice_data_.epoch.delta_K(this.epoch_) = sum(this.advice_data_.iter.delta_K(this.epoch_start_iters_:this.iters_))/num_iters;
-        this.advice_data_.epoch.beta_hat(this.epoch_) = sum(this.advice_data_.iter.beta_hat(this.epoch_start_iters_:this.iters_))/num_iters;
-        this.advice_data_.epoch.adviser_value(:, this.epoch_) = sum(this.advice_data_.iter.adviser_value(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.accept_action(:, this.epoch_) = sum(this.advice_data_.iter.accept_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.accept_delta_K(:, this.epoch_) = sum(this.advice_data_.iter.accept_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.accept_beta_hat(:, this.epoch_) = sum(this.advice_data_.iter.accept_beta_hat(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.reject_action(:, this.epoch_) = sum(this.advice_data_.iter.reject_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.reject_delta_K(:, this.epoch_) = sum(this.advice_data_.iter.reject_delta_K(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.reject_beta_hat(:, this.epoch_) = sum(this.advice_data_.iter.reject_beta_hat(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.skip_action(:, this.epoch_) = sum(this.advice_data_.iter.skip_action(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.accept_reward(:, this.epoch_) = sum(this.advice_data_.iter.accept_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.reject_reward(:, this.epoch_) = sum(this.advice_data_.iter.reject_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.skip_reward(:, this.epoch_) = sum(this.advice_data_.iter.skip_reward(:, this.epoch_start_iters_:this.iters_), 2)/num_iters;
-        this.advice_data_.epoch.round_reward(this.epoch_) = sum(this.advice_data_.iter.round_reward(this.epoch_start_iters_:this.iters_))/num_iters;
-        this.advice_data_.epoch.round_accept_flag(this.epoch_) = sum(this.advice_data_.iter.round_accept_flag(this.epoch_start_iters_:this.iters_))/num_iters;
-        this.advice_data_.epoch.round_accept_count(this.epoch_) = sum(this.advice_data_.iter.round_accept_count(this.epoch_start_iters_:this.iters_))/num_iters;
-        
-        % Manually extract the benevolent and evil advice instances
-        for i = 1:this.max_advisers_
-          evil_instances = this.advice_data_.iter.evil_advice(i, this.epoch_start_iters_:this.iters_);
-          accept_instances = this.advice_data_.iter.accept_action(i, this.epoch_start_iters_:this.iters_);
-          this.advice_data_.epoch.accept_action_benev(i, this.epoch_) = sum(accept_instances.*(~evil_instances))/num_iters;
-          this.advice_data_.epoch.accept_action_evil(i, this.epoch_) = sum(accept_instances.*evil_instances)/num_iters;
+        fields = fieldnames(this.mechanism_metrics_);
+        special_fields = {'advice_accepted', 'advisers_polled', 'reward'};
+        advice_iters = this.mechanism_metrics_.requested_advice;
+        for i = 1:length(fields)
+          % The special fields should be average over the number of
+          % iterations where advice was requested
+          if(isempty(find(ismember(special_fields, fields{i}), 1)))
+            divisor = num_iters;
+          else
+            divisor = advice_iters;
+          end
+          this.advice_data_.(fields{i})(:, this.epoch_) = this.mechanism_metrics_.(fields{i})/divisor;
         end
-        this.epoch_start_iters_ = this.iters_ + 1;
+        
+        % Adviser specific metrics need to be normalized to the usage of
+        % each adviser and action
+        this.advice_data_.accept_reward(:, this.epoch_) = this.adviser_metrics_.accept_reward./this.adviser_metrics_.accept_action;
+        this.advice_data_.accept_delta_K(:, this.epoch_) = this.adviser_metrics_.accept_delta_K./this.adviser_metrics_.accept_action;
+        this.advice_data_.accept_action(:, this.epoch_) = this.adviser_metrics_.accept_action./this.adviser_metrics_.adviser_usages;
+        this.advice_data_.accept_action_evil(:, this.epoch_) = this.adviser_metrics_.accept_action_evil./this.adviser_metrics_.adviser_usages;
+        
+        this.advice_data_.skip_reward(:, this.epoch_) = this.adviser_metrics_.skip_reward./this.adviser_metrics_.skip_action;
+        this.advice_data_.skip_action(:, this.epoch_) = this.adviser_metrics_.skip_action./this.adviser_metrics_.adviser_usages;
+        
+        this.advice_data_.cease_reward(:, this.epoch_) = this.adviser_metrics_.cease_reward./this.adviser_metrics_.cease_action;
+        this.advice_data_.cease_action(:, this.epoch_) = this.adviser_metrics_.cease_action./this.adviser_metrics_.adviser_usages;
+                
+        this.advice_data_.adviser_usages(:, this.epoch_) = this.adviser_metrics_.adviser_usages/sum(this.adviser_metrics_.adviser_usages);
+        
+        % When an adviser is not used, the normalized metrics will come out
+        % as NaN, which needs to be corrected to zero
+        fields = fieldnames(this.adviser_metrics_);
+        for i = 1:length(fields)
+          temp = this.advice_data_.(fields{i})(:, this.epoch_);
+          temp(isnan(temp)) = 0;
+          this.advice_data_.(fields{i})(:, this.epoch_) = temp;
+        end
+        
+        % Reset the metrics for the next round
+        this.initializeMetrics();
       end
-      % Increment epochs
+      
+      % Increment counters
+      this.epoch_start_iters_ = this.iters_ + 1;
       this.epoch_ = this.epoch_ + 1;
     end
     

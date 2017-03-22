@@ -103,10 +103,8 @@ classdef QLearning <handle
       [quality_now, experience_now] =  this.getUtility(state_now);
       [quality_future, ~] =  this.getUtility(state_future);
       
-      % Exponentially decrease learning rate with experience
-      alpha = this.alpha_max_*exp(-experience_now(action_id)/this.alpha_rate_);
-      
       % Standard Q-learning update rule [Boutilier, 1999]
+			alpha = this.calcLearningRate(experience_now(action_id));
       quality_update = quality_now(action_id) + alpha*(reward + this.gamma_*max(quality_future) - quality_now(action_id));
       
       % Update quality table
@@ -122,7 +120,7 @@ classdef QLearning <handle
     %   INPUTS
     %   state = Vector of state variables
     
-    function [quality, experience] = getUtility(this, state_vector)
+    function [quality, experience, alpha] = getUtility(this, state_vector)
       % Find row corresponding to keyVector
       key = this.getKey(state_vector, 1);
       % Make vector of entries for all actions
@@ -191,10 +189,27 @@ classdef QLearning <handle
     %   state_vector = Vector of state variables
     %   action_id = Action number [1,num_actions_]
     
-    function key= getKey(this, state_vector, action_id)
+    function key = getKey(this, state_vector, action_id)
       % Multipy by the encoder vector and add the action num to
       % convert to a unique key value
       key = action_id + this.encoder_vector_*state_vector;
+    end
+		
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   calcLearningRate
+    %
+    %   Determine the learning rate based on experience in the state
+    %
+    %   INPUTS
+    %   experience = Integer visitations to the current state
+		%
+		%   OUTPUTS
+		%   alpha = Learning rate
+    
+    function alpha = calcLearningRate(this, experience)
+      % Polynomial learning rate
+      alpha = this.alpha_max_/(experience + 1)^this.alpha_rate_;
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

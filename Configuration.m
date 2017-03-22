@@ -41,18 +41,18 @@ classdef Configuration < handle
       % Data Saving Parameters (turn off for speed)
       this.sim.save_simulation_data = true;  % Flag for recording and saving simulation data
       this.sim.save_IL_data = true;          % Flag for recording and saving individual learning data
-      this.sim.save_TL_data = true;          % Flag for recording and saving team learning data
+      this.sim.save_TL_data = false;          % Flag for recording and saving team learning data
       this.sim.save_advice_data = true;      % Flag for recording and saving advice data
       
       % Graphics Parameters
-      this.sim.show_live_graphics = true;   % Display the graphics during the simluation
+      this.sim.show_live_graphics = false;   % Display the graphics during the simluation
       
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       % Scenario Definition
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       % Primary Scenario Parameters
-      this.scenario.max_iterations = 2000;        % Maximum allowed iterations
+      this.scenario.max_iterations = 4000;        % Maximum allowed iterations
       this.scenario.num_robots = 4;               % Total number of robots
       this.scenario.num_obstacles = 4;            % Total number of obstacles
       this.scenario.num_targets = 4;              % Total number of targets
@@ -121,12 +121,12 @@ classdef Configuration < handle
       % Individual Learning Parameters
       this.IL.enabled = true;                 % Flag for if individual learning is enabled
       this.IL.learning_iterations = 1;        % Number of iterations between learning updates
-      this.IL.item_closer_reward = 0.5;       % Reward for robot moving item closer to collection zone
-      this.IL.item_further_reward = -0.3;     % Reward for robot moving item further from collection zone
-      this.IL.robot_closer_reward = 0.3;      % Reward for robot moving close to target item
-      this.IL.robot_further_reward = -0.1;    % Reward for robot moving further from target item
-      this.IL.return_reward = 10;             % Reward for retuning item to collection zone
-      this.IL.empty_reward_value = -0.01;     % Default reward if no other conditions met
+      this.IL.item_closer_reward = 5.0;       % Reward for robot moving item closer to collection zone
+      this.IL.item_further_reward = 0.1;     % Reward for robot moving item further from collection zone
+      this.IL.robot_closer_reward = 5.0;      % Reward for robot moving close to target item
+      this.IL.robot_further_reward = 0.1;    % Reward for robot moving further from target item
+      this.IL.return_reward = 100;             % Reward for retuning item to collection zone
+      this.IL.empty_reward_value = 1.00;     % Default reward if no other conditions met
       this.IL.reward_activation_dist = 0.10;  % Minimum distance to move to receive reward
       
       % Expert Parameters
@@ -137,7 +137,7 @@ classdef Configuration < handle
       % Policy parameters
       this.IL.policy = 'softmax';             % Options: "greedy", "e-greedy", "softmax"
       this.IL.e_greedy_epsilon = 0.10;        % Probability of selecting random action
-      this.IL.softmax_temp = 0.10;            % Temperature for softmax distribution
+      this.IL.softmax_temp = 1.0;            % Temperature for softmax distribution
       
       % Action and State Parameters
       this.IL.num_actions = 4;                % Number of actions for a robot
@@ -153,8 +153,8 @@ classdef Configuration < handle
       
       % Q-Learning Parameters
       this.IL.QL.gamma = 0.3;                 % Discount factor
-      this.IL.QL.alpha_max = 0.9;             % Maximum value of learning rate
-      this.IL.QL.alpha_rate = 5000;           % Coefficient in alpha update equation
+      this.IL.QL.alpha_max = 1.0;             % Maximum value of learning rate
+      this.IL.QL.alpha_rate = 1.0;            % Exponent in alpha update equation
       
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       % Team Learning
@@ -178,20 +178,17 @@ classdef Configuration < handle
       
       this.advice.enabled = false;                       % If advice should be used
       this.advice.num_advisers = inf;                    % Max number of advisers to use (inf means use all available)
-      this.advice.reject_reward_bias = 1.5;              % Coefficient applied to reject reward
       this.advice.QL.gamma = 0.3;                        % Q-learning discount factor
-      this.advice.QL.alpha_max = 0.9;                    % Q-learning maximum value of learning rate
-      this.advice.QL.alpha_rate = 20000;                 % Q-learning coefficient in alpha update equation
-      this.advice.QL.state_resolution = [100, 2, 2];     % Q-learning state resolution
+      this.advice.QL.alpha_max = 1.0;                    % Q-learning maximum value of learning rate
+      this.advice.QL.alpha_rate = 1.0;                   % Q-learning power in alpha update equation
+      this.advice.QL.state_resolution = [25, 2, 25];     % Q-learning state resolution
       this.advice.num_actions = 3;                       % Number of possible actions for the mechanism
       this.advice.e_greedy = 0.05;                       % Probability fo selecting a random action
-      this.advice.adviser_discount = 0.9;                % Value to discount advice from adviser
-      this.advice.adviser_value_alpha = 0.99;            % Rate update coefficient for adviser value
+      this.advice.accept_bias = 3.0;                     % Bias on reward signal for accepting advice
+      this.advice.adviser_trust_alpha = 0.99;            % Rate update coefficient for adviser value
       this.advice.evil_advice_prob = 0.0;                % Probability that an adviser will be evil
       this.advice.fake_advisers = false;                 % Flag for using fake advisers (as opposed to other robots)
       this.advice.fake_adviser_files = {'E100'; 'E10'};  % Filenames for fake adviser data (fromt he expert folder)
-      this.advice.all_accept = false;                    % Flag to override all actions with accept
-      this.advice.all_reject = false;                    % Flag to override all actions with reject
       
     end
   end

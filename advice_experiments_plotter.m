@@ -4,9 +4,21 @@
 %   -All mechanism metrics
 %   -All adviser metrics
 %   -Experiment 1
+%     -Mission Iterations vs Epochs (Advice, No Advice)
+%     -Iterations Standard Deviation (Advice, No Advice)
+%     -Team Average Reward vs Epochs (Advice, No Advice)
+%     -Mechanism reward
+%     -K and K_hat vs Epochs
+%     -Advice Requests, Advice Acceptance, Advisers Polled vs Epochs
 %   -Experiment 2
+%     -Accept action selection percentage vs Epochs (Benevolent, Evil)
 %   -Experiment 3a
+%     -Adviser trust vs Epochs (For each adviser)
+%     -Adviser usage vs Epochs (For each adviser)
 %   -Experiment 4
+%     -Mission Iterations vs Epochs (No Advice, Advice without supplementary, other advisers)
+%     -Iterations Standard Deviation vs Epochs (No Advice, Advice without supplementary, other advisers)
+%     -Team average reward vs Epochs (No Advice, Advice without supplementary, other advisers)
 %
 % The filenames have the form "folder_name/sim_name_", and a number is
 % appended to the filenames to load in the data for each simulation.
@@ -30,7 +42,7 @@ exp1_settings.ref_folder = 'ref/8N';
 
 exp2 = false;
 exp2_settings.sim_folder = sprintf('v%d_experiment_2', version);
-exp2_settings.ref_folder = 'ref/N';
+exp2_settings.ref_folder = 'ref/1N';
 
 exp3a = false;
 exp3a_settings.sim_folder = sprintf('v%d_experiment_3a', version);
@@ -70,21 +82,39 @@ if(exp1)
   
   fig_iter = figure;
   fig_reward = figure;
+  fig_std = figure;
   fig_iter.Name = 'Experiment 1';
   fig_reward.Name = 'Experiment 1';
+  fig_std.Name = 'Experiment 1';
   
-  % Plot advice iterations and reward
+  % Plot advice iterations, std, and reward
   dp.loadTeamData(exp1_settings.sim_folder);
   dp.plotIterations(fig_iter, 'Advice');
+  dp.plotIterationsStdDev(fig_std, 'Advice');
   dp.plotTeamReward(fig_reward, 'Advice');
   
-  % Plot no advice iterations and reward
+  % Plot no advice iterations, std, and reward
   dp.loadTeamData(exp1_settings.ref_folder);
   dp.plotIterations(fig_iter, 'No Advice');
+  dp.plotIterationsStdDev(fig_std, 'No Advice');
   dp.plotTeamReward(fig_reward, 'No Advice');
   
-  % Plot K_o and K_hat
   dp.loadAdviceData(exp1_settings.sim_folder);
+  
+  % Plot mechanism reward
+  fig_mech_reward = figure;
+  fig_mech_reward.Name = 'Experiment 1';
+  hold on
+  grid on
+  plot(dp.advice_plots_.x_vector, dp.advice_data_.reward)
+  if(titles_on)
+    title('Mechanism Reward');
+  end
+  xlabel(dp.advice_plots_.x_label_string);
+  ylabel('$$R$$', 'Interpreter', 'latex');
+  axis([1, dp.advice_plots_.x_length, 0.0, 1.0]);
+  
+  % Plot K_o and K_hat
   fig_K = figure;
   fig_K.Name = 'Experiment 1';
   hold on
@@ -100,18 +130,20 @@ if(exp1)
   my_legend = legend('$$\hat{K}$$', '$$K_o$$');
   set(my_legend, 'Interpreter', 'latex')
   
-  % Plot mechanism reward
-  fig_mech_reward = figure;
-  fig_mech_reward.Name = 'Experiment 1';
+  % Plot advice usages
+  fig_usage = figure;
+  fig_usage.Name = 'Experiment 1';
   hold on
   grid on
-  plot(dp.advice_plots_.x_vector, dp.advice_data_.round_reward)
-  if(titles_on)
-    title('Mechanism Reward');
-  end
+  plot(dp.advice_plots_.x_vector, 100*dp.advice_data_.requested_advice)
+  plot(dp.advice_plots_.x_vector, 100*dp.advice_data_.advisers_polled)
+  plot(dp.advice_plots_.x_vector, 100*dp.advice_data_.advice_accepted)
+  title('Advice and Adviser Usage');
   xlabel(dp.advice_plots_.x_label_string);
-  ylabel('$$R$$', 'Interpreter', 'latex');
-  axis([1, dp.advice_plots_.x_length, 0.0, 0.8]);
+  ylabel('Percentage of Occurance [%]');
+  axis([1, dp.advice_plots_.x_length, 0, 100]);
+  legend('Advice Requested', 'Advisers Polled', 'Advice Accepted')
+  
 end
 
 %% Experiment 2
@@ -126,14 +158,15 @@ if(exp2)
   fig_action.Name = 'Experiment 2';
   hold on
   grid on
-  plot(dp.advice_plots_.x_vector, dp.advice_data_.accept_action_benev(1, :)*100)
-  plot(dp.advice_plots_.x_vector, dp.advice_data_.accept_action_evil(1, :)*100)
-  legend('Benevolent', 'Evil');
+  plot(dp.advice_plots_.x_vector, 100*dp.advice_data_.accept_action_evil)
+  plot(dp.advice_plots_.x_vector, 100*(dp.advice_data_.accept_action - dp.advice_data_.accept_action_evil))
+  
+  legend('Evil', 'Benevolent');
   if(titles_on)
-    title([dp.advice_plots_.adviser_names{1}, ': Accept Action Selection Percentage']);
+    title([dp.advice_plots_.adviser_names{1}, ': Advice Acceptance Percentage']);
   end
   xlabel(dp.advice_plots_.x_label_string);
-  ylabel('Percentage [%]');
+  ylabel('Accept Percentage [%]');
   axis([1, dp.advice_plots_.x_length, 0, 50]);
   
   % OPTIONAL - Plot iterations
@@ -147,17 +180,24 @@ end
 
 %% Experiment 3a
 if(exp3a)
-  fig = figure;
-  fig.Name = 'Experiment 3a';
-  
   dp = DataProcessor();
   dp.advice_plots_.titles_on = titles_on;
   dp.loadAdviceData(exp3a_settings.sim_folder);
-  dp.plotAdviserTrust(fig);
+  
+  fig_trust = figure;
+  fig_trust.Name = 'Experiment 3a';
+  dp.plotAdviserTrust(fig_trust);
+  
+  fig_usage = figure;
+  fig_usage.Name = 'Experiment 3a';
+  dp.plotAdviserUsage(fig_usage);
   
   % Override the legend strings
   if(~isempty(exp3a_settings.legend_strings))
-    set(0,'CurrentFigure',gcf);
+    set(0,'CurrentFigure', fig_trust);
+    legend(exp3a_settings.legend_strings)
+    
+    set(0,'CurrentFigure', fig_usage);
     legend(exp3a_settings.legend_strings)
   end
 end
@@ -166,8 +206,10 @@ end
 if(exp4)
   fig_iter = figure;
   fig_reward = figure;
+  fig_std = figure;
   fig_iter.Name = 'Experiment 4';
   fig_reward.Name = 'Experiment 4';
+  fig_std.Name = 'Experiment 4';
   
   dp = DataProcessor();
   dp.team_plots_.titles_on = titles_on;
@@ -180,6 +222,7 @@ if(exp4)
       dp.loadTeamData(folder);
       name = dp.config_team_.advice.fake_adviser_files{1};
       dp.plotIterations(fig_iter, name);
+      dp.plotIterationsStdDev(fig_std, name);
       dp.plotTeamReward(fig_reward, name);
       i = i + 1;
     else
@@ -187,8 +230,20 @@ if(exp4)
     end
   end
   
+  % Advice without supplementary adviser
+  try
+    dp.loadTeamData(exp1_settings.sim_folder);
+    dp.plotIterations(fig_iter, 'Only Peer Advice');
+    dp.plotIterationsStdDev(fig_std, 'Only Peer Advice');
+    dp.plotTeamReward(fig_reward, 'Only Peer Advice');
+  catch
+    warning('Ignoring peer advice plot due to failure to load experiment 1 file');
+  end
+  
+  % No advice
   dp.loadTeamData(exp4_settings.ref_folder);
   dp.plotIterations(fig_iter, 'No Advice');
+  dp.plotIterationsStdDev(fig_std, 'No Advice');
   dp.plotTeamReward(fig_reward, 'No Advice');
 end
 

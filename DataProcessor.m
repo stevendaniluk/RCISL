@@ -8,12 +8,14 @@ classdef DataProcessor < handle
   %
   % There are methods for plotting individual data:
   %   -Team iterations
+  %   -Team standard deviations of iterations
   %   -Team average reward
-  %   -Adviser value
-  %   -Advice action ratios
+  %   -Adviser trust
+  %   -Adviser Usage distribution
+  %   -Advice/Adviser use
   %   -All advice mechanism metrics together (K values, reward,
-  %    adviser value)
-  %   -All adviser metrics together (action ratios, action delta K,
+  %    advice rate, adviser trust,)
+  %   -All adviser metrics together (action ratios, accept delta K,
   %    action reward)
   %
   % Expects filenames of the form "folder_name/sim_name_", with a number
@@ -25,61 +27,34 @@ classdef DataProcessor < handle
     config_team_;             % Configuration object for team data
     config_advice_;           % Configuration object for advice data
     robot_ = 1;               % Robot to use for individual plots
-    iter_smooth_pts_ = 500;   % Moving average points over iterations
     epoch_smooth_pts_ = 5;    % Moving average points over epochs
     
     % Team performance data
-    team_data_;
-    team_plots_;
+    team_plots_;  % Structure containing data about plot settings
+                  %   -iter_axis_max
+                  %   -stddev_axis_max
+                  %   -reward_axis_max
+                  %   -num_runs_iter
+                  %   -num_runs_stddev
+                  %   -num_runs_reward
+                  %   -axis_min_runs
+                  %   -iter_legend_strings
+                  %   -stddev_legend_strings
+                  %   -reward_legend_strings
+                  %   -titles_on
     
-    % team_plots_ struct fields:
-    %   -iter_axis_max
-    %   -reward_axis_max
-    %   -num_runs_iter
-    %   -num_runs_reward
-    %   -axis_min_runs
-    %   -iter_legend_strings
-    %   -reward_legend_strings
-    %   -titles_on
-    
-    % team_data_ struct fields:
-    %   -iterations
-    %   -time
-    %   -avg_reward
-    %   -total_effort
-    %   -total_reward
-    
+    team_data_;   % Structure of team data to plot (see ExecutiveSimulation class)
+        
     % Advice data
-    advice_plots_;
-    advice_data_;
+    advice_plots_;  % Structure containing data about plot settings
+                    %   -num_advisers
+                    %   -x_label_string
+                    %   -x_vector
+                    %   -x_length
+                    %   -adviser_names
+                    %   -titles_on
     
-    % advice_plots_ struct fields:
-    %   -num_advisers
-    %   -x_label_string
-    %   -x_vector
-    %   -x_length
-    %   -adviser_names
-    %   -plot_by_epoch
-    %   -plot_iter_sim_num
-    %   -titles_on
-    
-    % advice_data_ struct elemnts:
-    %   -K_o_norm
-    %   -K_hat_norm
-    %   -delta_K
-    %   -beta_hat
-    %   -adviser_value
-    %   -accept_action_benev
-    %   -accept_action_evil
-    %   -accept_delta_K
-    %   -accept_beta_hat
-    %   -reject_delta_K
-    %   -reject_beta_hat
-    %   -accept_reward
-    %   -reject_reward
-    %   -advice_reward
-    %   -round_accept_flag
-    %   -round_accept_count
+    advice_data_;   % Structure of advice data to plot (see advice class)
   end
   
   methods
@@ -97,18 +72,18 @@ classdef DataProcessor < handle
     
     function this = DataProcessor(type, folder)
       % Set some default parameters
-      this.team_plots_.iter_axis_max = 1500;
-      this.team_plots_.reward_axis_max = 0.05;
+      this.team_plots_.iter_axis_max = 2000;
+      this.team_plots_.stddev_axis_max = 1000;
+      this.team_plots_.reward_axis_max = 2.5;
       this.team_plots_.num_runs_iter = [];
+      this.team_plots_.num_runs_stddev = [];
       this.team_plots_.num_runs_reward = [];
       this.team_plots_.axis_min_runs = true;
       this.team_plots_.iter_legend_strings = [];
+      this.team_plots_.stddev_legend_strings = [];
       this.team_plots_.reward_legend_strings = [];
       this.team_plots_.titles_on = true;
-      this.advice_plots_.plot_by_epoch = true;
-      this.advice_plots_.plot_iter_sim_num = 1;
       this.advice_plots_.titles_on = true;
-      
       
       if nargin == 2
         % Type and folder name provided, proceed to loading the data
@@ -145,6 +120,9 @@ classdef DataProcessor < handle
       load(['results/', filename, sprintf('%d', 1), '/', 'simulation_data']);
       this.team_data_ = simulation_data;
       
+      % Store iterations to compute standard deviation
+      iters(1, :) = simulation_data.iterations;
+      
       num_sims = 1;
       while(true)
         try
@@ -152,12 +130,18 @@ classdef DataProcessor < handle
         catch
           break
         end
-        num_sims = num_sims + 1;
         this.team_data_ = this.addStructFields(this.team_data_, simulation_data);
+        num_sims = num_sims + 1;
+        
+        % Store iterations to compute standard deviation
+        iters(num_sims, :) = simulation_data.iterations;
       end
       
       % Divide by number of sims to average
       this.team_data_ = this.multiplyStructFields(this.team_data_, 1/num_sims);
+      
+      % Add in the standard deviation
+      this.team_data_.iterations_stddev = std(iters, 0, 1);
       
       % Smooth the data
       this.team_data_ = this.smoothStructFields(this.team_data_, this.epoch_smooth_pts_);
@@ -183,55 +167,32 @@ classdef DataProcessor < handle
       load(['results/', filename, sprintf('%d', 1), '/', 'configuration']);
       this.config_advice_ = config;
       
-      % Add up all the advisers
-      this.advice_plots_.num_advisers = this.config_advice_.scenario.num_robots - 1;
-      if (this.config_advice_.advice.fake_advisers)
-        this.advice_plots_.num_advisers = this.advice_plots_.num_advisers + length(this.config_advice_.advice.fake_adviser_files);
-      end
-      
       % Load the advice data
       advice_data = [];
-      if (this.advice_plots_.plot_by_epoch)
-        
-        load(['results/', filename, sprintf('%d', 1), '/', 'advice_data']);
-        this.advice_data_ = advice_data{this.robot_}.epoch;
-        
-        % Loop through remaining sims and add up data
-        num_sims = 1;
-        while true
-          try
-            load(['results/', filename, sprintf('%d', num_sims + 1), '/', 'advice_data']);
-          catch
-            break
-          end
-          num_sims = num_sims + 1;
-          this.advice_data_ = this.addStructFields(this.advice_data_, advice_data{this.robot_}.epoch);
+      load(['results/', filename, sprintf('%d', 1), '/', 'advice_data']);
+      this.advice_data_ = advice_data{this.robot_};
+      this.advice_plots_.num_advisers = this.advice_data_.num_advisers;
+      
+      % Loop through remaining sims and add up data
+      num_sims = 1;
+      while true
+        try
+          load(['results/', filename, sprintf('%d', num_sims + 1), '/', 'advice_data']);
+        catch
+          break
         end
-        
-        % Divide by number of sims to average
-        this.advice_data_ = this.multiplyStructFields(this.advice_data_, 1/num_sims);
-        
-        smooth_pts = this.epoch_smooth_pts_;
-      else
-        load(['results/', filename, sprintf('%d', this.advice_plots_.plot_iter_sim_num), '/', 'advice_data']);
-        this.advice_data_ = advice_data{this.robot_}.iter;
-        
-        % Ignore benevolent vs evil accepts
-        this.advice_data_.accept_action_benev = this.advice_data_.accept_action;
-        this.advice_data_.accept_action_evil = this.advice_data_.accept_action;
-        
-        smooth_pts = this.iter_smooth_pts_;
+        num_sims = num_sims + 1;
+        this.advice_data_ = this.addStructFields(this.advice_data_, advice_data{this.robot_});
       end
+      
+      % Divide by number of sims to average
+      this.advice_data_ = this.multiplyStructFields(this.advice_data_, 1/num_sims);
       
       % Smooth the data
-      this.advice_data_ = this.smoothStructFields(this.advice_data_, smooth_pts);
+      this.advice_data_ = this.smoothStructFields(this.advice_data_, this.epoch_smooth_pts_);
       
       % Make vector of epochs/iterations to plot data against
-      if (this.advice_plots_.plot_by_epoch)
-        this.advice_plots_.x_label_string = 'Epochs';
-      else
-        this.advice_plots_.x_label_string = 'Iterations';
-      end
+      this.advice_plots_.x_label_string = 'Epochs';
       this.advice_plots_.x_vector = 1:length(this.advice_data_.K_o_norm);
       this.advice_plots_.x_length = length(this.advice_plots_.x_vector);
       
@@ -250,7 +211,6 @@ classdef DataProcessor < handle
           j = j + 1;
         end
       end
-      
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -351,6 +311,51 @@ classdef DataProcessor < handle
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
+    %   plotIterationsStdDev
+    %
+    %   Plots the standard deviation of team iterations.
+    %
+    %   INPUTS:
+    %     fig - Figure handle to plot onto
+    %     name - Name to append to the legend (OPTIONAL
+    %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
+    
+    function plotIterationsStdDev(this, fig, name, subplot_vector)
+      set(0,'CurrentFigure',fig);
+      
+      % Handle subplots
+      if(nargin == 4)
+        subplot(subplot_vector(1), subplot_vector(2), subplot_vector(3));
+      end
+      
+      % Plot the data
+      hold on
+      grid on
+      this.team_plots_.num_runs_stddev(end + 1) = length(this.team_data_.iterations);
+      plot(1:this.team_plots_.num_runs_iter(end), this.team_data_.iterations_stddev);
+      
+      if(this.team_plots_.titles_on)
+        title('Standard Deviation of Mission Iterations');
+      end
+      xlabel('Epochs');
+      ylabel('1 STD of Iterations');
+      if(this.team_plots_.axis_min_runs)
+        axis([1, min(this.team_plots_.num_runs_stddev), 0, this.team_plots_.stddev_axis_max]);
+      else
+        axis([1, max(this.team_plots_.num_runs_stddev), 0, this.team_plots_.stddev_axis_max]);
+      end
+      
+      % Add legend strings, if provided
+      if(nargin >= 2)
+        this.team_plots_.stddev_legend_strings{end + 1} = name;
+      else
+        this.team_plots_.stddev_legend_strings = [];
+      end
+      legend(this.team_plots_.stddev_legend_strings)
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
     %   plotTeamReward
     %
     %   Plots the team average reward. Legend names are persistent, so
@@ -399,15 +404,20 @@ classdef DataProcessor < handle
     %   plotAdviceMechanismMetrics
     %
     %   Plots all metrics for the advice mechanism:
-    %     -K_o and K_hat
-    %     -Mechanism reward
-    %     -Advice usage (accept count and accept flag)
+    %     -Figure A
+    %       -K_o and K_hat
+    %       -Mechanism reward
+    %       -Advice rate
+    %     -Figure B
+    %       -Advice request %, Adviser poll %, Advice accept %
+    %       -Adviser trust
+    %       -Adviser usage
     
     function plotAdviceMechanismMetrics(this)
-      fig = figure;
-      
-      % Original and enhanced knowledge
-      subplot(4,1,1)
+      fig_a = figure;
+            
+      % Original and advised knowledge
+      subplot(3,1,1)
       hold on
       plot(this.advice_plots_.x_vector, this.advice_data_.K_hat_norm)
       plot(this.advice_plots_.x_vector, this.advice_data_.K_o_norm)
@@ -419,27 +429,40 @@ classdef DataProcessor < handle
       set(my_legend, 'Interpreter', 'latex')
       
       % Mechanism reward
-      subplot(4,1,2)
-      plot(this.advice_plots_.x_vector, this.advice_data_.round_reward)
+      subplot(3,1,2)
+      plot(this.advice_plots_.x_vector, this.advice_data_.reward)
       title('Mechanism Reward');
       xlabel(this.advice_plots_.x_label_string);
       ylabel('$$R$$', 'Interpreter', 'latex');
+      axis([1, this.advice_plots_.x_length, 0.0, 2.0]);
+      
+      % Advice rate
+      subplot(3,1,3)
+      plot(this.advice_plots_.x_vector, this.advice_data_.advice_rate)
+      title('Advice Rate For Accepting Advice');
+      xlabel(this.advice_plots_.x_label_string);
+      ylabel('Advice Rate');
       axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
       
-      % Round accept count
-      subplot(4,1,3)
+      fig_b = figure;
+      
+      % Advice Usage
+      subplot(3,1,1)
       hold on
-      plot(this.advice_plots_.x_vector, 100*this.advice_data_.round_accept_count/this.advice_plots_.num_advisers)
-      plot(this.advice_plots_.x_vector, 100*this.advice_data_.round_accept_flag)
+      plot(this.advice_plots_.x_vector, 100*this.advice_data_.requested_advice)
+      plot(this.advice_plots_.x_vector, 100*this.advice_data_.advisers_polled)
+      plot(this.advice_plots_.x_vector, 100*this.advice_data_.advice_accepted)
       title('Advice and Adviser Usage');
       xlabel(this.advice_plots_.x_label_string);
-      ylabel('Count');
+      ylabel('Percentage of Occurance [%]');
       axis([1, this.advice_plots_.x_length, 0, 100]);
-      legend('Advisers Used', 'Advice Usage')
+      legend('Advice Requested', 'Advisers Polled', 'Advice Accepted')
       
-      % Adviser value
-      this.plotAdviserValue(fig, [4,1,4])
+      % Adviser trust
+      this.plotAdviserTrust(fig_b, [3,1,2])
       
+      % Adviser usage
+      this.plotAdviserUsage(fig_b, [3,1,3])
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -447,45 +470,60 @@ classdef DataProcessor < handle
     %   plotAdviserMetrics
     %
     %   Plots all metrics for each individual adviser:
-    %     -Action ratios
-    %     -Delta K (for accept and reject actions)
-    %     -Reward (for accept and reject actions)
+    %     -Accept/Skip/Cease action percentages
+    %     -Delta K (for accept action)
+    %     -Reward for accept/skip/cease actions
     
     function plotAdviserMetrics(this)
       for i = 1:this.advice_plots_.num_advisers
-        fig = figure;
+        figure;
         
         % Action ratios
-        this.plotAdviceActionRatios(fig, i, [3,1,1]);
+        subplot(3,1,1)
+        hold on
+        if (this.config_advice_.advice.evil_advice_prob > 0)
+          plot(this.advice_plots_.x_vector, 100*this.advice_data_.accept_action_evil(i, :))
+          plot(this.advice_plots_.x_vector, 100*(this.advice_data_.accept_action(i, :) - this.advice_data_.accept_action_evil(i, :)))
+          plot(this.advice_plots_.x_vector, 100*this.advice_data_.skip_action(i, :))
+          plot(this.advice_plots_.x_vector, 100*this.advice_data_.cease_action(i, :))
+          legend('Accept-Evil', 'Accept-Benevolent', 'Skip', 'Cease');
+        else
+          plot(this.advice_plots_.x_vector, 100*this.advice_data_.accept_action(i, :))
+          plot(this.advice_plots_.x_vector, 100*this.advice_data_.skip_action(i, :))
+          plot(this.advice_plots_.x_vector, 100*this.advice_data_.cease_action(i, :))
+          legend('Accept', 'Skip', 'Cease');
+        end
+        title([this.advice_plots_.adviser_names{i}, ': Action Selection Percentage']);
+        xlabel(this.advice_plots_.x_label_string);
+        ylabel('Selection Percentage [%]');
+        axis([1, this.advice_plots_.x_length, 0, 100]);
         
         % Change in K for accept and reject actions
         subplot(3,1,2)
         hold on
         plot(this.advice_plots_.x_vector, this.advice_data_.accept_delta_K(i, :))
-        plot(this.advice_plots_.x_vector, this.advice_data_.reject_delta_K(i, :))
-        title([this.advice_plots_.adviser_names{i}, ': Change in K for Accepting and Rejecting Advice']);
+        title([this.advice_plots_.adviser_names{i}, ': Change in K for Accepting Advice']);
         xlabel(this.advice_plots_.x_label_string);
         ylabel('\Delta K');
-        axis([1, this.advice_plots_.x_length, 0.0, 0.05]);
-        legend('Accept', 'Reject');
-        ref_line = refline([0, 0]);
-        ref_line.Color = 'r';
-        ref_line.LineStyle = '--';
+        axis([1, this.advice_plots_.x_length, 0.0, 0.20]);
+        %ref_line = refline([0, 0]);
+        %ref_line.Color = 'r';
+        %ref_line.LineStyle = '--';
         
         % Action rewards
         subplot(3,1,3)
         hold on
         plot(this.advice_plots_.x_vector, this.advice_data_.accept_reward(i, :))
-        plot(this.advice_plots_.x_vector, this.advice_data_.reject_reward(i, :))
         plot(this.advice_plots_.x_vector, this.advice_data_.skip_reward(i, :))
+        plot(this.advice_plots_.x_vector, this.advice_data_.cease_reward(i, :))
         title([this.advice_plots_.adviser_names{i}, ': Reward For Each Action']);
         xlabel(this.advice_plots_.x_label_string);
         ylabel('R');
-        axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
-        legend('Accept', 'Reject', 'Skip');
-        ref_line = refline([0, 0]);
-        ref_line.Color = 'r';
-        ref_line.LineStyle = '--';
+        axis([1, this.advice_plots_.x_length, 0.0, 3.0]);
+        legend('Accept', 'Skip', 'Cease');
+        %ref_line = refline([0, 0]);
+        %ref_line.Color = 'r';
+        %ref_line.LineStyle = '--';
       end
       
     end
@@ -510,7 +548,7 @@ classdef DataProcessor < handle
       end
       
       % Plot the data
-      plot(this.advice_plots_.x_vector, this.advice_data_.adviser_value);
+      plot(this.advice_plots_.x_vector, this.advice_data_.adviser_trust);
       grid on
       legend_string = char(this.advice_plots_.adviser_names);
       if(this.advice_plots_.titles_on)
@@ -518,52 +556,41 @@ classdef DataProcessor < handle
       end
       xlabel(this.advice_plots_.x_label_string);
       ylabel('Trust \omega');
-      axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
+      axis([1, this.advice_plots_.x_length, 0.0, 1.00]);
       legend(legend_string);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
-    %   plotAdviceActionRatios
+    %   plotAdviserUsage
     %
-    %   Plots the advice action ratios for a specific adviser. Will
-    %   plot the beenvolent and evil advice accept ratio when the
-    %   configuration parameter advice_evil_advice_prob is ~-0, and
-    %   will plot only the accept ratio otherwise.
+    %   Plots the usgae of each adviser. Legend names are
+    %   taken from the property advice_plots_.adviser_names.
     %
     %   INPUTS:
     %     fig - Figure handle to plot onto
-    %     adviser - Id of the adviser to plot for
     %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
     
-    function plotAdviceActionRatios(this, fig, adviser, subplot_vector)
+    function plotAdviserUsage(this, fig, subplot_vector)
       set(0,'CurrentFigure',fig);
       
       % Handle subplots
-      if(nargin == 4)
+      if(nargin == 3)
         subplot(subplot_vector(1), subplot_vector(2), subplot_vector(3));
       end
       
       % Plot the data
-      hold on
-      if (this.advice_plots_.plot_by_epoch && this.config_advice_.advice_evil_advice_prob > 0)
-        plot(this.advice_plots_.x_vector, this.advice_data_.accept_action_evil(adviser, :)*100)
-        plot(this.advice_plots_.x_vector, this.advice_data_.accept_action_benev(adviser, :)*100)
-        plot(this.advice_plots_.x_vector, this.advice_data_.reject_action(adviser, :)*100)
-        plot(this.advice_plots_.x_vector, this.advice_data_.skip_action(adviser, :)*100)
-        legend('Accept-Evil', 'Accept-Benevolent', 'Reject', 'Skip');
-      else
-        plot(this.advice_plots_.x_vector, this.advice_data_.accept_action(adviser, :)*100)
-        plot(this.advice_plots_.x_vector, this.advice_data_.reject_action(adviser, :)*100)
-        plot(this.advice_plots_.x_vector, this.advice_data_.skip_action(adviser, :)*100)
-        legend('Accept', 'Reject', 'Skip');
+      plot(this.advice_plots_.x_vector, 100*this.advice_data_.adviser_usages)
+      grid on
+      if(this.advice_plots_.titles_on)
+        title('Usage Distribution of Advisers');
       end
-      title([this.advice_plots_.adviser_names{adviser}, ': Accept Action Selection Percentage']);
       xlabel(this.advice_plots_.x_label_string);
-      ylabel('Percentage [%]');
-      axis([1, this.advice_plots_.x_length, 0, 100]);
+      ylabel('Usage [%]');
+      axis([1, this.advice_plots_.x_length, 0.0, 100]);
+      legend(char(this.advice_plots_.adviser_names));
     end
-    
+        
   end
   
 end

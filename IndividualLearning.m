@@ -33,10 +33,12 @@ classdef IndividualLearning < handle
                          %   Same fields as reward_data_
     epoch_reward_;       % Counter for total reward this epoch
     state_data_;         % Struct for storing state data at each iteration
-                         %   state vector - Discritized vector for current state
+                         %   state_vector - Discritized vector for current state
                          %   utility - Utility values for each action
                          %   reward - Reward received from the action
                          %   action - Selected action
+                         %   learning_rate - Q-Learning learning rate
+                         %   experience - Maximum experience in the state
   end
   
   methods (Access = public)
@@ -98,6 +100,8 @@ classdef IndividualLearning < handle
         this.state_data_.state_vector = [];
         this.state_data_.action = [];
         this.state_data_.reward = [];
+        this.state_data_.learning_rate = [];
+        this.state_data_.experience = [];
       end
       
       % Instantiate advice (if needed)
@@ -117,17 +121,20 @@ classdef IndividualLearning < handle
     
     function action_id = getAction(this)
       % Get our quality and experience from state vector
-      [quality, ~] = this.q_learning_.getUtility(this.state_vector_);
+      [quality, experience] = this.q_learning_.getUtility(this.state_vector_);
+      alpha = this.q_learning_.calcLearningRate(mean(experience));
       
       % Save the state data
       if(this.config_.sim.save_IL_data)
         this.state_data_.q_vals(size(this.state_data_.q_vals, 1) + 1, :) = quality';
+        this.state_data_.learning_rate(size(this.state_data_.learning_rate, 1) + 1, :) = alpha;
+        this.state_data_.experience(size(this.state_data_.experience, 1) + 1, :) = max(experience);
       end
       
       % Get advised action (if necessary)
       if (this.config_.advice.enabled)
         % Get advice from advisor (overwrite quality and experience)
-        result = this.advice_.getAdvice(this.state_vector_, quality);
+        result = this.advice_.getAdvice(this.state_vector_, quality, alpha);
         
         if length(result) ~= 1
           % Advice has returned Q values

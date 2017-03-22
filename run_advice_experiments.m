@@ -1,63 +1,52 @@
 %% Script for running all advice mechanism experiments
 %
-% Experiment 1: Not require advisers with full knowledge of the task
+% Experiment 1: Use peers as advisers
 %   Setup:
 %     - 8 novice agents learning together
 %     - Compare team performance with advice to without advice
-%   Metrics:
-%     - Team iterations
-%     - Team total reward
 %
-% Experiment 2: Distinguish between good and bad advice at each instant
+% Experiment 2: Randomly subject an agent to bad advice
 %   Setup:
 %     - One novice agent
-%     - One expert adviser (of the same type) that provides evil advice with probability e
-%   Metrics:
-%     - Acceptance and rejection ratios for the advisers advice
-%         - Benevolent advice vs. evil advice
-%     - Team iterations
+%     - One expert adviser (of the same type) that provides evil advice 
+%       with probability e
 %
-% Experiment 3: Compatible with advisers of varying skill level and similarity
+% Experiment 3: Use advisers of varying skill level and similarity
 %   Setup:
 %     - Part a) Varying skill
 %         - One novice S-NR
-%         - S-NR experts trained for 5, 20, 80, and 320 epochs
+%         - S-NR experts trained for 10, 100, and 1000 epochs
 %     - Part b) Varying similarity
 %         - One novice S-NR
 %         - One expert of each type (S-NR, S-R, F-NR, F-R)
-%   Metrics:
-%     - Adviser acceptance rates
 %
-% Experiment 4: Jumpstart novices with a single expert
+% Experiment 4: Supplement a team of novices with an additional partially trained adviser
 %   Setup:
 %     - 8 novices
 %     - Novices have access to each other for advice, plus one fake expert
-%       trained for X epochs
-%     - For each expert a seperate test is be performed (labeled a, b, etc.)
-%   Metrics:
-%     - Team iterations
-%     - Team total reward
+%       trained for either 10, 100, or 1000 epochs
+%     - For each expert a seperate test is be performed (labeled 1, 2, etc.)
 
 clear
 clc
 num_sims = 10;
-num_runs = 100;
+num_runs = 200;
 version = 1;
 
 % Flags and settings for each experiment:
-exp1 = true;
+exp1 = false;
 exp1_settings.num_robots = 8;
 
-exp2 = true;
+exp2 = false;
 exp2_settings.evil_advice_prob = 0.2;
-exp2_settings.fake_adviser_files = {'E100'};
+exp2_settings.fake_adviser_files = {'E1000'};
 
-exp3a = true;
-exp3a_settings.fake_adviser_files = {'E1000'; 'E100'; 'E10'; 'E1'};
+exp3a = false;
+exp3a_settings.fake_adviser_files = {'E1000', 'E100', 'E10'};
 
-exp4 = true;
+exp4 = false;
 exp4_settings.num_robots = 8;
-exp4_settings.fake_adviser_files = {'E100'; 'E50'; 'E10'};
+exp4_settings.fake_adviser_files = {'E1000', 'E100', 'E10'};
 
 %% Set the initial config data
 % Each case will set, and unset, their params
