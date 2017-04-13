@@ -187,6 +187,7 @@ classdef AdviceEnhancement < handle
       K_o = this.convertPToK(p_o);
       K_o_initial = K_o;
       K_hat = K_o;
+      K_o_norm = sum(abs(K_o));
       
       % Determine order of advisers for this round
       % (when an adviser's rate is zero, randomize it to ensure
@@ -225,9 +226,6 @@ classdef AdviceEnhancement < handle
           K_m_unit = max(0, K_m/sqrt(sum(K_m.^2)));
           beta = sum(K_o_unit.*K_m_unit);
           this.adviser_trusts_(m) = this.config_.advice.adviser_trust_alpha*this.adviser_trusts_(m) + (1 - this.config_.advice.adviser_trust_alpha)*beta;
-          
-          % Set the initial knowledge level
-          K_o_norm = sum(abs(K_o));
           
           % Handle each action
           poll_another_adviser = false;
@@ -301,6 +299,12 @@ classdef AdviceEnhancement < handle
           % Set K and state values for the next round
           state1 = state2;
           K_o = K_hat;
+        end
+      else
+        % Update mechanism Q-learning
+        reward = (1 + K_o_norm)^2;
+        if (this.iters_ > 1)
+          this.q_learning_.learn(state_initial, state_initial, this.cease_, reward);
         end
       end
       
