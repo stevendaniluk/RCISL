@@ -35,6 +35,9 @@ classdef WorldState < handle
     goal_;       % Structure containing data for the goal
                  %   x - X position (true)
                  %   y - Y position (true)
+    terrain_;    % Structure containing data for the rough terrain
+                 %   x - X position of centre (true)
+                 %   y - Y position of centre (true)
   end
   
   methods
@@ -180,6 +183,31 @@ classdef WorldState < handle
       
       this.goal_.x = valid_positions(index, 1);
       this.goal_.y = valid_positions(index, 2);
+      
+      % Randomly place the rough terrain (can be placed anywhere)
+      % Utilizes the previously formed random positions
+      if(this.config_.scenario.terrain_on)
+        terrain_valid = false;
+        i = 1;
+        while(~terrain_valid)
+          temp_terrain_pos = random_positions(i, :);
+          
+          x_lower_valid = temp_terrain_pos(1) > 0.5*this.config_.scenario.terrain_size;
+          x_upper_valid = (this.config_.scenario.world_width - temp_terrain_pos(1)) > 0.5*this.config_.scenario.terrain_size;
+          y_lower_valid = temp_terrain_pos(2) > 0.5*this.config_.scenario.terrain_size;
+          y_upper_valid = (this.config_.scenario.world_height - temp_terrain_pos(2)) > 0.5*this.config_.scenario.terrain_size;
+          
+          if(x_lower_valid && x_upper_valid && y_lower_valid && y_upper_valid)
+            % Set the valid position
+            this.terrain_.x = temp_terrain_pos(1);
+            this.terrain_.y = temp_terrain_pos(2);
+            break;
+          end
+          
+          i = i + 1;
+        end
+      end
+      
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -40,9 +40,9 @@ classdef Configuration < handle
       
       % Data Saving Parameters (turn off for speed)
       this.sim.save_simulation_data = true;  % Flag for recording and saving simulation data
-      this.sim.save_IL_data = true;          % Flag for recording and saving individual learning data
+      this.sim.save_IL_data = false;          % Flag for recording and saving individual learning data
       this.sim.save_TL_data = false;          % Flag for recording and saving team learning data
-      this.sim.save_advice_data = true;      % Flag for recording and saving advice data
+      this.sim.save_advice_data = false;      % Flag for recording and saving advice data
       
       % Graphics Parameters
       this.sim.show_live_graphics = false;   % Display the graphics during the simluation
@@ -58,15 +58,18 @@ classdef Configuration < handle
       this.scenario.num_targets = 4;              % Total number of targets
       
       % World Parameters
-      this.scenario.world_height = 10;            % World Y dimension [meters]
-      this.scenario.world_width  = 10;            % World X dimension [meters]
-      this.scenario.grid_size = 0.5;              % Discritization of world into grid for random placement [meters]
-      this.scenario.random_pos_padding = 1.0;     % Padding distance between randomly placed objects [meters]
-      this.scenario.random_border_padding = 1.0;  % Padding distance between randomly placed objects and the borders [meters]
-      this.scenario.robot_size = 0.125;           % Diameter of robots [meters]
-      this.scenario.obstacle_size = 0.5;          % Diameter of obstacles [meters]
-      this.scenario.target_size = 0.25;           % Diameter of targets [meters]
-      this.scenario.goal_size = 1;                % Diameter of collection zone [meters]
+      this.scenario.world_height = 10;               % World Y dimension [meters]
+      this.scenario.world_width  = 10;               % World X dimension [meters]
+      this.scenario.grid_size = 0.5;                 % Discritization of world into grid for random placement [meters]
+      this.scenario.random_pos_padding = 1.0;        % Padding distance between randomly placed objects [meters]
+      this.scenario.random_border_padding = 1.0;     % Padding distance between randomly placed objects and the borders [meters]
+      this.scenario.robot_size = 0.125;              % Diameter of robots [meters]
+      this.scenario.obstacle_size = 0.5;             % Diameter of obstacles [meters]
+      this.scenario.target_size = 0.25;              % Diameter of targets [meters]
+      this.scenario.goal_size = 1;                   % Diameter of collection zone [meters]
+      this.scenario.terrain_on = true;               % Flag for if rough terrain is used
+      this.scenario.terrain_size = 3.0;              % Square size of rough terrain [meters]
+      this.scenario.terrain_fractional_speed = 0.3;  % Reduction is speed when in rough terrain
       
       % Robot Parameters
       
@@ -74,6 +77,7 @@ classdef Configuration < handle
       type_1.step_size = 0.30;
       type_1.rotate_size = pi*(2/9);
       type_1.strong = false;
+      type_1.rugged = false;
       type_1.reach = 0.5;
       type_1.label = 'WS';
       
@@ -81,6 +85,7 @@ classdef Configuration < handle
       type_2.step_size = 0.40;
       type_2.rotate_size = pi*(3/9);
       type_2.strong = false;
+      type_2.rugged = true;
       type_2.reach = 0.5;
       type_2.label = 'WF';
       
@@ -88,6 +93,7 @@ classdef Configuration < handle
       type_3.step_size = 0.30;
       type_3.rotate_size = pi*(2/9);
       type_3.strong = true;
+      type_3.rugged = false;
       type_3.reach = 0.5;
       type_3.label = 'SS';
       
@@ -95,6 +101,7 @@ classdef Configuration < handle
       type_4.step_size = 0.40;
       type_4.rotate_size = pi*(3/9);
       type_4.strong = true;
+      type_4.rugged = true;
       type_4.reach = 0.5;
       type_4.label = 'SF';
       
@@ -142,13 +149,19 @@ classdef Configuration < handle
       % Action and State Parameters
       this.IL.num_actions = 4;                % Number of actions for a robot
       this.IL.state_resolution = ...          % Number of discritizations for each state variable
-        [3;          % Goal Distance
+        [3;          % Goal Distance,
          5;          % Goal Angle
          3;          % Target Type
          3;          % Target Distance
          5;          % Target Angle
          3;          % Obstacle Distance
          5];         % Obstacle Angle
+      if(this.scenario.terrain_on)
+        % Append rough terrain state variables
+        this.IL.state_resolution = [this.IL.state_resolution;
+                                    3;  % Terrain distance
+                                    5]; % Terrain angle
+      end
       this.IL.look_ahead_dist = 2.0;          % Max distance used for state discritizations
       
       % Q-Learning Parameters

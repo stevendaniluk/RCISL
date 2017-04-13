@@ -70,7 +70,19 @@ classdef Physics < handle
     %   distance = Distance to move
     %   rotation = Angle to rotate
     
-    function MoveRobot(this, world_state, robot_state, distance, rotation)
+    function MoveRobot(this, world_state, robot_state, prop, distance, rotation)
+      % First account for rough terrain and non-rugged robots
+      if(this.config_.scenario.terrain_on && ~prop.rugged)
+        % Check if within boundaries
+        x_inside_terrain = abs(world_state.robots_(robot_state.id_).x - world_state.terrain_.x) < 0.5*this.config_.scenario.terrain_size;
+        y_inside_terrain = abs(world_state.robots_(robot_state.id_).y - world_state.terrain_.y) < 0.5*this.config_.scenario.terrain_size;
+        if(x_inside_terrain && y_inside_terrain)
+          % Slow the movement
+          distance = distance*this.config_.scenario.terrain_fractional_speed;
+          rotation = rotation*this.config_.scenario.terrain_fractional_speed;
+        end
+      end
+      
       % Can assign the new orientation, since it will always be valid
       world_state.robots_(robot_state.id_).theta = mod(world_state.robots_(robot_state.id_).theta + rotation, 2*pi);
       

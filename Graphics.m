@@ -21,9 +21,17 @@ if(config.sim.show_live_graphics)
   % Display current iteration
   text(1, 9, sprintf('%d', world_state.mission_.iters));
   
+  % Draw the rough terrain
+  if(config.scenario.terrain_on)
+    terrain_pos = [world_state.terrain_.x - 0.5*config.scenario.terrain_size;
+      world_state.terrain_.y - 0.5*config.scenario.terrain_size;
+      config.scenario.terrain_size;
+      config.scenario.terrain_size];
+    rectangle('Position', terrain_pos, 'FaceColor', [0.8, 0.8, 0.8]);
+  end
+  
   % Draw the robots
   for i=1:config.scenario.num_robots
-    
     % Create arrow to represent each robot's true position
     arrow = zeros(5,2);
     arrow(:, 1) = world_state.robots_(i).x;
@@ -49,8 +57,6 @@ if(config.sim.show_live_graphics)
     
     % If noise is present, plot the state estimates
     if(config.noise.sigma > 0)
-      
-      
       % Draw the robots current belief about its own position
       circle_points = getCircle(robots(i).robot_state_.pose_, 0.5*config.scenario.robot_size);
       plot(circle_points(1, :), circle_points(2, :), 'g');

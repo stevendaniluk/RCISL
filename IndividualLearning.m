@@ -329,6 +329,45 @@ classdef IndividualLearning < handle
       rel_obstacle.theta = mod((rel_obstacle.theta + pi/state_res(7)), 2*pi);
       state_vector(7) = floor(rel_obstacle.theta*state_res(7)/(2*pi));
       
+      % Find terrain distance and angle (when applicable)
+      if(this.config_.scenario.terrain_on)
+        rel_terrain.x = world_state.terrain_.x - robot_state.pose_.x;
+        rel_terrain.y = world_state.terrain_.y - robot_state.pose_.y;
+        
+        x_within_terrain = abs(rel_terrain.x) < 0.5*this.config_.scenario.terrain_size;
+        y_within_terrain = abs(rel_terrain.y) < 0.5*this.config_.scenario.terrain_size;
+        
+        if(x_within_terrain && y_within_terrain)
+          % Robot is inside terrain
+          state_vector(8) = 0;
+        else
+          % Distance and angle will be with respect to the closest edge of
+          % the rough terrain
+          if(x_within_terrain)
+            % Closest edge will be the top/bottom
+            rel_terrain.x = 0;
+            rel_terrain.y = rel_terrain.y - sign(rel_terrain.y)*0.5*this.config_.scenario.terrain_size;
+          elseif(y_within_terrain)
+            % Closest edge will be the left/right
+            rel_terrain.x = rel_terrain.x - sign(rel_terrain.x)*0.5*this.config_.scenario.terrain_size;
+            rel_terrain.y = 0;
+          else
+            % Closest point will be a corner
+            rel_terrain.x = rel_terrain.x - sign(rel_terrain.x)*0.5*this.config_.scenario.terrain_size;
+            rel_terrain.y = rel_terrain.y - sign(rel_terrain.y)*0.5*this.config_.scenario.terrain_size;
+          end
+          
+          % Set the encoded distance
+          rel_terrain.d = sqrt(rel_terrain.x^2 + rel_terrain.y^2);
+          state_vector(8) = ceil((min(rel_terrain.d, max_dist - delta)/max_dist)*(state_res(8) - 1));
+        end
+        
+        % Set the encoded angle
+        rel_terrain.theta = atan2(rel_terrain.y, rel_terrain.x) - robot_state.pose_.theta;
+        rel_terrain.theta = mod((rel_terrain.theta + pi/state_res(9)), 2*pi);
+        state_vector(9) = floor(rel_terrain.theta*state_res(9)/(2*pi));
+      end
+      
       % Correct if elements are over the max allowable value
       % (shouldn't happen, but if it does we want to know)
       if (sum(state_vector >= state_res) ~= 0)
