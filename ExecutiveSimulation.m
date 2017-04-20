@@ -90,46 +90,7 @@ classdef ExecutiveSimulation < handle
     function handleRequestRobotHandle(this, src)
       src.all_robots_ = this.robots_;
     end
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %
-    %   loadLearningData
-    %
-    %   Promts user to select a file containing the utility tables,
-    %   experience tables, and team learning data to be loaded, which
-    %   will then be assigned to each robot in order.
-    %
-    %   Tables must be in a single cell array.
-    
-    function loadLearningData(this)
-      % Ask to select the file with utility tables
-      disp('Please select the utility tables to be loaded');
-      [file_name, path_name] = uigetfile;
-      q_tables = load([path_name, file_name]);
-      
-      % Ask to select the file with experience tables
-      disp('Please select the experience tables to be loaded');
-      [file_name, path_name] = uigetfile;
-      exp_tables = load([path_name, file_name]);
-      
-      for id = 1:this.config_.scenario.num_robots;
-        this.robots_(id,1).individual_learning_.q_learning_.q_table_ = q_tables.q_tables{id, 1};
-        this.robots_(id,1).individual_learning_.q_learning_.exp_table_ = exp_tables.exp_tables{id, 1};
-      end
-      
-      if (strcmp(this.config_.TL.task_allocation, 'l_alliance'))
-        % Ask to select the file with L-Alliance data
-        disp('Please select the L-Alliance data to be loaded');
-        [file_name, path_name] = uigetfile;
-        l_alliance_data = load([path_name, file_name]);
         
-        this.team_learning_.l_alliance_.data_ = l_alliance_data.l_alliance_data;
-        this.team_learning_.l_alliance_.reset();
-      end
-      
-      disp('Utility and experience tables loaded.');
-    end
-    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
     %   run

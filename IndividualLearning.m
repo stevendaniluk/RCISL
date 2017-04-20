@@ -71,14 +71,22 @@ classdef IndividualLearning < handle
       this.epoch_reward_ = 0;
       
       % Load expert (if necessary)
+      % Looks within the "expert_data" directory in the folder name 
+      % specified for Q-table and experience table data
       if (this.config_.IL.expert_on)
         index = find(this.id_ == this.config_.IL.expert_id);
         if (~isempty(index) && this.id_ == this.config_.IL.expert_id(index))
           filename = this.config_.IL.expert_filename(index);
-          load(['expert_data/', filename{1}, '/q_tables.mat']);
-          load(['expert_data/', filename{1}, '/exp_tables.mat']);
-          this.q_learning_.q_table_ = q_tables{this.id_};
-          this.q_learning_.exp_table_ = exp_tables{this.id_};
+          load(['expert_data/', filename{1}, '/q_table.mat']);
+          load(['expert_data/', filename{1}, '/exp_table.mat']);
+          
+          table_size = prod(this.config_.IL.state_resolution)*this.config_.IL.num_actions;
+          if(table_size ~= length(q_table) || table_size ~= length(exp_table))
+            warning('When loading expert data the Configuration and loaded table sizes do not match');
+          end
+          
+          this.q_learning_.q_table_ = q_table;
+          this.q_learning_.exp_table_ = exp_table;
         end
       end
       
