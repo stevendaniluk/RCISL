@@ -54,8 +54,15 @@ classdef TeamLearning < handle
           this.l_alliance_.updatetaskProperties(robot_id, world_state);
           
           % Recieve the updated task, and assign it
+          old_task = robots(robot_id, 1).robot_state_.target_.id;
           this.l_alliance_.chooseTask(robot_id);
           robots(robot_id, 1).robot_state_.target_.id = this.l_alliance_.getCurrentTask(robot_id);
+          new_task = robots(robot_id, 1).robot_state_.target_.id;
+          
+          % When the task changes the robot can't be carrying anything
+          if(old_task ~= new_task)
+            robots(robot_id, 1).robot_state_.target_.carrying = false;
+          end
         end
         
       elseif (strcmp(this.config_.TL.task_allocation, 'fixed'))
