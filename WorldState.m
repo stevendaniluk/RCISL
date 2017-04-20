@@ -206,6 +206,9 @@ classdef WorldState < handle
           
           i = i + 1;
         end
+      else
+        this.terrain_.x = [];
+        this.terrain_.y = [];
       end
       
     end
