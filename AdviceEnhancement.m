@@ -63,20 +63,30 @@ classdef AdviceEnhancement < handle
         % Create the fake advisers (first adviser is this agent)
         this.fake_advisers_ = cell(num_fake_advisers, 1);
         for i = 1:num_fake_advisers
-          % Load the quality and experience files
-          filename = config.advice.fake_adviser_files(i);
-          q_table = [];
-          exp_table = [];
-          load(['expert_data/', filename{1}, '/q_table.mat']);
-          load(['expert_data/', filename{1}, '/exp_table.mat']);
-          
           % Create a Q-learning object to load data into (only
           % provide relevant input args)
           this.fake_advisers_{i} = QLearning(1, 1, 1, config.IL.state_resolution, config.IL.num_actions);
           
-          % Load data into Q-learning object
-          this.fake_advisers_{i}.q_table_ = q_table;
-          this.fake_advisers_{i}.exp_table_ = exp_table;
+          % Load the quality and experience files
+          filename = config.advice.fake_adviser_files(i);
+          
+          try
+            q_table = [];
+            exp_table = [];
+            load(['expert_data/', filename{1}, '/q_table.mat']);
+            load(['expert_data/', filename{1}, '/exp_table.mat']);
+            
+            table_size = prod(this.config_.IL.state_resolution)*this.config_.IL.num_actions;
+            if(table_size ~= length(q_table) || table_size ~= length(exp_table))
+              warning('When loading expert data for fake adviser the Configuration and loaded table sizes do not match');
+            end
+            
+            % Load data into Q-learning object
+            this.fake_advisers_{i}.q_table_ = q_table;
+            this.fake_advisers_{i}.exp_table_ = exp_table;
+          catch
+            warning('Expert data file does not exist for fake adviser %d', i);
+          end
         end
         
         % Add fake advisers to the list
