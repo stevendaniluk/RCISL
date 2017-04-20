@@ -110,7 +110,7 @@ classdef Physics < handle
             item_dist.d = sqrt(item_dist.x^2 + item_dist.y^2);
             
             % Item must be fully within the collection zone
-            if ((item_dist.d + this.config_.scenario.target_size) < this.config_.scenario.goal_size)
+            if ((item_dist.d + this.config_.scenario.target_size) < 0.5*this.config_.scenario.goal_size)
               % Mark as returned, and unassign the item
               world_state.targets_(robot_state.target_.id).returned = true;
               world_state.mission_.targets_returned = world_state.mission_.targets_returned + 1;
@@ -136,17 +136,19 @@ classdef Physics < handle
     %   robot_id = ID number of robot
     
     function valid = validPoint(this, world_state, new_pt, robot_id)
-      % Get size of robot
-      robot_size = this.config_.scenario.robot_size;
+      % Get sizes
+      r_robot = 0.5*this.config_.scenario.robot_size;
+      r_obst = 0.5*this.config_.scenario.obstacle_size;
+      r_goal = 0.5*this.config_.scenario.goal_size;
       
       % Test X world boundary
-      if ((new_pt.x - robot_size < 0) || (new_pt.x + robot_size > this.config_.scenario.world_width))
+      if ((new_pt.x - r_robot < 0) || (new_pt.x + r_robot > this.config_.scenario.world_width))
         valid = false;
         return;
       end
       
       % Test Y world boundary
-      if ((new_pt.y - robot_size < 0) || (new_pt.y + robot_size > this.config_.scenario.world_height))
+      if ((new_pt.y - r_robot < 0) || (new_pt.y + r_robot > this.config_.scenario.world_height))
         valid = false;
         return;
       end
@@ -154,7 +156,7 @@ classdef Physics < handle
       % Test against all obstacles
       obstacles_array = reshape([world_state.obstacles_.x, world_state.obstacles_.y], size(world_state.obstacles_, 2), 2);
       obstacle_ds = sqrt((obstacles_array(:, 1) - new_pt.x).^2 + (obstacles_array(:, 2) - new_pt.y).^2);
-      if(sum(obstacle_ds < robot_size + this.config_.scenario.obstacle_size) > 0)
+      if(sum(obstacle_ds < (r_robot + r_obst)) > 0)
         valid = false;
         return;
       end
@@ -168,12 +170,12 @@ classdef Physics < handle
       % Ignore robots within the collection zone (allow them to congregate)
       goal_dist_fun = @(field) sqrt((field.x - world_state.goal_.x)^2 + (field.y - world_state.goal_.y)^2);
       robot_goal_ds = arrayfun(goal_dist_fun, robots);
-      robots_in_collect = find(robot_goal_ds < this.config_.scenario.goal_size);
-      robots(robots_in_collect) = [];  % Ignore matlab warning here, doesn't apply to structs
+      robots_in_collect = find(robot_goal_ds < r_goal);
+      robots(robots_in_collect) = [];  %#ok<FNDSB> % Ignore matlab warning here, doesn't apply to structs
       
       robots_array = reshape([robots.x, robots.y], size(robots, 2), 2);
       robot_ds = sqrt((robots_array(:, 1) - new_pt.x).^2 + (robots_array(:, 2) - new_pt.y).^2);
-      if(sum(robot_ds < 2*robot_size) > 0)
+      if(sum(robot_ds < 2*r_robot) > 0)
         valid = false;
         return;
       end

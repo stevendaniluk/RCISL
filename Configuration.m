@@ -61,12 +61,12 @@ classdef Configuration < handle
       this.scenario.world_height = 10;               % World Y dimension [meters]
       this.scenario.world_width  = 10;               % World X dimension [meters]
       this.scenario.grid_size = 0.5;                 % Discritization of world into grid for random placement [meters]
-      this.scenario.random_pos_padding = 1.0;        % Padding distance between randomly placed objects [meters]
+      this.scenario.random_pos_padding = 2.0;        % Padding distance between randomly placed objects [meters]
       this.scenario.random_border_padding = 1.0;     % Padding distance between randomly placed objects and the borders [meters]
       this.scenario.robot_size = 0.125;              % Diameter of robots [meters]
-      this.scenario.obstacle_size = 0.5;             % Diameter of obstacles [meters]
+      this.scenario.obstacle_size = 1.0;             % Diameter of obstacles [meters]
       this.scenario.target_size = 0.25;              % Diameter of targets [meters]
-      this.scenario.goal_size = 1;                   % Diameter of collection zone [meters]
+      this.scenario.goal_size = 2.0;                 % Diameter of collection zone [meters]
       this.scenario.terrain_on = true;               % Flag for if rough terrain is used
       this.scenario.terrain_size = 3.0;              % Square size of rough terrain [meters]
       this.scenario.terrain_fractional_speed = 0.3;  % Reduction is speed when in rough terrain

@@ -18,9 +18,6 @@ if(config.sim.show_live_graphics)
   cla
   hold on;
   
-  % Display current iteration
-  text(1, 9, sprintf('%d', world_state.mission_.iters));
-  
   % Draw the rough terrain
   if(config.scenario.terrain_on)
     terrain_pos = [world_state.terrain_.x - 0.5*config.scenario.terrain_size;
@@ -30,6 +27,28 @@ if(config.sim.show_live_graphics)
     rectangle('Position', terrain_pos, 'FaceColor', [0.8, 0.8, 0.8]);
   end
   
+  % Draw the goal location
+  circle_points = getCircle(world_state.goal_, config.scenario.goal_size);
+  plot(circle_points(1, :), circle_points(2, :), 'k');
+  
+  % Draw the obstacles
+  for i = 1:config.scenario.num_obstacles
+    circle_points = getCircle(world_state.obstacles_(i), config.scenario.obstacle_size);
+    plot(circle_points(1, :), circle_points(2, :), 'r');
+  end
+  
+  % Draw the targets
+  for i = 1:config.scenario.num_targets
+    circle_points = getCircle(world_state.targets_(i), config.scenario.target_size);
+    if(world_state.targets_(i).returned)
+      plot(circle_points(1, :), circle_points(2, :), 'r');
+    elseif(strcmp(world_state.targets_(i).type, 'light'))
+      plot(circle_points(1, :), circle_points(2, :), 'b');
+    elseif(strcmp(world_state.targets_(i).type, 'heavy'))
+      plot(circle_points(1, :), circle_points(2, :), 'g');
+    end
+  end
+    
   % Draw the robots
   for i=1:config.scenario.num_robots
     % Create arrow to represent each robot's true position
@@ -78,32 +97,13 @@ if(config.sim.show_live_graphics)
       plot(target_line_x , target_line_y, 'r');
     end
   end
-  
-  % Draw the obstacles
-  for i = 1:config.scenario.num_obstacles
-    circle_points = getCircle(world_state.obstacles_(i), config.scenario.obstacle_size);
-    plot(circle_points(1, :), circle_points(2, :), 'r');
-  end
-  
-  % Draw the targets
-  for i = 1:config.scenario.num_targets
-    circle_points = getCircle(world_state.targets_(i), config.scenario.target_size);
-    if(world_state.targets_(i).returned)
-      plot(circle_points(1, :), circle_points(2, :), 'r');
-    elseif(strcmp(world_state.targets_(i).type, 'light'))
-      plot(circle_points(1, :), circle_points(2, :), 'b');
-    elseif(strcmp(world_state.targets_(i).type, 'heavy'))
-      plot(circle_points(1, :), circle_points(2, :), 'g');
-    end
-  end
-  
-  % Draw the goal location
-  circle_points = getCircle(world_state.goal_, config.scenario.goal_size);
-  plot(circle_points(1, :), circle_points(2, :), 'k');
-  
+    
   % Set axis
   axis([0 config.scenario.world_width 0 config.scenario.world_height]);
   axis square
+  
+  % Display current iteration
+  text(1, 9, sprintf('%d', world_state.mission_.iters));
   
   drawnow limitrate;
 end
@@ -115,11 +115,11 @@ end
 %   getCircle
 %
 %   For plotting purposes, returns an array of data
-%   points centred at 'pt', and with radius of 'r'
+%   points centred at 'pt', and with diameter of 'd'
 
-function circle_points = getCircle(pt, r)
+function circle_points = getCircle(pt, d)
 angles = 0:0.01:2*pi;
-xp = r*cos(angles);
-yp = r*sin(angles);
+xp = 0.5*d*cos(angles);
+yp = 0.5*d*sin(angles);
 circle_points = [pt.x + xp; pt.y + yp];
 end
