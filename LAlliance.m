@@ -30,6 +30,7 @@ classdef LAlliance < handle
     vi_ = 10;       % Number of attempts at a task
     ci_ = 11;       % Are we currently cooperating? A flag
     std_ = 12       % Standard deviation of tau values
+    mean_ = 13;     % Mean of tau values
   end
   
   methods (Access = public)
@@ -41,15 +42,16 @@ classdef LAlliance < handle
       this.config_ = config;
       
       %Create empty multidimensional data array
-      this.data_ = zeros(this.config_.scenario.num_robots, this.config_.scenario.num_targets, 12);
+      this.data_ = zeros(this.config_.scenario.num_robots, this.config_.scenario.num_targets, 13);
       this.data_(:, :, this.di_) = this.config_.TL.LA.max_task_time;
       % Set initial average trial time to half of max allowed time
       % with some noise, so not all robots are equal
-      this.data_(:,:,this.tau_i_) = normrnd(0.5*this.config_.TL.LA.max_task_time, 20, [this.config_.scenario.num_robots, this.config_.scenario.num_targets]);
+      initial_stddev = 0.1*this.config_.TL.LA.max_task_time;
+      this.data_(:,:,this.tau_i_) = normrnd(0.5*this.config_.TL.LA.max_task_time, initial_stddev, [this.config_.scenario.num_robots, this.config_.scenario.num_targets]);
       
-      % Initialize the tau standard deviation
-      task_standard_dev = std(this.data_(:, :, this.tau_i_), 0, 2);
-      this.data_(:, :, this.std_) = repelem(task_standard_dev, 1, this.config_.scenario.num_targets);
+      % Initialize the tau standard deviation and mean
+      this.data_(:, :, this.std_) = initial_stddev;
+      this.data_(:, :, this.mean_) = this.data_(:, :, this.tau_i_);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -317,32 +319,41 @@ classdef LAlliance < handle
     %   task_id = ID number of task to update
     
     function updateTau(this, robot_id, task_id)
+      prev_tau = this.data_(robot_id, task_id, this.tau_i_);
+      f = this.data_(robot_id, task_id, this.vi_);
+      time_on_task = this.data_(robot_id, task_id, this.psi_i_);
+      
       % Update new tau value according to method dictated in config
       if (strcmp(this.config_.TL.LA.trial_time_update, 'moving_avg'))
         % Calculate a cumulative moving average for the tau values
-        tau_old = this.data_(robot_id, task_id, this.tau_i_);
         time_on_task = this.data_(robot_id, task_id, this.psi_i_);
-        tau_new = tau_old + (time_on_task - tau_old)/2;
+        current_tau = prev_tau + (time_on_task - prev_tau)/2;
       elseif (strcmp(this.config_.TL.LA.trial_time_update, 'stochastic'))
         % Update according to formulation in [Girard, 2015]
         theta2 = this.config_.TL.LA.theta2;
         theta3 = this.config_.TL.LA.theta3;
         theta4 = this.config_.TL.LA.theta4;
-        f = this.data_(robot_id, task_id, this.vi_);
         beta = exp(f / theta4)/(theta3 + exp(f / theta4));
         
-        tau_old = this.data_(robot_id, task_id, this.tau_i_);
-        time_on_task = this.data_(robot_id, task_id, this.psi_i_);
-        
-        tau_new = beta*(tau_old + exp(-f/theta2)*(time_on_task - tau_old));
+        current_tau = beta*(prev_tau + exp(-f/theta2)*(time_on_task - prev_tau));
       end
       
-      % Save the new tau value
-      this.data_(robot_id, task_id, this.tau_i_) = tau_new;
+      prev_mean = this.data_(robot_id, task_id, this.mean_);
+      prev_stddev = this.data_(robot_id, task_id, this.std_);
       
-      % Update tau standard deviation
-      this.data_(robot_id, :, this.std_) = std(this.data_(robot_id, :, this.tau_i_));
-      
+      % Update the mean task time, and tau standard deviation
+      if(f > 1)
+        current_mean = prev_mean + (time_on_task - prev_mean)/f;
+        current_stddev = sqrt(((f - 1)*prev_stddev^2 + (time_on_task - prev_mean)*(time_on_task - current_mean))/f);
+      else
+        current_mean = prev_mean;
+        current_stddev = prev_stddev;
+      end
+            
+      % Save the new values
+      this.data_(robot_id, task_id, this.tau_i_) = current_tau;
+      this.data_(robot_id, task_id, this.mean_) = current_mean;
+      this.data_(robot_id, task_id, this.std_) = current_stddev;
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
