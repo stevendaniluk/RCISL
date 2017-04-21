@@ -510,7 +510,7 @@ classdef IndividualLearning < handle
         end
       elseif (strcmp(this.config_.IL.policy, 'boltzmann'))
         % Boltzmann exploration
-        exponents = exp(utility_vals/this.config_.IL.boltzmann_temp);
+        exponents = exp(this.config_.IL.boltzmann_temp*utility_vals);
         action_prob = exponents/sum(exponents);
         rand_action = rand;
         for i=1:this.config_.IL.num_actions
@@ -528,7 +528,7 @@ classdef IndividualLearning < handle
         if(sum(experience) > 1 || sum(utility_vals == 0) ~= length(utility_vals))
           tau = log(sum(experience))/(max(utility_vals) - min(utility_vals));
           if(tau > 0)
-            exponents = exp(utility_vals/tau);
+            exponents = exp(tau*utility_vals);
             action_prob = exponents/sum(exponents);
           end
         end
