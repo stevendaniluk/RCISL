@@ -39,7 +39,7 @@ classdef Configuration < handle
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       % Data Saving Parameters (turn off for speed)
-      this.sim.save_simulation_data = true;  % Flag for recording and saving simulation data
+      this.sim.save_simulation_data = true;   % Flag for recording and saving simulation data
       this.sim.save_IL_data = false;          % Flag for recording and saving individual learning data
       this.sim.save_TL_data = false;          % Flag for recording and saving team learning data
       this.sim.save_advice_data = false;      % Flag for recording and saving advice data
@@ -52,7 +52,7 @@ classdef Configuration < handle
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       % Primary Scenario Parameters
-      this.scenario.max_iterations = 4000;        % Maximum allowed iterations
+      this.scenario.max_iterations = 5000;        % Maximum allowed iterations
       this.scenario.num_robots = 4;               % Total number of robots
       this.scenario.num_obstacles = 4;            % Total number of obstacles
       this.scenario.num_targets = 4;              % Total number of targets
@@ -67,43 +67,43 @@ classdef Configuration < handle
       this.scenario.obstacle_size = 1.0;             % Diameter of obstacles [meters]
       this.scenario.target_size = 0.25;              % Diameter of targets [meters]
       this.scenario.goal_size = 2.0;                 % Diameter of collection zone [meters]
-      this.scenario.terrain_on = true;               % Flag for if rough terrain is used
+      this.scenario.terrain_on = false;              % Flag for if rough terrain is used
       this.scenario.terrain_size = 3.0;              % Square size of rough terrain [meters]
       this.scenario.terrain_fractional_speed = 0.3;  % Reduction is speed when in rough terrain
       
       % Robot Parameters
       
-      % Weak and slow
+      % Slow, Non-Rugged, Weak
       type_1.step_size = 0.30;
       type_1.rotate_size = pi*(2/9);
       type_1.strong = false;
       type_1.rugged = false;
       type_1.reach = 0.5;
-      type_1.label = 'WS';
+      type_1.label = 'S-NR';
       
-      % Weak and fast
+      % Fast, Non-Rugged, Weak
       type_2.step_size = 0.40;
       type_2.rotate_size = pi*(3/9);
       type_2.strong = false;
-      type_2.rugged = true;
+      type_2.rugged = false;
       type_2.reach = 0.5;
-      type_2.label = 'WF';
+      type_2.label = 'F-NR';
       
-      % Strong and slow
+      % Slow, Rugged, Weak
       type_3.step_size = 0.30;
       type_3.rotate_size = pi*(2/9);
-      type_3.strong = true;
-      type_3.rugged = false;
+      type_3.strong = false;
+      type_3.rugged = true;
       type_3.reach = 0.5;
-      type_3.label = 'SS';
+      type_3.label = 'S-R';
       
-      % Strong and fast
+      % Fast, Rugged, Weak
       type_4.step_size = 0.40;
       type_4.rotate_size = pi*(3/9);
-      type_4.strong = true;
+      type_4.strong = false;
       type_4.rugged = true;
       type_4.reach = 0.5;
-      type_4.label = 'SF';
+      type_4.label = 'F-R';
       
       this.scenario.robot_types = [type_1, type_1, type_1, type_1];
       this.scenario.target_types = {'light', 'light', 'light', 'light'};
@@ -138,13 +138,13 @@ classdef Configuration < handle
       
       % Expert Parameters
       this.IL.expert_on = false;              % If expert agent(s) shoudld be loaded
-      this.IL.expert_filename = {'E100'};     % File for each expert
-      this.IL.expert_id = [2];                % Id(s) of expert agent(s)
+      this.IL.expert_filename = {'expert'};   % Folder for each expert (in expert_data dir)
+      this.IL.expert_id = [1];                % Id(s) of expert agent(s)
       
       % Policy parameters
-      this.IL.policy = 'softmax';             % Options: "greedy", "e-greedy", "softmax"
+      this.IL.policy = 'GLIE';                % Options: "greedy", "e-greedy", "boltzmann", "GLIE"
       this.IL.e_greedy_epsilon = 0.10;        % Probability of selecting random action
-      this.IL.softmax_temp = 1.0;            % Temperature for softmax distribution
+      this.IL.boltzmann_temp = 1.0;           % Constant temperature for boltzmann distribution
       
       % Action and State Parameters
       this.IL.num_actions = 4;                % Number of actions for a robot

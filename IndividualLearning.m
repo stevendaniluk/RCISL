@@ -151,14 +151,14 @@ classdef IndividualLearning < handle
         if length(result) ~= 1
           % Advice has returned Q values
           % Select action with policy (including greedy override)
-          this.action_ = this.Policy(quality);
+          this.action_ = this.Policy(quality, experience);
         else
           % Advice has returned an action id
           this.action_ = result;
         end
       else
         % Select action with our policy (no greedy override)
-        this.action_ = this.Policy(quality);
+        this.action_ = this.Policy(quality, experience);
       end
       
       action_id = this.action_;
@@ -482,7 +482,7 @@ classdef IndividualLearning < handle
     %   OUTPUTS
     %   action_index = The ID (index) of the selected action
     
-    function action_index = Policy(this, utility_vals)
+    function action_index = Policy(this, utility_vals, experience)
       % If all utility is zero, select a random action
       if(sum(utility_vals) == 0)
         action_index = ceil(rand*this.config_.IL.num_actions);
@@ -507,9 +507,29 @@ classdef IndividualLearning < handle
         else
           [~, action_index] = max(utility_vals);
         end
-      elseif (strcmp(this.config_.IL.policy, 'softmax'))
-        % Softmax action selection [Girard, 2015]
-        exponents = exp(utility_vals/this.config_.IL.softmax_temp);
+      elseif (strcmp(this.config_.IL.policy, 'boltzmann'))
+        % Boltzmann exploration
+        exponents = exp(utility_vals/this.config_.IL.boltzmann_temp);
+        action_prob = exponents/sum(exponents);
+        rand_action = rand;
+        for i=1:this.config_.IL.num_actions
+          if (rand_action < sum(action_prob(1:i)))
+            action_index = i;
+            break;
+          elseif (i == this.config_.IL.num_actions)
+            action_index = i;
+          end
+        end
+      elseif (strcmp(this.config_.IL.policy, 'GLIE'))
+        %  Greedy in the Limit Infinite Exploration (using boltzmann
+        %  exploration) [Convergence Results for Single-Step
+        %  On-Policy Reinforcement Learning Algorithms, Singh et al., 2000]
+        if(sum(experience) <= 1 || sum(utility_vals == 0) == length(utility_vals))
+          tau = 0;
+        else
+          tau = log(sum(experience))/(max(utility_vals) - min(utility_vals));
+        end
+        exponents = exp(utility_vals/tau);
         action_prob = exponents/sum(exponents);
         rand_action = rand;
         for i=1:this.config_.IL.num_actions
@@ -522,9 +542,8 @@ classdef IndividualLearning < handle
         end
       else
         error(['No policy matching ', this.config_.IL.policy, ...
-          '. Options are "greedy", "e-greedy", or "softmax"']);
+          '. Options are "greedy", "e-greedy", "boltzmann", or "GLIE"']);
       end
-      
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
