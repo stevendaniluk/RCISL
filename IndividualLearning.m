@@ -143,25 +143,24 @@ classdef IndividualLearning < handle
         this.state_data_.experience(size(this.state_data_.experience, 1) + 1, :) = max(experience);
       end
       
+      % Default to our own policy
+      [action_id, prob_vals] = this.Policy(quality, experience);
+      
       % Get advised action (if necessary)
       if (this.config_.advice.enabled)
         % Get advice from advisor (overwrite quality and experience)
-        result = this.advice_.getAdvice(this.state_vector_, quality, alpha);
+        result = this.advice_.getAdvice(this.state_vector_, prob_vals, experience);
         
         if length(result) ~= 1
           % Advice has returned Q values
           % Select action with policy (including greedy override)
-          this.action_ = this.Policy(quality, experience);
+          [action_id, ~] = this.Policy(quality, experience);
         else
           % Advice has returned an action id
-          this.action_ = result;
+          action_id = result;
         end
-      else
-        % Select action with our policy (no greedy override)
-        this.action_ = this.Policy(quality, experience);
       end
-      
-      action_id = this.action_;
+      this.action_ = action_id;
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -482,7 +481,9 @@ classdef IndividualLearning < handle
     %   OUTPUTS
     %   action_index = The ID (index) of the selected action
     
-    function action_index = Policy(this, utility_vals, experience)
+    function [action_index, action_prob] = Policy(this, utility_vals, experience)
+      action_prob = ones(size(utility_vals))/this.config_.IL.num_actions;
+      
       % If all utility is zero, select a random action
       if(sum(utility_vals) == 0)
         action_index = ceil(rand*this.config_.IL.num_actions);
@@ -524,13 +525,13 @@ classdef IndividualLearning < handle
         %  Greedy in the Limit Infinite Exploration (using boltzmann
         %  exploration) [Convergence Results for Single-Step
         %  On-Policy Reinforcement Learning Algorithms, Singh et al., 2000]
-        if(sum(experience) <= 1 || sum(utility_vals == 0) == length(utility_vals))
-          tau = 0;
-        else
+        if(sum(experience) > 1 || sum(utility_vals == 0) ~= length(utility_vals))
           tau = log(sum(experience))/(max(utility_vals) - min(utility_vals));
+          if(tau > 0)
+            exponents = exp(utility_vals/tau);
+            action_prob = exponents/sum(exponents);
+          end
         end
-        exponents = exp(utility_vals/tau);
-        action_prob = exponents/sum(exponents);
         rand_action = rand;
         for i=1:this.config_.IL.num_actions
           if (rand_action < sum(action_prob(1:i)))
