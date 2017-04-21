@@ -154,11 +154,13 @@ classdef Physics < handle
       end
       
       % Test against all obstacles
-      obstacles_array = reshape([world_state.obstacles_.x, world_state.obstacles_.y], size(world_state.obstacles_, 2), 2);
-      obstacle_ds = sqrt((obstacles_array(:, 1) - new_pt.x).^2 + (obstacles_array(:, 2) - new_pt.y).^2);
-      if(sum(obstacle_ds < (r_robot + r_obst)) > 0)
-        valid = false;
-        return;
+      if(this.config_.scenario.num_obstacles > 0)
+        obstacles_array = reshape([world_state.obstacles_.x, world_state.obstacles_.y], size(world_state.obstacles_, 2), 2);
+        obstacle_ds = sqrt((obstacles_array(:, 1) - new_pt.x).^2 + (obstacles_array(:, 2) - new_pt.y).^2);
+        if(sum(obstacle_ds < (r_robot + r_obst)) > 0)
+          valid = false;
+          return;
+        end
       end
       
       % Check against other robots

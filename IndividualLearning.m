@@ -310,23 +310,25 @@ classdef IndividualLearning < handle
       % struct array, and the closes obstacle is used.
       
       % Left border      
-      borders(1).x = 0;
-      borders(1).y = robot_state.pose_.y;
+      obstacles(1).x = 0;
+      obstacles(1).y = robot_state.pose_.y;
       
       % Right border
-      borders(2).x = this.config_.scenario.world_width;
-      borders(2).y = robot_state.pose_.y;
+      obstacles(2).x = this.config_.scenario.world_width;
+      obstacles(2).y = robot_state.pose_.y;
       
       % Top border
-      borders(3).x = robot_state.pose_.x;
-      borders(3).y = this.config_.scenario.world_height;
+      obstacles(3).x = robot_state.pose_.x;
+      obstacles(3).y = this.config_.scenario.world_height;
       
       % Bottom border
-      borders(4).x = robot_state.pose_.x;
-      borders(4).y = 0;
+      obstacles(4).x = robot_state.pose_.x;
+      obstacles(4).y = 0;
       
       % Append all other obstacles
-      obstacles = [borders, robot_state.obstacles_];
+      if(this.config_.scenario.num_obstacles > 0)
+        obstacles = [obstacles, robot_state.obstacles_];
+      end
       
       % Convert to a array to find closest obstacle
       obstacles_array = reshape([obstacles.x, obstacles.y], this.config_.scenario.num_obstacles + 4, 2);

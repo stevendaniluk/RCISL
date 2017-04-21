@@ -175,10 +175,15 @@ classdef WorldState < handle
         index = index + 1;
       end
       
-      for i = 1:this.config_.scenario.num_obstacles
-        this.obstacles_(i).x = valid_positions(index, 1);
-        this.obstacles_(i).y = valid_positions(index, 2);
-        index = index + 1;
+      if(this.config_.scenario.num_obstacles > 0)
+        for i = 1:this.config_.scenario.num_obstacles
+          this.obstacles_(i).x = valid_positions(index, 1);
+          this.obstacles_(i).y = valid_positions(index, 2);
+          index = index + 1;
+        end
+      else
+        this.obstacles_(i).x = [];
+        this.obstacles_(i).x = [];
       end
       
       this.goal_.x = valid_positions(index, 1);
