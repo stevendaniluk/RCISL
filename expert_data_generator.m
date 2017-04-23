@@ -5,17 +5,21 @@
 % virtual advisers with advice.
 
 % Set number of epochs to train each expert
-experts = [1, 2, 5, 10, 50, 100, 1000];
+experts = [1, 10, 100, 1000];
+
+% Place all expert data in a sub folder (empty string for no sub folder)
+sub_folder = 'S-NR';
 
 % Load and set the config
 config = Configuration();
 config.sim.show_live_graphics = false;
-config.sim.save_simulation_data = true;
-config.sim.save_IL_data = true;
+config.sim.save_simulation_data = false;
+config.sim.save_IL_data = false;
 config.sim.save_advice_data = false;
 config.advice.enabled = false;
 config.scenario.num_robots = 1;
 config.scenario.num_targets = 1;
+config.scenario.robot_types = [1, 1, 1, 1];
 
 if ~exist('expert_data', 'dir')
   mkdir('expert_data');
@@ -23,6 +27,7 @@ end
 
 for i = 1:length(experts)
   % Create simulation object and initialize
+  clear Simulation;
   Simulation = ExecutiveSimulation(config);
   Simulation.initialize();
   % Form sim name
@@ -30,15 +35,20 @@ for i = 1:length(experts)
   % Make runs
   Simulation.consecutiveRuns(experts(i), sim_name);
   
+  if(isempty(sub_folder))
+    out_path = fullfile('expert_data', sprintf('E%d', experts(i)));
+  else
+    out_path = fullfile('expert_data', sub_folder, sprintf('E%d', experts(i)));
+  end
+  
   % Make the folder
-  if ~exist(fullfile('expert_data', sprintf('E%d', experts(i))), 'dir')
-    mkdir(fullfile('expert_data', sprintf('E%d', experts(i))));
+  if ~exist(out_path, 'dir')
+    mkdir(out_path);
   end
   
   % Save the data (copy from data saved by the sim)
-  load(fullfile('results', 'expert_data_generation', sprintf('E%d', experts(i)), 'individual_learning_data.mat'));
-  q_table = individual_learning_data{1}.q_table;
-  exp_table = individual_learning_data{1}.exp_table;
-  save(fullfile('expert_data', sprintf('E%d', experts(i)), 'q_table'), 'q_table');
-  save(fullfile('expert_data', sprintf('E%d', experts(i)), 'exp_table'), 'exp_table');
+  q_table = Simulation.robots_.individual_learning_.q_learning_.q_table_;
+  exp_table = Simulation.robots_.individual_learning_.q_learning_.exp_table_;
+  save(fullfile(out_path, 'q_table'), 'q_table');
+  save(fullfile(out_path, 'exp_table'), 'exp_table');
 end

@@ -108,10 +108,41 @@ classdef WorldState < handle
         % Take random permutations of positions in each direction
         random_positions = positions(randperm(num_x_pos * num_y_pos), :);
         
+        % Randomly place the rough terrain
+        if(this.config_.scenario.terrain_on)
+          if(this.config_.scenario.terrain_centred)
+            this.terrain_.x = 0.5*this.config_.scenario.world_width;
+            this.terrain_.y = 0.5*this.config_.scenario.world_height;
+          else
+            terrain_valid = false;
+            i = 1;
+            while(~terrain_valid)
+              temp_terrain_pos = random_positions(i, :);
+              
+              x_lower_valid = temp_terrain_pos(1) > 0.5*this.config_.scenario.terrain_size;
+              x_upper_valid = (this.config_.scenario.world_width - temp_terrain_pos(1)) > 0.5*this.config_.scenario.terrain_size;
+              y_lower_valid = temp_terrain_pos(2) > 0.5*this.config_.scenario.terrain_size;
+              y_upper_valid = (this.config_.scenario.world_height - temp_terrain_pos(2)) > 0.5*this.config_.scenario.terrain_size;
+              
+              if(x_lower_valid && x_upper_valid && y_lower_valid && y_upper_valid)
+                % Set the valid position
+                this.terrain_.x = temp_terrain_pos(1);
+                this.terrain_.y = temp_terrain_pos(2);
+                break;
+              end
+              
+              i = i + 1;
+            end
+          end
+        else
+          this.terrain_.x = [];
+          this.terrain_.y = [];
+        end
+        
         % Loop through assigning random positions, while checking if any new random
         % positions conflict with old ones.
         index = 1;
-        valid_positions(index,:) = random_positions(index,:);
+        valid_positions(index, :) = random_positions(index,:);
         
         for i=1:num_positions
           % If we've checked all positions, break and generate
@@ -124,15 +155,22 @@ classdef WorldState < handle
           position_valid = false;
           while(~position_valid)
             % Separation distance
-            x_delta_dist = abs(valid_positions(1:i, 1) - random_positions(index, 1));
-            y_delta_dist = abs(valid_positions(1:i, 2) - random_positions(index, 2));
-            % Check the violations
-            x_violations = x_delta_dist < this.config_.scenario.random_pos_padding;
-            y_violations = y_delta_dist < this.config_.scenario.random_pos_padding;
-            % Get instances where there are x and y violations
-            violations = x_violations.*y_violations;
+            x_violations = abs(valid_positions(1:i, 1) - random_positions(index, 1)) < this.config_.scenario.random_pos_padding;
+            y_violations = abs(valid_positions(1:i, 2) - random_positions(index, 2)) < this.config_.scenario.random_pos_padding;
             
-            if (sum(violations) == 0)
+            % Get instances where there are x and y violations
+            pos_violations = (sum(x_violations.*y_violations) > 0);
+            
+            % Inside round terrain
+            if(this.config_.scenario.terrain_on)
+              terrain_x_violation = abs(random_positions(index, 1) - this.terrain_.x) < 0.5*this.config_.scenario.terrain_size;
+              terrain_y_violation = abs(random_positions(index, 2) - this.terrain_.y) < 0.5*this.config_.scenario.terrain_size;
+              terrain_violations = terrain_x_violation || terrain_y_violation;
+            else
+              terrain_violations = false;
+            end
+            
+            if (~pos_violations && ~terrain_violations)
               position_valid = true;
               % Save our valid position
               valid_positions(i,:) = random_positions(index, :);
@@ -188,34 +226,6 @@ classdef WorldState < handle
       
       this.goal_.x = valid_positions(index, 1);
       this.goal_.y = valid_positions(index, 2);
-      
-      % Randomly place the rough terrain (can be placed anywhere)
-      % Utilizes the previously formed random positions
-      if(this.config_.scenario.terrain_on)
-        terrain_valid = false;
-        i = 1;
-        while(~terrain_valid)
-          temp_terrain_pos = random_positions(i, :);
-          
-          x_lower_valid = temp_terrain_pos(1) > 0.5*this.config_.scenario.terrain_size;
-          x_upper_valid = (this.config_.scenario.world_width - temp_terrain_pos(1)) > 0.5*this.config_.scenario.terrain_size;
-          y_lower_valid = temp_terrain_pos(2) > 0.5*this.config_.scenario.terrain_size;
-          y_upper_valid = (this.config_.scenario.world_height - temp_terrain_pos(2)) > 0.5*this.config_.scenario.terrain_size;
-          
-          if(x_lower_valid && x_upper_valid && y_lower_valid && y_upper_valid)
-            % Set the valid position
-            this.terrain_.x = temp_terrain_pos(1);
-            this.terrain_.y = temp_terrain_pos(2);
-            break;
-          end
-          
-          i = i + 1;
-        end
-      else
-        this.terrain_.x = [];
-        this.terrain_.y = [];
-      end
-      
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

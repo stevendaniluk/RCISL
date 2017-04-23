@@ -53,59 +53,60 @@ classdef Configuration < handle
       
       % Primary Scenario Parameters
       this.scenario.max_iterations = 5000;        % Maximum allowed iterations
-      this.scenario.num_robots = 4;               % Total number of robots
+      this.scenario.num_robots = 1;               % Total number of robots
       this.scenario.num_obstacles = 4;            % Total number of obstacles
-      this.scenario.num_targets = 4;              % Total number of targets
+      this.scenario.num_targets = 1;              % Total number of targets
       
       % World Parameters
       this.scenario.world_height = 10;               % World Y dimension [meters]
       this.scenario.world_width  = 10;               % World X dimension [meters]
       this.scenario.grid_size = 0.5;                 % Discritization of world into grid for random placement [meters]
-      this.scenario.random_pos_padding = 2.0;        % Padding distance between randomly placed objects [meters]
+      this.scenario.random_pos_padding = 1.5;        % Padding distance between randomly placed objects [meters]
       this.scenario.random_border_padding = 1.0;     % Padding distance between randomly placed objects and the borders [meters]
       this.scenario.robot_size = 0.125;              % Diameter of robots [meters]
       this.scenario.obstacle_size = 1.0;             % Diameter of obstacles [meters]
       this.scenario.target_size = 0.25;              % Diameter of targets [meters]
       this.scenario.goal_size = 2.0;                 % Diameter of collection zone [meters]
-      this.scenario.terrain_on = false;              % Flag for if rough terrain is used
-      this.scenario.terrain_size = 3.0;              % Square size of rough terrain [meters]
-      this.scenario.terrain_fractional_speed = 0.3;  % Reduction is speed when in rough terrain
+      this.scenario.terrain_on = true;               % Flag for if rough terrain is used
+      this.scenario.terrain_centred = true;          % Flag for placing terrain in centre of world
+      this.scenario.terrain_size = 4.0;              % Square size of rough terrain [meters]
+      this.scenario.terrain_fractional_speed = 0.0;  % Speed reduction in rough terrain (0.0 means cannot enter terrain)
       
       % Robot Parameters
       
       % Slow, Non-Rugged, Weak
-      type_1.step_size = 0.30;
-      type_1.rotate_size = pi*(2/9);
-      type_1.strong = false;
-      type_1.rugged = false;
-      type_1.reach = 0.5;
-      type_1.label = 'S-NR';
+      this.scenario.robot_defs(1).step_size = 0.30;
+      this.scenario.robot_defs(1).rotate_size = pi*(2/9);
+      this.scenario.robot_defs(1).strong = false;
+      this.scenario.robot_defs(1).rugged = false;
+      this.scenario.robot_defs(1).reach = 0.5;
+      this.scenario.robot_defs(1).label = 'S-NR';
       
       % Fast, Non-Rugged, Weak
-      type_2.step_size = 0.40;
-      type_2.rotate_size = pi*(3/9);
-      type_2.strong = false;
-      type_2.rugged = false;
-      type_2.reach = 0.5;
-      type_2.label = 'F-NR';
+      this.scenario.robot_defs(2).step_size = 0.40;
+      this.scenario.robot_defs(2).rotate_size = pi*(3/9);
+      this.scenario.robot_defs(2).strong = false;
+      this.scenario.robot_defs(2).rugged = false;
+      this.scenario.robot_defs(2).reach = 0.5;
+      this.scenario.robot_defs(2).label = 'F-NR';
       
       % Slow, Rugged, Weak
-      type_3.step_size = 0.30;
-      type_3.rotate_size = pi*(2/9);
-      type_3.strong = false;
-      type_3.rugged = true;
-      type_3.reach = 0.5;
-      type_3.label = 'S-R';
+      this.scenario.robot_defs(3).step_size = 0.30;
+      this.scenario.robot_defs(3).rotate_size = pi*(2/9);
+      this.scenario.robot_defs(3).strong = false;
+      this.scenario.robot_defs(3).rugged = true;
+      this.scenario.robot_defs(3).reach = 0.5;
+      this.scenario.robot_defs(3).label = 'S-R';
       
       % Fast, Rugged, Weak
-      type_4.step_size = 0.40;
-      type_4.rotate_size = pi*(3/9);
-      type_4.strong = false;
-      type_4.rugged = true;
-      type_4.reach = 0.5;
-      type_4.label = 'F-R';
+      this.scenario.robot_defs(4).step_size = 0.40;
+      this.scenario.robot_defs(4).rotate_size = pi*(3/9);
+      this.scenario.robot_defs(4).strong = false;
+      this.scenario.robot_defs(4).rugged = true;
+      this.scenario.robot_defs(4).reach = 0.5;
+      this.scenario.robot_defs(4).label = 'F-R';
       
-      this.scenario.robot_types = [type_1, type_1, type_1, type_1];
+      this.scenario.robot_types = [1, 2, 3, 4];
       this.scenario.target_types = {'light', 'light', 'light', 'light'};
       
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -126,15 +127,15 @@ classdef Configuration < handle
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       % Individual Learning Parameters
-      this.IL.enabled = true;                 % Flag for if individual learning is enabled
-      this.IL.learning_iterations = 1;        % Number of iterations between learning updates
-      this.IL.item_closer_reward = 5.0;       % Reward for robot moving item closer to collection zone
+      this.IL.enabled = true;                % Flag for if individual learning is enabled
+      this.IL.learning_iterations = 1;       % Number of iterations between learning updates
+      this.IL.item_closer_reward = 5.0;      % Reward for robot moving item closer to collection zone
       this.IL.item_further_reward = 0.1;     % Reward for robot moving item further from collection zone
-      this.IL.robot_closer_reward = 5.0;      % Reward for robot moving close to target item
+      this.IL.robot_closer_reward = 5.0;     % Reward for robot moving close to target item
       this.IL.robot_further_reward = 0.1;    % Reward for robot moving further from target item
-      this.IL.return_reward = 100;             % Reward for retuning item to collection zone
+      this.IL.return_reward = 50;            % Reward for retuning item to collection zone
       this.IL.empty_reward_value = 1.00;     % Default reward if no other conditions met
-      this.IL.reward_activation_dist = 0.10;  % Minimum distance to move to receive reward
+      this.IL.reward_activation_dist = 0.3;  % Minimum distance to move to receive reward (% of step size)
       
       % Expert Parameters
       this.IL.expert_on = false;              % If expert agent(s) shoudld be loaded
@@ -145,13 +146,14 @@ classdef Configuration < handle
       this.IL.policy = 'GLIE';                % Options: "greedy", "e-greedy", "boltzmann", "GLIE"
       this.IL.e_greedy_epsilon = 0.10;        % Probability of selecting random action
       this.IL.boltzmann_temp = 1.0;           % Constant temperature for boltzmann distribution
+      this.IL.GLIE_min_p = 0.02;              % Optional minimum allowable probability with GLIE policy
       
       % Action and State Parameters
       this.IL.num_actions = 4;                % Number of actions for a robot
       this.IL.state_resolution = ...          % Number of discritizations for each state variable
         [3;          % Goal Distance,
          5;          % Goal Angle
-         3;          % Target Type
+         2;          % Target Type
          3;          % Target Distance
          5;          % Target Angle
          3;          % Obstacle Distance
@@ -159,7 +161,7 @@ classdef Configuration < handle
       if(this.scenario.terrain_on)
         % Append rough terrain state variables
         this.IL.state_resolution = [this.IL.state_resolution;
-                                    3;  % Terrain distance
+                                    4;  % Terrain distance
                                     5]; % Terrain angle
       end
       this.IL.look_ahead_dist = 2.0;          % Max distance used for state discritizations
@@ -194,11 +196,11 @@ classdef Configuration < handle
       this.advice.QL.gamma = 0.3;                        % Q-learning discount factor
       this.advice.QL.alpha_max = 1.0;                    % Q-learning maximum value of learning rate
       this.advice.QL.alpha_rate = 1.0;                   % Q-learning power in alpha update equation
-      this.advice.QL.state_resolution = [25, 2, 25];     % Q-learning state resolution
+      this.advice.QL.state_resolution = [50, 2, 50];     % Q-learning state resolution
       this.advice.num_actions = 3;                       % Number of possible actions for the mechanism
       this.advice.e_greedy = 0.05;                       % Probability fo selecting a random action
       this.advice.accept_bias = 3.0;                     % Bias on reward signal for accepting advice
-      this.advice.adviser_trust_alpha = 0.99;            % Rate update coefficient for adviser value
+      this.advice.adviser_relevance_alpha = 0.99;        % Rate update coefficient for adviser relevance
       this.advice.evil_advice_prob = 0.0;                % Probability that an adviser will be evil
       this.advice.fake_advisers = false;                 % Flag for using fake advisers (as opposed to other robots)
       this.advice.fake_adviser_files = {'E100'; 'E10'};  % Filenames for fake adviser data (fromt he expert folder)

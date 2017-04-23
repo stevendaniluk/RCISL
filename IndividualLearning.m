@@ -173,7 +173,7 @@ classdef IndividualLearning < handle
     %
     %   INPUTS
     %   robot_state = RobotState object
-    %   world_state = WorldState object
+    %   world_state = WorldState object    
     
     function postActionUpdate(this, robot_state, world_state)
       this.prev_state_vector_ = this.state_vector_;
@@ -186,9 +186,9 @@ classdef IndividualLearning < handle
     %
     %   Updates the utility values, based on the reward
     
-    function learn(this, robot_state)
+    function learn(this, world_state, robot_state, properties)
       % Find reward, and store it as well
-      reward = this.determineReward(robot_state);
+      reward = this.determineReward(world_state, robot_state, properties);
       this.epoch_reward_ = this.epoch_reward_ + reward;
       
       % Do one step of QLearning
@@ -416,15 +416,25 @@ classdef IndividualLearning < handle
     %   OUTPUTS
     %   reward = Value of the reward for the action
     
-    function reward = determineReward(this, robot_state)
+    function reward = determineReward(this, world_state, robot_state, prop)
       % Check if the target has changed from the previous iteration
       if(this.reward_data_.target_id ~= this.prev_reward_data_.target_id)
+        
+        % Handle item delivered to collection zone
+        if(this.prev_reward_data_.target_id ~= -1)
+          if(world_state.targets_(this.prev_reward_data_.target_id).returned == true)
+            reward = this.config_.IL.return_reward;
+            return;
+          end
+        end
+        
+        % Task assignment change
         reward = 0;
         return;
       end
-      
+            
       % Set distance threshold for rewards
-      thresh = this.config_.IL.reward_activation_dist;
+      thresh = this.config_.IL.reward_activation_dist*prop.step_size;
       
       % Handle the case where no target is assigned first, since
       % a target is needed to calculate the target distance
@@ -433,8 +443,9 @@ classdef IndividualLearning < handle
       % closer to the colelction zone)
       if(this.reward_data_.target_id == -1)
         delta_goal_dist = this.reward_data_.robot_goal_dist; - this.prev_reward_data_.robot_goal_dist;
+        
         if (delta_goal_dist < -thresh)
-          reward = 1;
+          reward = 2*this.config_.IL.empty_reward_value;
         else
           reward = this.config_.IL.empty_reward_value;
         end
@@ -448,6 +459,7 @@ classdef IndividualLearning < handle
       % met, assign the empty reward value.
       if(robot_state.target_.carrying)
         delta_target_goal_dist = this.reward_data_.target_goal_dist - this.prev_reward_data_.target_goal_dist;
+        
         if(delta_target_goal_dist < -thresh)
           reward = this.config_.IL.item_closer_reward;
         elseif(delta_target_goal_dist > thresh)
@@ -457,6 +469,7 @@ classdef IndividualLearning < handle
         end
       else
         delta_robot_target_dist = this.reward_data_.robot_target_dist - this.prev_reward_data_.robot_target_dist;
+        
         if(delta_robot_target_dist < -thresh)
           reward = this.config_.IL.robot_closer_reward;
         elseif(delta_robot_target_dist > thresh)
@@ -525,12 +538,14 @@ classdef IndividualLearning < handle
         %  Greedy in the Limit Infinite Exploration (using boltzmann
         %  exploration) [Convergence Results for Single-Step
         %  On-Policy Reinforcement Learning Algorithms, Singh et al., 2000]
-        if(sum(experience) > 1 || sum(utility_vals == 0) ~= length(utility_vals))
-          tau = log(sum(experience))/(max(utility_vals) - min(utility_vals));
-          if(tau > 0)
-            exponents = exp(tau*utility_vals);
-            action_prob = exponents/sum(exponents);
-          end
+        %  with a modification to set a minimum allowable probability
+        %  (voids greedy in the limit with >0)
+        if(sum(experience) >= 1 || sum(utility_vals == 0) ~= length(utility_vals))
+          n = this.config_.IL.num_actions;
+          alpha = this.config_.IL.GLIE_min_p;
+          tau = log((1 - n*alpha)/sum(experience) + n*alpha)/(min(utility_vals) - max(utility_vals));
+          exponents = exp(min(tau*utility_vals, 100));  % Need to prevent infinity
+          action_prob = exponents/sum(exponents);
         end
         rand_action = rand;
         for i=1:this.config_.IL.num_actions

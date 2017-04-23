@@ -52,7 +52,8 @@ classdef Robot < handle
       
       % Set robot properties according to type from config
       prop_index = mod(this.id_ - 1, length(this.config_.scenario.robot_types)) + 1;
-      this.prop_ = this.config_.scenario.robot_types(prop_index);
+      type_num = this.config_.scenario.robot_types(prop_index);
+      this.prop_ = this.config_.scenario.robot_defs(type_num);
       
       % Form the action definition
       %   1: Move forward
@@ -105,7 +106,7 @@ classdef Robot < handle
       
       % Learn from action
       if (mod(world_state.mission_.iters, this.config_.IL.learning_iterations) == 0)
-        this.individual_learning_.learn(this.robot_state_);
+        this.individual_learning_.learn(world_state, this.robot_state_, this.prop_);
       end
       
       % Increment effort

@@ -38,7 +38,7 @@ publish_version = false;
 
 exp1 = false;
 exp1_settings.sim_folder = sprintf('v%d_experiment_1', version);
-exp1_settings.ref_folder = 'ref/8N';
+exp1_settings.ref_folder = 'ref/4N';
 
 exp2 = false;
 exp2_settings.sim_folder = sprintf('v%d_experiment_2', version);
@@ -48,9 +48,13 @@ exp3a = false;
 exp3a_settings.sim_folder = sprintf('v%d_experiment_3a', version);
 exp3a_settings.legend_strings = char({});
 
+exp3b = false;
+exp3b_settings.sim_folder = sprintf('v%d_experiment_3b', version);
+exp3b_settings.legend_strings = char({});
+
 exp4 = false;
 exp4_settings.sim_folder = sprintf('v%d_experiment_4', version);
-exp4_settings.ref_folder = 'ref/8N';
+exp4_settings.ref_folder = 'ref/4N';
 
 % Plot settings to remove titles and add line types for publishing
 if(publish_version)
@@ -159,7 +163,7 @@ if(exp2)
   hold on
   grid on
   plot(dp.advice_plots_.x_vector, 100*dp.advice_data_.accept_action_evil)
-  plot(dp.advice_plots_.x_vector, 100*(dp.advice_data_.accept_action - dp.advice_data_.accept_action_evil))
+  plot(dp.advice_plots_.x_vector, 100*dp.advice_data_.accept_action)
   
   legend('Evil', 'Benevolent');
   if(titles_on)
@@ -167,7 +171,7 @@ if(exp2)
   end
   xlabel(dp.advice_plots_.x_label_string);
   ylabel('Accept Percentage [%]');
-  axis([1, dp.advice_plots_.x_length, 0, 50]);
+  axis([1, dp.advice_plots_.x_length, 0, 100]);
   
   % OPTIONAL - Plot iterations
   %fig_iter = figure;
@@ -184,21 +188,45 @@ if(exp3a)
   dp.advice_plots_.titles_on = titles_on;
   dp.loadAdviceData(exp3a_settings.sim_folder);
   
-  fig_trust = figure;
-  fig_trust.Name = 'Experiment 3a';
-  dp.plotAdviserTrust(fig_trust);
+  fig_relevance = figure;
+  fig_relevance.Name = 'Experiment 3a';
+  dp.plotAdviserRelevance(fig_relevance);
   
-  fig_usage = figure;
-  fig_usage.Name = 'Experiment 3a';
-  dp.plotAdviserUsage(fig_usage);
+  %fig_usage = figure;
+  %fig_usage.Name = 'Experiment 3a';
+  %dp.plotAdviserUsage(fig_usage);
   
   % Override the legend strings
   if(~isempty(exp3a_settings.legend_strings))
-    set(0,'CurrentFigure', fig_trust);
+    set(0,'CurrentFigure', fig_relevance);
     legend(exp3a_settings.legend_strings)
     
-    set(0,'CurrentFigure', fig_usage);
-    legend(exp3a_settings.legend_strings)
+    %set(0,'CurrentFigure', fig_usage);
+    %legend(exp3a_settings.legend_strings)
+  end
+end
+
+%% Experiment 3b
+if(exp3b)
+  dp = DataProcessor();
+  dp.advice_plots_.titles_on = titles_on;
+  dp.loadAdviceData(exp3b_settings.sim_folder);
+  
+  fig_relevance = figure;
+  fig_relevance.Name = 'Experiment 3b';
+  dp.plotAdviserRelevance(fig_relevance);
+  
+  %fig_usage = figure;
+  %fig_usage.Name = 'Experiment 3b';
+  %dp.plotAdviserUsage(fig_usage);
+  
+  % Override the legend strings
+  if(~isempty(exp3b_settings.legend_strings))
+    set(0,'CurrentFigure', fig_relevance);
+    legend(exp3b_settings.legend_strings)
+    
+    %set(0,'CurrentFigure', fig_usage);
+    %legend(exp3b_settings.legend_strings)
   end
 end
 

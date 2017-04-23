@@ -415,7 +415,7 @@ classdef DataProcessor < handle
     
     function plotAdviceMechanismMetrics(this)
       fig_a = figure;
-            
+      
       % Original and advised knowledge
       subplot(3,1,1)
       hold on
@@ -434,14 +434,14 @@ classdef DataProcessor < handle
       title('Mechanism Reward');
       xlabel(this.advice_plots_.x_label_string);
       ylabel('$$R$$', 'Interpreter', 'latex');
-      axis([1, this.advice_plots_.x_length, 0.0, 2.0]);
+      axis([1, this.advice_plots_.x_length, 0.0, 4.0]);
       
-      % Advice rate
+      % Advice lambda
       subplot(3,1,3)
-      plot(this.advice_plots_.x_vector, this.advice_data_.advice_rate)
-      title('Advice Rate For Accepting Advice');
+      plot(this.advice_plots_.x_vector, this.advice_data_.lambda)
+      title('Advice Lambda For Accepting Advice');
       xlabel(this.advice_plots_.x_label_string);
-      ylabel('Advice Rate');
+      ylabel('Advice \lambda');
       axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
       
       fig_b = figure;
@@ -458,8 +458,8 @@ classdef DataProcessor < handle
       axis([1, this.advice_plots_.x_length, 0, 100]);
       legend('Advice Requested', 'Advisers Polled', 'Advice Accepted')
       
-      % Adviser trust
-      this.plotAdviserTrust(fig_b, [3,1,2])
+      % Adviser relevance
+      this.plotAdviserRelevance(fig_b, [3,1,2])
       
       % Adviser usage
       this.plotAdviserUsage(fig_b, [3,1,3])
@@ -483,7 +483,7 @@ classdef DataProcessor < handle
         hold on
         if (this.config_advice_.advice.evil_advice_prob > 0)
           plot(this.advice_plots_.x_vector, 100*this.advice_data_.accept_action_evil(i, :))
-          plot(this.advice_plots_.x_vector, 100*(this.advice_data_.accept_action(i, :) - this.advice_data_.accept_action_evil(i, :)))
+          plot(this.advice_plots_.x_vector, 100*this.advice_data_.accept_action(i, :))
           plot(this.advice_plots_.x_vector, 100*this.advice_data_.skip_action(i, :))
           plot(this.advice_plots_.x_vector, 100*this.advice_data_.cease_action(i, :))
           legend('Accept-Evil', 'Accept-Benevolent', 'Skip', 'Cease');
@@ -505,7 +505,7 @@ classdef DataProcessor < handle
         title([this.advice_plots_.adviser_names{i}, ': Change in K for Accepting Advice']);
         xlabel(this.advice_plots_.x_label_string);
         ylabel('\Delta K');
-        axis([1, this.advice_plots_.x_length, 0.0, 0.20]);
+        axis([1, this.advice_plots_.x_length, 0.0, 0.40]);
         %ref_line = refline([0, 0]);
         %ref_line.Color = 'r';
         %ref_line.LineStyle = '--';
@@ -519,7 +519,7 @@ classdef DataProcessor < handle
         title([this.advice_plots_.adviser_names{i}, ': Reward For Each Action']);
         xlabel(this.advice_plots_.x_label_string);
         ylabel('R');
-        axis([1, this.advice_plots_.x_length, 0.0, 3.0]);
+        axis([1, this.advice_plots_.x_length, 0.0, 4.0]);
         legend('Accept', 'Skip', 'Cease');
         %ref_line = refline([0, 0]);
         %ref_line.Color = 'r';
@@ -530,16 +530,16 @@ classdef DataProcessor < handle
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %
-    %   plotAdviserTrust
+    %   plotAdviserRelevance
     %
-    %   Plots the trust (accept reward for each adviser. Legend names
+    %   Plots the relevance for each adviser. Legend names
     %   are taken from the property advice_plots_.adviser_names.
     %
     %   INPUTS:
     %     fig - Figure handle to plot onto
     %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
     
-    function plotAdviserTrust(this, fig, subplot_vector)
+    function plotAdviserRelevance(this, fig, subplot_vector)
       set(0,'CurrentFigure',fig);
       
       % Handle subplots
@@ -548,15 +548,15 @@ classdef DataProcessor < handle
       end
       
       % Plot the data
-      plot(this.advice_plots_.x_vector, this.advice_data_.adviser_trust);
+      plot(this.advice_plots_.x_vector, this.advice_data_.adviser_relevance);
       grid on
       legend_string = char(this.advice_plots_.adviser_names);
       if(this.advice_plots_.titles_on)
-        title('Trust of Each Adviser');
+        title('Relevance of Each Adviser');
       end
       xlabel(this.advice_plots_.x_label_string);
-      ylabel('Trust \omega');
-      axis([1, this.advice_plots_.x_length, 0.0, 1.00]);
+      ylabel('Relevance \omega');
+      axis([1, this.advice_plots_.x_length, 0.0, 0.60]);
       legend(legend_string);
     end
     
@@ -587,7 +587,7 @@ classdef DataProcessor < handle
       end
       xlabel(this.advice_plots_.x_label_string);
       ylabel('Usage [%]');
-      axis([1, this.advice_plots_.x_length, 0.0, 100]);
+      axis([1, this.advice_plots_.x_length, 0.0, 50]);
       legend(char(this.advice_plots_.adviser_names));
     end
         

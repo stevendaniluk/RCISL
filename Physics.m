@@ -73,13 +73,18 @@ classdef Physics < handle
     function MoveRobot(this, world_state, robot_state, prop, distance, rotation)
       % First account for rough terrain and non-rugged robots
       if(this.config_.scenario.terrain_on && ~prop.rugged)
-        % Check if within boundaries
-        x_inside_terrain = abs(world_state.robots_(robot_state.id_).x - world_state.terrain_.x) < 0.5*this.config_.scenario.terrain_size;
-        y_inside_terrain = abs(world_state.robots_(robot_state.id_).y - world_state.terrain_.y) < 0.5*this.config_.scenario.terrain_size;
-        if(x_inside_terrain && y_inside_terrain)
-          % Slow the movement
-          distance = distance*this.config_.scenario.terrain_fractional_speed;
-          rotation = rotation*this.config_.scenario.terrain_fractional_speed;
+        % Fractional speed of zero means the robot cannot enter rough
+        % terrain. Leave as full movement, and validPoint will stop
+        % movement if within terrain area
+        if(this.config_.scenario.terrain_fractional_speed > 0)
+          % Check if within boundaries
+          x_inside_terrain = abs(world_state.robots_(robot_state.id_).x - world_state.terrain_.x) < 0.5*this.config_.scenario.terrain_size;
+          y_inside_terrain = abs(world_state.robots_(robot_state.id_).y - world_state.terrain_.y) < 0.5*this.config_.scenario.terrain_size;
+          if(x_inside_terrain && y_inside_terrain)
+            % Slow the movement
+            distance = distance*this.config_.scenario.terrain_fractional_speed;
+            rotation = rotation*this.config_.scenario.terrain_fractional_speed;
+          end
         end
       end
       
@@ -93,7 +98,7 @@ classdef Physics < handle
         new_pt.y = world_state.robots_(robot_state.id_).y + distance*sin(world_state.robots_(robot_state.id_).theta);
         
         % Only move if its valid
-        if (this.validPoint(world_state, new_pt, robot_state.id_))
+        if (this.validPoint(world_state, new_pt, robot_state.id_, prop))
           % Assign the new position
           world_state.robots_(robot_state.id_).x = new_pt.x;
           world_state.robots_(robot_state.id_).y = new_pt.y;
@@ -135,7 +140,7 @@ classdef Physics < handle
     %   new_pt = Struct with x and y fields
     %   robot_id = ID number of robot
     
-    function valid = validPoint(this, world_state, new_pt, robot_id)
+    function valid = validPoint(this, world_state, new_pt, robot_id, prop)
       % Get sizes
       r_robot = 0.5*this.config_.scenario.robot_size;
       r_obst = 0.5*this.config_.scenario.obstacle_size;
@@ -180,6 +185,19 @@ classdef Physics < handle
       if(sum(robot_ds < 2*r_robot) > 0)
         valid = false;
         return;
+      end
+      
+      % Check rough terrain and non-rugged robots
+      if(this.config_.scenario.terrain_on && ~prop.rugged)
+        % Fractional speed of zero means the robot cannot enter rough terrain
+        if(this.config_.scenario.terrain_fractional_speed == 0)
+          x_inside_terrain = abs(new_pt.x - world_state.terrain_.x) < (0.5*this.config_.scenario.terrain_size + r_robot);
+          y_inside_terrain = abs(new_pt.y - world_state.terrain_.y) < (0.5*this.config_.scenario.terrain_size + r_robot);
+          if(x_inside_terrain && y_inside_terrain)
+            valid = false;
+            return;
+          end
+        end
       end
       
       % If all checks have passed, the new point is valid

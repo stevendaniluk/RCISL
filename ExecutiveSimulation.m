@@ -62,7 +62,7 @@ classdef ExecutiveSimulation < handle
       
       for id = 1:this.config_.scenario.num_robots;
         this.robots_(id, 1) = Robot(id, this.config_, this.world_state_);
-        if(this.config_.advice.enabled && this.config_.scenario.num_robots > 1)
+        if(this.config_.advice.enabled)
           addlistener(this.robots_(id, 1).individual_learning_.advice_, 'RequestRobotHandle', @(src, event)this.handleRequestRobotHandle(src));
         end
       end
@@ -119,9 +119,6 @@ classdef ExecutiveSimulation < handle
         
         this.world_state_.mission_.iters = this.world_state_.mission_.iters + 1;
       end
-      
-      % Call graphics for displaying tracks, if requested in configuration
-      Graphics(this.config_, this.world_state_, this.robots_);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
