@@ -118,7 +118,11 @@ classdef IndividualLearning < handle
       
       % Instantiate advice (if needed)
       if (this.config_.advice.enabled)
-        this.advice_ = AdviceEnhancement(this.config_, this.id_);
+        if(strcmp(this.config_.advice.mechanism, 'advice_enhancement'))
+          this.advice_ = AdviceEnhancement(this.config_, this.id_);
+        elseif(strcmp(this.config_.advice.mechanism, 'advice_exchange'))
+          this.advice_ = AdviceExchange(this.config_, this.id_);
+        end
       end
     end
     
@@ -144,12 +148,12 @@ classdef IndividualLearning < handle
       end
       
       % Default to our own policy
-      [action_id, prob_vals] = this.Policy(quality, experience);
+      [action_id, ~] = this.Policy(quality, experience);
       
       % Get advised action (if necessary)
       if (this.config_.advice.enabled)
         % Get advice from advisor (overwrite quality and experience)
-        result = this.advice_.getAdvice(this.state_vector_, prob_vals, experience);
+        result = this.advice_.getAdvice(this.state_vector_, quality, experience);
         
         if length(result) ~= 1
           % Advice has returned Q values

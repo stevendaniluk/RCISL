@@ -163,8 +163,8 @@ classdef WorldState < handle
             
             % Inside round terrain
             if(this.config_.scenario.terrain_on)
-              terrain_x_violation = abs(random_positions(index, 1) - this.terrain_.x) < 0.5*this.config_.scenario.terrain_size;
-              terrain_y_violation = abs(random_positions(index, 2) - this.terrain_.y) < 0.5*this.config_.scenario.terrain_size;
+              terrain_x_violation = abs(random_positions(index, 1) - this.terrain_.x) < (0.5*this.config_.scenario.terrain_size + this.config_.scenario.random_border_padding);
+              terrain_y_violation = abs(random_positions(index, 2) - this.terrain_.y) < (0.5*this.config_.scenario.terrain_size + this.config_.scenario.random_border_padding);
               terrain_violations = terrain_x_violation || terrain_y_violation;
             else
               terrain_violations = false;

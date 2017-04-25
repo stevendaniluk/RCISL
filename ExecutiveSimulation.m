@@ -88,7 +88,7 @@ classdef ExecutiveSimulation < handle
     %   Used by advice mechanism.
     
     function handleRequestRobotHandle(this, src)
-      src.all_robots_ = this.robots_;
+      src.robot_handles_ = this.robots_;
     end
         
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

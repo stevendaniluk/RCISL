@@ -20,7 +20,7 @@ classdef AdviceEnhancement < handle
     
     % Advisor properties
     advisers_initialized_; % Flag if all adviser data has been set
-    all_robots_;           % Handles of all robot objects
+    robot_handles_;        % Handles of all robot objects
     adviser_handles_;      % Cells containing adviser IndividualLearning objects
     fake_advisers_;        % Cells containing fake adviser Q-learning objects
   end
@@ -163,7 +163,7 @@ classdef AdviceEnhancement < handle
         j = 1;
         for i = 1:this.config_.scenario.num_robots
           if i ~= this.id_
-            this.adviser_handles_{j, 1} = this.all_robots_(i, 1).individual_learning_;
+            this.adviser_handles_{j, 1} = this.robot_handles_(i, 1).individual_learning_;
             j = j + 1;
           end
         end
@@ -180,12 +180,13 @@ classdef AdviceEnhancement < handle
     %
     %   INPUTS:
     %   state_vector = Vector defining the robots current state
-    %   quality_in = Vector of quality values for this robots state
+    %   quality = Vector of quality values for this robots state
+    %   experience = Vector of times each has been executed
     %
     %   OUTPUTS:
-    %   result = Either the action id, or vector of quality values
+    %   action_id = Id number of advised acton
     
-    function result = getAdvice(this, state_vector, p_vals, experience)
+    function action_id = getAdvice(this, state_vector, quality, experience)
       % Prepare data
       this.preAdviceUpdate();
       
@@ -197,7 +198,7 @@ classdef AdviceEnhancement < handle
       reward_count = 0;
       
       % Get advisee's information
-      p_o = p_vals;
+      [~, p_o] = this.robot_handles_(this.id_, 1).individual_learning_.Policy(quality, experience);
       K_o = this.convertPToK(p_o);
       K_o_initial = K_o;
       K_hat = K_o;
@@ -368,9 +369,6 @@ classdef AdviceEnhancement < handle
           this.mechanism_metrics_.reward = reward_count/n + this.mechanism_metrics_.reward;
         end
       end
-      
-      % Output the result
-      result = action_id;
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -416,7 +414,7 @@ classdef AdviceEnhancement < handle
             
       % Convert Q values to K values
       if (this.config_.advice.fake_advisers)
-        [~, p_m] = this.all_robots_(this.id_, 1).individual_learning_.Policy(q_m, experience_m);
+        [~, p_m] = this.robot_handles_(this.id_, 1).individual_learning_.Policy(q_m, experience_m);
       else
         [~, p_m] = this.adviser_handles_{m}.Policy(q_m, experience_m);
       end
@@ -459,7 +457,7 @@ classdef AdviceEnhancement < handle
           action = indices(ceil(rand*length(indices)));
         else
           % There is a single optimal action
-          action = indices;
+          [~, action] = max(q_vals);
         end
       end
     end
