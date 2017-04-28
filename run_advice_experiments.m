@@ -28,7 +28,7 @@
 clear
 clc
 num_sims = 10;
-num_runs = 300;
+num_runs = 200;
 version = 1;
 
 % Flags and settings for each experiment:
@@ -41,18 +41,18 @@ exp2_settings.num_robots = 4;
 exp2_settings.robot_types = [1, 2, 3, 4];
 
 exp3 = false;
-exp3_settings.robot_types = 1;
-exp3_settings.fake_adviser_files = {'S-NR/E1000', 'S-NR/E100', 'S-NR/E10'};
+exp3_settings.robot_types = 3;
+exp3_settings.fake_adviser_files = {'S-R/E100', 'S-R/E100', 'S-R/E10'};
 
 exp4 = false;
 exp4_settings.robot_types = 3;
-exp4_settings.fake_adviser_files = {'S-NR/E1000', 'F-NR/E1000', 'S-R/E1000', 'F-R/E1000'};
+exp4_settings.fake_adviser_files = {'S-NR/E100', 'F-NR/E100', 'S-R/E100', 'F-R/E100'};
 
 exp5 = false;
 exp5_settings.num_robots = 4;
 exp5_settings.robot_types = [1, 1, 1, 1];
-exp5_settings.fake_adviser_files = {'S-NR/E10', 'S-NR/E100', 'S-NR/E1000'};
-exp5_settings.sim_labels = {'E10', 'E100', 'E1000'};
+exp5_settings.fake_adviser_files = {'S-NR/E100', 'S-NR/E10', 'S-NR/E1'};
+exp5_settings.sim_labels = {'E100', 'E10', 'E1'};
 
 %% Set the initial config data
 % Each case will set, and unset, their params

@@ -6,7 +6,9 @@
 
 % Settings
 num_robots = [1, 2, 4, 8];  % Number of robots for each case
-num_runs = 100;             % Number of runs for each sim
+robot_types = [1, 1, 1, 1]; % Types of robots to use
+label = 'S-NR';             % Label to append to name (e.g. "S-NR"
+num_runs = 200;             % Number of runs for each sim
 num_sims = 10;              % Number simulations to perform
 
 % Load and set the config
@@ -16,9 +18,7 @@ config.sim.save_simulation_data = true;
 config.sim.save_IL_data = false;
 config.sim.save_advice_data = false;
 config.advice.enabled = false;
-
-config.scenario.num_robots = 1;
-config.scenario.num_targets = 1;
+config.scenario.robot_types = robot_types;
 
 ref_dir = fullfile('results', 'ref');
 if ~exist(ref_dir, 'dir')
@@ -31,13 +31,13 @@ for i = 1:length(num_robots)
   config.scenario.num_targets = num_robots(i);
   
   % Make sure there is a folder to save to
-  set_name = sprintf('%dN', num_robots(i));
+  set_name = sprintf('%dN-%s', num_robots(i), label);
   set_dir = fullfile(ref_dir, set_name);
   if ~exist(set_dir, 'dir')
     mkdir(set_dir);
   end
   
-  for j = 1:num_sims
+  parfor j = 1:num_sims
     % Create simulation object and initialize
     Simulation = ExecutiveSimulation(config);
     Simulation.initialize();

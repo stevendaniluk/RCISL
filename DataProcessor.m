@@ -27,7 +27,7 @@ classdef DataProcessor < handle
     config_team_;             % Configuration object for team data
     config_advice_;           % Configuration object for advice data
     robot_ = 1;               % Robot to use for individual plots
-    epoch_smooth_pts_ = 5;    % Moving average points over epochs
+    epoch_smooth_pts_ = 10;    % Moving average points over epochs
     
     % Team performance data
     team_plots_;  % Structure containing data about plot settings
@@ -72,9 +72,9 @@ classdef DataProcessor < handle
     
     function this = DataProcessor(type, folder)
       % Set some default parameters
-      this.team_plots_.iter_axis_max = 2000;
-      this.team_plots_.stddev_axis_max = 1000;
-      this.team_plots_.reward_axis_max = 2.5;
+      this.team_plots_.iter_axis_max = 3000;
+      this.team_plots_.stddev_axis_max = 1500;
+      this.team_plots_.reward_axis_max = 2.0;
       this.team_plots_.num_runs_iter = [];
       this.team_plots_.num_runs_stddev = [];
       this.team_plots_.num_runs_reward = [];
@@ -276,11 +276,16 @@ classdef DataProcessor < handle
     %     name - Name to append to the legend (OPTIONAL
     %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
     
-    function plotIterations(this, fig, name, subplot_vector)
+    function plotIterations(this, fig, name, subplot_vector, thickness)
       set(0,'CurrentFigure',fig);
       
+      % Handle line thickness
+      if(nargin < 5)
+        thickness = 0.5;
+      end
+      
       % Handle subplots
-      if(nargin == 4)
+      if(nargin >= 4)
         subplot(subplot_vector(1), subplot_vector(2), subplot_vector(3));
       end
       
@@ -288,7 +293,7 @@ classdef DataProcessor < handle
       hold on
       grid on
       this.team_plots_.num_runs_iter(end + 1) = length(this.team_data_.iterations);
-      plot(1:this.team_plots_.num_runs_iter(end), this.team_data_.iterations);
+      plot(1:this.team_plots_.num_runs_iter(end), this.team_data_.iterations, 'LineWidth', thickness);
       if(this.team_plots_.titles_on)
         title('Mission Iterations');
       end
@@ -378,7 +383,7 @@ classdef DataProcessor < handle
       hold on
       grid on
       this.team_plots_.num_runs_reward(end + 1) = length(this.team_data_.iterations);
-      plot(1:this.team_plots_.num_runs_reward(end), this.team_data_.avg_reward)
+      plot(1:this.team_plots_.num_runs_reward(end), this.team_data_.avg_reward)      
       if(this.team_plots_.titles_on)
         title('Mission Average Reward');
       end
@@ -389,7 +394,7 @@ classdef DataProcessor < handle
       else
         axis([1, max(this.team_plots_.num_runs_reward), 0, this.team_plots_.reward_axis_max]);
       end
-      
+            
       % Add legend strings, if provided
       if(nargin >= 2)
         this.team_plots_.reward_legend_strings{end + 1} = name;
@@ -556,7 +561,7 @@ classdef DataProcessor < handle
       end
       xlabel(this.advice_plots_.x_label_string);
       ylabel('Relevance \omega');
-      axis([1, this.advice_plots_.x_length, 0.0, 0.60]);
+      axis([1, this.advice_plots_.x_length, 0.0, 1.0]);
       legend(legend_string);
     end
     
