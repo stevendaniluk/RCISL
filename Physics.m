@@ -78,9 +78,10 @@ classdef Physics < handle
         % movement if within terrain area
         if(this.config_.scenario.terrain_fractional_speed > 0)
           % Check if within boundaries
-          x_inside_terrain = abs(world_state.robots_(robot_state.id_).x - world_state.terrain_.x) < 0.5*this.config_.scenario.terrain_size;
-          y_inside_terrain = abs(world_state.robots_(robot_state.id_).y - world_state.terrain_.y) < 0.5*this.config_.scenario.terrain_size;
-          if(x_inside_terrain && y_inside_terrain)
+          dx = world_state.robots_(robot_state.id_).x - world_state.terrain_.x;
+          dy = world_state.robots_(robot_state.id_).y - world_state.terrain_.y;
+          inside_terrain = (sqrt(dx^2 + dy^2) < 0.5*this.config_.scenario.terrain_size);
+          if(inside_terrain)
             % Slow the movement
             distance = distance*this.config_.scenario.terrain_fractional_speed;
             rotation = rotation*this.config_.scenario.terrain_fractional_speed;
@@ -191,9 +192,10 @@ classdef Physics < handle
       if(this.config_.scenario.terrain_on && ~prop.rugged)
         % Fractional speed of zero means the robot cannot enter rough terrain
         if(this.config_.scenario.terrain_fractional_speed == 0)
-          x_inside_terrain = abs(new_pt.x - world_state.terrain_.x) < (0.5*this.config_.scenario.terrain_size + r_robot);
-          y_inside_terrain = abs(new_pt.y - world_state.terrain_.y) < (0.5*this.config_.scenario.terrain_size + r_robot);
-          if(x_inside_terrain && y_inside_terrain)
+          dx = new_pt.x - world_state.terrain_.x;
+          dy = new_pt.y - world_state.terrain_.y;
+          inside_terrain = (sqrt(dx^2 + dy^2) < 0.5*this.config_.scenario.terrain_size);
+          if(inside_terrain)
             valid = false;
             return;
           end

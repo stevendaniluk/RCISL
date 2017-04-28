@@ -20,16 +20,13 @@ if(config.sim.show_live_graphics)
   
   % Draw the rough terrain
   if(config.scenario.terrain_on)
-    terrain_pos = [world_state.terrain_.x - 0.5*config.scenario.terrain_size;
-      world_state.terrain_.y - 0.5*config.scenario.terrain_size;
-      config.scenario.terrain_size;
-      config.scenario.terrain_size];
-    rectangle('Position', terrain_pos, 'FaceColor', [0.8, 0.8, 0.8]);
+    circle_points = getCircle(world_state.terrain_, config.scenario.terrain_size);
+    plot(circle_points(1, :), circle_points(2, :), 'k');
   end
   
   % Draw the goal location
   circle_points = getCircle(world_state.goal_, config.scenario.goal_size);
-  plot(circle_points(1, :), circle_points(2, :), 'k');
+  plot(circle_points(1, :), circle_points(2, :), 'g');
   
   % Draw the obstacles
   for i = 1:config.scenario.num_obstacles

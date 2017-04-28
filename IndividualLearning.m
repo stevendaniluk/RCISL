@@ -25,20 +25,20 @@ classdef IndividualLearning < handle
     state_vector_;       % Current state vector
     prev_state_vector_;  % Previous state vector
     reward_data_;        % Struct of data for calculation reward
-                         %   robot_goal_dist - Distance moved for longitudinal movements
-                         %   robot_target_dist - Angle rotated for rotational movements
-                         %   target_goal_dist - Flag for if the robot is strong
-                         %   target_id - Distance a robot can grab a target from
+    %   robot_goal_dist - Distance moved for longitudinal movements
+    %   robot_target_dist - Angle rotated for rotational movements
+    %   target_goal_dist - Flag for if the robot is strong
+    %   target_id - Distance a robot can grab a target from
     prev_reward_data_;   % Struct of data for calculation reward, from previous iteration
-                         %   Same fields as reward_data_
+    %   Same fields as reward_data_
     epoch_reward_;       % Counter for total reward this epoch
     state_data_;         % Struct for storing state data at each iteration
-                         %   state_vector - Discritized vector for current state
-                         %   utility - Utility values for each action
-                         %   reward - Reward received from the action
-                         %   action - Selected action
-                         %   learning_rate - Q-Learning learning rate
-                         %   experience - Maximum experience in the state
+    %   state_vector - Discritized vector for current state
+    %   utility - Utility values for each action
+    %   reward - Reward received from the action
+    %   action - Selected action
+    %   learning_rate - Q-Learning learning rate
+    %   experience - Maximum experience in the state
   end
   
   methods (Access = public)
@@ -66,12 +66,12 @@ classdef IndividualLearning < handle
       
       % Initialize Q-learning
       this.q_learning_ = QLearning(this.config_.IL.QL.gamma, this.config_.IL.QL.alpha_max, this.config_.IL.QL.alpha_rate, ...
-                                   this.config_.IL.state_resolution, this.config_.IL.num_actions);
+        this.config_.IL.state_resolution, this.config_.IL.num_actions);
       
       this.epoch_reward_ = 0;
       
       % Load expert (if necessary)
-      % Looks within the "expert_data" directory in the folder name 
+      % Looks within the "expert_data" directory in the folder name
       % specified for Q-table and experience table data
       if (this.config_.IL.expert_on)
         index = find(this.id_ == this.config_.IL.expert_id);
@@ -177,7 +177,7 @@ classdef IndividualLearning < handle
     %
     %   INPUTS
     %   robot_state = RobotState object
-    %   world_state = WorldState object    
+    %   world_state = WorldState object
     
     function postActionUpdate(this, robot_state, world_state)
       this.prev_state_vector_ = this.state_vector_;
@@ -308,81 +308,107 @@ classdef IndividualLearning < handle
       % Save the target id for reward calculations
       this.reward_data_.target_id = robot_state.target_.id;
       
-      % In addition to the actual obstacles, world borders are
-      % considered as well. All obstacles are combined into a single
-      % struct array, and the closes obstacle is used.
-      
-      % Left border      
-      obstacles(1).x = 0;
-      obstacles(1).y = robot_state.pose_.y;
-      
-      % Right border
-      obstacles(2).x = this.config_.scenario.world_width;
-      obstacles(2).y = robot_state.pose_.y;
-      
-      % Top border
-      obstacles(3).x = robot_state.pose_.x;
-      obstacles(3).y = this.config_.scenario.world_height;
-      
-      % Bottom border
-      obstacles(4).x = robot_state.pose_.x;
-      obstacles(4).y = 0;
-      
-      % Append all other obstacles
-      if(this.config_.scenario.num_obstacles > 0)
-        obstacles = [obstacles, robot_state.obstacles_];
-      end
-      
-      % Convert to a array to find closest obstacle
-      obstacles_array = reshape([obstacles.x, obstacles.y], this.config_.scenario.num_obstacles + 4, 2);
-      obstacle_ds = sqrt((obstacles_array(:, 1) - robot_state.pose_.x).^2 + (obstacles_array(:, 2) - robot_state.pose_.y).^2);
-      
-      [rel_obstacle.d, obstacle_index] = min(obstacle_ds);
-      rel_obstacle.x = obstacles(obstacle_index).x - robot_state.pose_.x;
-      rel_obstacle.y = obstacles(obstacle_index).y - robot_state.pose_.y;
-      state_vector(6) = floor((min(rel_obstacle.d, max_dist - delta)/max_dist)*state_res(6));
-      
-      rel_obstacle.theta = atan2(rel_obstacle.y, rel_obstacle.x) - robot_state.pose_.theta;
-      rel_obstacle.theta = mod((rel_obstacle.theta + pi/state_res(7)), 2*pi);
-      state_vector(7) = floor(rel_obstacle.theta*state_res(7)/(2*pi));
-      
-      % Find terrain distance and angle (when applicable)
-      if(this.config_.scenario.terrain_on)
-        rel_terrain.x = world_state.terrain_.x - robot_state.pose_.x;
-        rel_terrain.y = world_state.terrain_.y - robot_state.pose_.y;
+      % Scan detection rays
+      ray_ranges = max_dist*ones(this.config_.IL.num_obstacle_rays, 1);
+      max_ray_angle = ((this.config_.IL.num_obstacle_rays - 1)/2)*this.config_.IL.obstacle_ray_angle;
+      for i = 1:this.config_.IL.num_obstacle_rays
+        hit = false;
+        terrain = false;
         
-        x_within_terrain = abs(rel_terrain.x) < 0.5*this.config_.scenario.terrain_size;
-        y_within_terrain = abs(rel_terrain.y) < 0.5*this.config_.scenario.terrain_size;
+        rel_ray_angle = max_ray_angle - (i - 1)*this.config_.IL.obstacle_ray_angle;
+        ray_angle = robot_state.pose_.theta + rel_ray_angle;
+        ray_angle = mod(ray_angle, 2*pi);
         
-        if(x_within_terrain && y_within_terrain)
-          % Robot is inside terrain
-          state_vector(8) = 0;
-        else
-          % Distance and angle will be with respect to the closest edge of
-          % the rough terrain
-          if(x_within_terrain)
-            % Closest edge will be the top/bottom
-            rel_terrain.x = 0;
-            rel_terrain.y = rel_terrain.y - sign(rel_terrain.y)*0.5*this.config_.scenario.terrain_size;
-          elseif(y_within_terrain)
-            % Closest edge will be the left/right
-            rel_terrain.x = rel_terrain.x - sign(rel_terrain.x)*0.5*this.config_.scenario.terrain_size;
-            rel_terrain.y = 0;
-          else
-            % Closest point will be a corner
-            rel_terrain.x = rel_terrain.x - sign(rel_terrain.x)*0.5*this.config_.scenario.terrain_size;
-            rel_terrain.y = rel_terrain.y - sign(rel_terrain.y)*0.5*this.config_.scenario.terrain_size;
+        % Use circle intersection method for obstacles and terrain
+        % Express ray as a line y = mx + b
+        slope = tan(ray_angle);
+        intercept = robot_state.pose_.y - slope*robot_state.pose_.x;
+        for j = 1:this.config_.scenario.num_obstacles
+          % Check if ray can even reach the obstacle to potentially
+          % skip the expensive linecirc call
+          min_dx = robot_state.pose_.x - robot_state.obstacles_(j).x;
+          min_dy = robot_state.pose_.y - robot_state.obstacles_(j).y;
+          min_d = sqrt(min_dx^2 + min_dy^2) - 0.5*this.config_.scenario.obstacle_size;
+          if(min_d > max_dist)
+            continue;
           end
           
-          % Set the encoded distance
-          rel_terrain.d = sqrt(rel_terrain.x^2 + rel_terrain.y^2);
-          state_vector(8) = ceil((min(rel_terrain.d, max_dist - delta)/max_dist)*(state_res(8) - 1));
+          % Matlab's circle intersection returns pts for each intersection
+          [hit_x, hit_y] = linecirc(slope, intercept, robot_state.obstacles_(j).x, robot_state.obstacles_(j).y, 0.5*this.config_.scenario.obstacle_size);
+          if(sum(isnan(hit_x)) == 0 && sum(isnan(hit_y)) == 0)
+            % Intersections have to be in the right direction (line is
+            % treated as infinite)
+            rel_x = hit_x - robot_state.pose_.x;
+            rel_y = hit_y - robot_state.pose_.y;
+            for k = 1:length(rel_x)
+              if(sign(rel_x(k)) == sign(cos(ray_angle)))
+                d = sqrt(rel_x(k)^2 + rel_y(k)^2);
+                if(d < ray_ranges(i))
+                  ray_ranges(i) = d;
+                  hit = true;
+                end
+              end
+            end
+          end
         end
         
-        % Set the encoded angle
-        rel_terrain.theta = atan2(rel_terrain.y, rel_terrain.x) - robot_state.pose_.theta;
-        rel_terrain.theta = mod((rel_terrain.theta + pi/state_res(9)), 2*pi);
-        state_vector(9) = floor(rel_terrain.theta*state_res(9)/(2*pi));
+        if(this.config_.scenario.terrain_on)
+          RO_x = robot_state.terrain_.x - robot_state.pose_.x;
+          RO_y = robot_state.terrain_.y - robot_state.pose_.y;
+          
+          % When inside circle, range is zero
+          if(sqrt(RO_x^2 + RO_y^2) <= 0.5*this.config_.scenario.terrain_size)
+            ray_ranges(i) = 0;
+            hit = true;
+            terrain = true;
+          else
+            % Check dot product between Robot-Terrain and Robot-Ray vectors
+            % to potentially skip the expensive linecirc call
+            RR_x = max_dist*cos(ray_angle);
+            RR_y = max_dist*sin(ray_angle);
+            if((RO_x*RR_x + RO_y*RR_y) < 0)
+              continue;
+            end
+            
+            % Matlab's circle intersection returns pts for each intersection
+            [hit_x, hit_y] = linecirc(slope, intercept, robot_state.terrain_.x, robot_state.terrain_.y, 0.5*this.config_.scenario.terrain_size);
+            if(sum(isnan(hit_x)) == 0 && sum(isnan(hit_y)) == 0)
+              % Intersections have to be in the right direction (line is
+              % treated as infinite)
+              rel_x = hit_x - robot_state.pose_.x;
+              rel_y = hit_y - robot_state.pose_.y;
+              for k = 1:length(rel_x)
+                if(sign(rel_x(k)) == sign(cos(ray_angle)))
+                  d = sqrt(rel_x(k)^2 + rel_y(k)^2);
+                  if(d < ray_ranges(i))
+                    ray_ranges(i) = d;
+                    hit = true;
+                    terrain = true;
+                  end
+                end
+              end
+            end
+          end
+        end
+        
+        % When no hits, check for world boundaries
+        if(~hit)
+          % Find end point of ray
+          end_pt.x = robot_state.pose_.x + max_dist*cos(ray_angle);
+          end_pt.y = robot_state.pose_.y + max_dist*sin(ray_angle);
+          
+          % Limit end point to be within world boundaries
+          end_pt.x = max(0, min(this.config_.scenario.world_width, end_pt.x));
+          end_pt.y = max(0, min(this.config_.scenario.world_height, end_pt.y));
+          
+          % Evaluate new ray length
+          ray_ranges(i) = sqrt((end_pt.x - robot_state.pose_.x)^2 + (end_pt.y - robot_state.pose_.y)^2);
+        end
+        
+        % Form state for each ray
+        state_indice = 6 + 2*(i - 1);
+        state_vector(state_indice) = floor((min(ray_ranges(i), max_dist - delta)/max_dist)*state_res(state_indice));
+        state_vector(state_indice + 1) = terrain;
       end
       
       % Correct if elements are over the max allowable value
@@ -436,7 +462,7 @@ classdef IndividualLearning < handle
         reward = 0;
         return;
       end
-            
+      
       % Set distance threshold for rewards
       thresh = this.config_.IL.reward_activation_dist*prop.step_size;
       
