@@ -114,13 +114,13 @@ classdef Configuration < handle
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       % Noise and Particle Filter Parameters
-      this.noise.sigma = 0.0;
-      this.noise.PF.enabled = true;
-      this.noise.PF.resample_std = 0.02;
-      this.noise.PF.control_std = 0.1;
-      this.noise.PF.sensor_std  = 0.05;
-      this.noise.PF.num_particles = 35;
-      this.noise.PF.prune_number = 7;
+      this.noise.enabled = false;         % Add noise to robot state
+      this.noise.sigma_trans = 0.1;       % Std Dev for translational motion
+      this.noise.sigma_rot = 0.1;         % Std Dev for rotational motion
+      this.noise.PF.enabled = false;      % Filter state with particle filter
+      this.noise.PF.num_particles = 20;   % Particles to use in filter
+      this.noise.PF.sigma_meas = 0.1;     % Std Dev of measurement likelihood
+      this.noise.PF.sigma_initial = 0.1;  % Std Dev of distribution to draw initial particles from
       
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       % Individual Learning

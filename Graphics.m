@@ -72,18 +72,32 @@ if(config.sim.show_live_graphics)
     text(world_state.robots_(i).x + 0.2, world_state.robots_(i).y + 0.2, label);
     
     % If noise is present, plot the state estimates
-    if(config.noise.sigma > 0)
+    if(config.noise.enabled)
+      d_est = 0.2;
+      
       % Draw the robots current belief about its own position
-      circle_points = getCircle(robots(i).robot_state_.pose_, 0.5*config.scenario.robot_size);
-      plot(circle_points(1, :), circle_points(2, :), 'g');
+      circle_points = getCircle(robots(i).robot_state_.pose_, d_est);
+      plot(circle_points(1, :), circle_points(2, :), 'k');
       
       % Draw the robots current belief about its goal position
-      circle_points = getCircle(robots(i).robot_state_.goal_, 0.1*config.scenario.goal_size);
-      plot(circle_points(1, :), circle_points(2, :), 'b');
+      circle_points = getCircle(robots(i).robot_state_.goal_, d_est);
+      plot(circle_points(1, :), circle_points(2, :), 'k');
       
       % Draw the robots current belief about its target position
-      circle_points = getCircle(robots(i).robot_state_.target_, 0.5*config.scenario.target_size);
-      plot(circle_points(1, :), circle_points(2, :), 'b');
+      circle_points = getCircle(robots(i).robot_state_.target_, d_est);
+      plot(circle_points(1, :), circle_points(2, :), 'k');
+      
+      % Draw the robots current belief about all obstacles
+      for j = 1:config.scenario.num_obstacles
+        circle_points = getCircle(robots(i).robot_state_.obstacles_(j), d_est);
+        plot(circle_points(1, :), circle_points(2, :), 'k');
+      end
+      
+      % Draw the robots current belief about the rough terrain
+      if(config.scenario.terrain_on)
+        circle_points = getCircle(robots(i).robot_state_.terrain_, d_est);
+        plot(circle_points(1, :), circle_points(2, :), 'k');
+      end
     end
     
     % Draw line connecting robots to their targets

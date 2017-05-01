@@ -331,6 +331,11 @@ classdef IndividualLearning < handle
           min_d = sqrt(min_dx^2 + min_dy^2) - 0.5*this.config_.scenario.obstacle_size;
           if(min_d > max_dist)
             continue;
+          elseif(min_d < 0)
+            % Robot inside obstacle (due to noise)
+            ray_ranges(i) = 0;
+            hit = true;
+            continue
           end
           
           % Matlab's circle intersection returns pts for each intersection
@@ -401,8 +406,13 @@ classdef IndividualLearning < handle
           end_pt.x = max(0, min(this.config_.scenario.world_width, end_pt.x));
           end_pt.y = max(0, min(this.config_.scenario.world_height, end_pt.y));
           
+          % Evaluate with robot pose limited to within world boundaries
+          % (due to noise)
+          pose.x = max(0, min(this.config_.scenario.world_width, robot_state.pose_.x));
+          pose.y = max(0, min(this.config_.scenario.world_width, robot_state.pose_.y));
+          
           % Evaluate new ray length
-          ray_ranges(i) = sqrt((end_pt.x - robot_state.pose_.x)^2 + (end_pt.y - robot_state.pose_.y)^2);
+          ray_ranges(i) = sqrt((end_pt.x - pose.x)^2 + (end_pt.y - pose.y)^2);
         end
         
         % Form state for each ray
@@ -413,7 +423,7 @@ classdef IndividualLearning < handle
       
       % Correct if elements are over the max allowable value
       % (shouldn't happen, but if it does we want to know)
-      if (sum(state_vector >= state_res) ~= 0)
+      if(sum(state_vector >= state_res) ~= 0)
         state_string = '[';
         for i = 1:length(state_vector)
           state_string = sprintf('%s%d, ', state_string, state_vector(i));

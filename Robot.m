@@ -92,6 +92,7 @@ classdef Robot < handle
       action_id = this.individual_learning_.getAction();
       
       % Depending on the action ID, make the appropriate action
+      prev_pose = world_state.robots_(this.id_);
       if(action_id <= 3)
         % Move in the direction specified by action
         physics.MoveRobot(world_state, this.robot_state_, this.prop_, this.action_def_(action_id).step, this.action_def_(action_id).rotate);
@@ -101,7 +102,7 @@ classdef Robot < handle
       end
       
       % Update state after action
-      this.robot_state_.update(world_state);
+      this.robot_state_.update(world_state, prev_pose);
       this.individual_learning_.postActionUpdate(this.robot_state_, world_state);
       
       % Learn from action
