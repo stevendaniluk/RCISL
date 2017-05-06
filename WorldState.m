@@ -74,9 +74,24 @@ classdef WorldState < handle
     %   randomizeState
     %
     %   Begin to form random positions by discritizing the world,
-    %   getting all the unique positions, then selecting enough
-    %   positions that are valid, and do not violate the random
-    %   position padding dictated in the configuration
+    %   and getting a list of all possible unique positions. Features are
+    %   added in the following fashion:
+    %     -Place the terrain first, restricting it to be within the world
+    %      boundaries (plus padding), then remove any possible positions
+    %      from the list that are too close to or within the terrain
+    %     -Place goal zone, ensuring none of the goal area is within the
+    %      rough terrain, and it is within world bounds, then remove any
+    %      possible positions from the list that are inside or too close to
+    %      the goal area
+    %     -Place each obstacle, checkign that it is not too close to
+    %      terrain or goal area, then remove any positions from the list
+    %      that are too close too the obstacle
+    %     -Place each robot at a random position (all remaining positions
+    %      are valid, then remove that position from the list, as well as
+    %      positions too close to the robot
+    %     -Place each item at a random position (all remaining positions
+    %      are valid, then remove that position from the list, as well as
+    %      positions too close to the item
     
     function randomizeState(this)
       % Total potential positions
@@ -87,12 +102,8 @@ classdef WorldState < handle
       x_grid = linspace(this.config_.scenario.random_border_padding, (this.config_.scenario.world_width - this.config_.scenario.random_border_padding), num_x_pos);
       y_grid = linspace(this.config_.scenario.random_border_padding, (this.config_.scenario.world_height - this.config_.scenario.random_border_padding), num_y_pos);
       
-      % Total amount of valid positions we need
-      num_positions = this.config_.scenario.num_robots + this.config_.scenario.num_targets + this.config_.scenario.num_obstacles + 1;
-      
       % Form empty arrays
       positions = zeros(num_x_pos * num_y_pos, 2);
-      valid_positions = zeros(num_positions, 2);
       
       % Put all potential position combinations in an ordered array
       for i=1:num_x_pos
@@ -102,13 +113,22 @@ classdef WorldState < handle
         end
       end
       
+      attempt_count = 0;
       valid_positions_found = false;
-      
       while (~valid_positions_found)
+        if(attempt_count > 10)
+          warning('Unable to find valid combination of positions for all scenario features. Try adjusting padding size');
+          return;
+        end
+        attempt_count = attempt_count + 1;
+        
         % Take random permutations of positions in each direction
         random_positions = positions(randperm(num_x_pos * num_y_pos), :);
         
-        % Randomly place the rough terrain
+        % Defualt to true, will set false if violations occur
+        valid_positions_found = true;
+        
+        % Place the rough terrain first
         if(this.config_.scenario.terrain_on)
           if(this.config_.scenario.terrain_centred)
             this.terrain_.x = 0.5*this.config_.scenario.world_width;
@@ -119,109 +139,235 @@ classdef WorldState < handle
             while(~terrain_valid)
               temp_terrain_pos = random_positions(i, :);
               
-              x_lower_valid = temp_terrain_pos(1) > 0.5*this.config_.scenario.terrain_size;
-              x_upper_valid = (this.config_.scenario.world_width - temp_terrain_pos(1)) > 0.5*this.config_.scenario.terrain_size;
-              y_lower_valid = temp_terrain_pos(2) > 0.5*this.config_.scenario.terrain_size;
-              y_upper_valid = (this.config_.scenario.world_height - temp_terrain_pos(2)) > 0.5*this.config_.scenario.terrain_size;
+              x_lower_valid = temp_terrain_pos(1) > (0.5*this.config_.scenario.terrain_size + this.config_.scenario.random_border_padding);
+              x_upper_valid = (this.config_.scenario.world_width - this.config_.scenario.random_border_padding - temp_terrain_pos(1)) > 0.5*this.config_.scenario.terrain_size;
+              y_lower_valid = temp_terrain_pos(2) > (0.5*this.config_.scenario.terrain_size + this.config_.scenario.random_border_padding);
+              y_upper_valid = (this.config_.scenario.world_height - this.config_.scenario.random_border_padding - temp_terrain_pos(2)) > 0.5*this.config_.scenario.terrain_size;
               
               if(x_lower_valid && x_upper_valid && y_lower_valid && y_upper_valid)
                 % Set the valid position
                 this.terrain_.x = temp_terrain_pos(1);
                 this.terrain_.y = temp_terrain_pos(2);
-                break;
+                
+                % Remove position from list
+                random_positions(i, :) = [];
+                terrain_valid = true;
               end
               
               i = i + 1;
             end
           end
+          
+          % Remove any positions inside the terrain
+          invalid_positions = [];
+          for i = 1:length(random_positions)
+            dx = random_positions(i, 1) - this.terrain_.x;
+            dy = random_positions(i, 2) - this.terrain_.y;
+            ds = sqrt(dx^2 + dy^2);
+            inside = ds < (0.5*this.config_.scenario.terrain_size + this.config_.scenario.random_pos_padding);
+            
+            if(inside)
+              invalid_positions(end + 1) = i; %#ok<AGROW>
+            end
+          end
+          random_positions(invalid_positions, :) = [];
+          
         else
           this.terrain_.x = [];
           this.terrain_.y = [];
         end
         
-        % Loop through assigning random positions, while checking if any new random
-        % positions conflict with old ones.
-        index = 1;
-        valid_positions(index, :) = random_positions(index,:);
+        % Check that some positions are left
+        if(isempty(random_positions))
+          attempt_count = attempt_count + 1;
+          valid_positions_found = false;
+          continue;
+        end
         
-        for i=1:num_positions
-          % If we've checked all positions, break and generate
-          % new ones
-          if (index > num_x_pos*num_y_pos)
-            break;
+        % Set the goal position
+        goal_valid = false;
+        i = 1;
+        while(~goal_valid)
+          temp_goal_pos = random_positions(i, :);
+          
+          if(this.config_.scenario.terrain_on)
+            % Check if any part of goal zone is within terrain
+            dx = temp_goal_pos(1) - this.terrain_.x;
+            dy = temp_goal_pos(2) - this.terrain_.y;
+            ds = sqrt(dx^2 + dy^2);
+            inside = ds < (0.5*this.config_.scenario.terrain_size + 0.5*this.config_.scenario.goal_size + this.config_.scenario.random_pos_padding);
+            
+            if(inside)
+              i = i + 1;
+              continue;
+            end
           end
           
-          % Loop through random positions until one is valid
-          position_valid = false;
-          while(~position_valid)
-            % Separation distance
-            x_violations = abs(valid_positions(1:i, 1) - random_positions(index, 1)) < this.config_.scenario.random_pos_padding;
-            y_violations = abs(valid_positions(1:i, 2) - random_positions(index, 2)) < this.config_.scenario.random_pos_padding;
-            
-            % Get instances where there are x and y violations
-            pos_violations = (sum(x_violations.*y_violations) > 0);
-            
-            % Inside round terrain
-            if(this.config_.scenario.terrain_on)
-              terrain_x_violation = abs(random_positions(index, 1) - this.terrain_.x) < (0.5*this.config_.scenario.terrain_size + this.config_.scenario.random_border_padding);
-              terrain_y_violation = abs(random_positions(index, 2) - this.terrain_.y) < (0.5*this.config_.scenario.terrain_size + this.config_.scenario.random_border_padding);
-              terrain_violations = terrain_x_violation || terrain_y_violation;
-            else
-              terrain_violations = false;
-            end
-            
-            if (~pos_violations && ~terrain_violations)
-              position_valid = true;
-              % Save our valid position
-              valid_positions(i,:) = random_positions(index, :);
-            end
-            
-            index = index + 1;
-            % If we've checked all positions, break and generate
-            % new ones
-            if (index > num_x_pos*num_y_pos)
-              break;
-            end
+          % Check that position is within world bounds
+          a = (temp_goal_pos(1) - 0.5*this.config_.scenario.goal_size) > 0;
+          b = (temp_goal_pos(1) + 0.5*this.config_.scenario.goal_size) < this.config_.scenario.world_width;
+          c = (temp_goal_pos(2) - 0.5*this.config_.scenario.goal_size) > 0;
+          d = (temp_goal_pos(2) + 0.5*this.config_.scenario.goal_size) < this.config_.scenario.world_height;
+          in_bounds = (a && b && c && d);
+          if(~in_bounds)
+            i = i + 1;
+            continue;
           end
-          % If we've checked all positions, break and generate
-          % new ones
-          if (index > num_x_pos*num_y_pos)
-            break;
+          
+          % Set the valid position
+          this.goal_.x = temp_goal_pos(1);
+          this.goal_.y = temp_goal_pos(2);
+          
+          % Remove position from list
+          random_positions(i, :) = [];
+          
+          goal_valid = true;
+        end
+        
+        % Remove any positions inside the goal area
+        invalid_positions = [];
+        for i = 1:length(random_positions)
+          dx = random_positions(i, 1) - this.goal_.x;
+          dy = random_positions(i, 2) - this.goal_.y;
+          ds = sqrt(dx^2 + dy^2);
+          inside = ds < 0.5*this.config_.scenario.goal_size + this.config_.scenario.random_pos_padding;
+          
+          if(inside)
+            invalid_positions(end + 1) = i; %#ok<AGROW>
+          end
+        end
+        random_positions(invalid_positions, :) = [];
+        
+        % Set the position for each obstacle
+        for j = 1:this.config_.scenario.num_obstacles
+          % Check that some positions are left
+          if(isempty(random_positions))
+            attempt_count = attempt_count + 1;
+            valid_positions_found = false;
+            continue;
+          end
+          
+          obstacle_valid = false;
+          i = 1;
+          while(~obstacle_valid)
+            temp_obst_pos = random_positions(i, :);
+            
+            if(this.config_.scenario.terrain_on)
+              % Check if the obstacle is too close to the terrain
+              dx = temp_obst_pos(1) - this.terrain_.x;
+              dy = temp_obst_pos(2) - this.terrain_.y;
+              ds = sqrt(dx^2 + dy^2);
+              inside = ds < (0.5*this.config_.scenario.terrain_size + 0.5*this.config_.scenario.obstacle_size + this.config_.scenario.random_pos_padding);
+              
+              if(inside)
+                i = i + 1;
+                continue;
+              end
+            end
+            
+            % Check that position is within world bounds
+            a = (temp_obst_pos(1) - 0.5*this.config_.scenario.obstacle_size - this.config_.scenario.random_border_padding) > 0;
+            b = (temp_obst_pos(1) + 0.5*this.config_.scenario.goal_size) < (this.config_.scenario.world_width - this.config_.scenario.random_border_padding);
+            c = (temp_obst_pos(2) - 0.5*this.config_.scenario.goal_size - this.config_.scenario.random_border_padding) > 0;
+            d = (temp_obst_pos(2) + 0.5*this.config_.scenario.goal_size) < (this.config_.scenario.world_height - this.config_.scenario.random_border_padding);
+            in_bounds = (a && b && c && d);
+            if(~in_bounds)
+              i = i + 1;
+              continue;
+            end
+            
+            % Set the valid position
+            this.obstacles_(j).x = temp_obst_pos(1);
+            this.obstacles_(j).y = temp_obst_pos(2);
+            
+            % Remove position from list
+            random_positions(i, :) = [];
+            
+            % Remove any positions inside the obstacle area
+            % (only items and robots left after this, so account for robot
+            % radius)
+            invalid_positions = [];
+            for i = 1:length(random_positions)
+              dx = random_positions(i, 1) - this.obstacles_(j).x;
+              dy = random_positions(i, 2) - this.obstacles_(j).y;
+              ds = sqrt(dx^2 + dy^2);
+              inside = ds < (this.config_.scenario.obstacle_size + this.config_.scenario.random_pos_padding);
+              
+              if(inside)
+                invalid_positions(end + 1) = i; %#ok<AGROW>
+              end
+            end
+            random_positions(invalid_positions, :) = [];
+            
+            
+            obstacle_valid = true;
           end
         end
         
-        % Only finish if we have enough positions, and haven't
-        % surpassed the index
-        if ((i == num_positions) && (index <= num_x_pos*num_y_pos))
-          valid_positions_found = true;
+        % Roll through all robots and assign positions
+        % (every position will be valid now)
+        for j = 1:this.config_.scenario.num_robots
+          % Check that some positions are left
+          if(isempty(random_positions))
+            attempt_count = attempt_count + 1;
+            valid_positions_found = false;
+            continue;
+          end
+          
+          this.robots_(j).x = random_positions(1, 1);
+          this.robots_(j).y = random_positions(1, 2);
+          this.robots_(j).theta = rand*2*pi;
+          
+          % Remove position from list
+          random_positions(1, :) = [];
+          
+          % Remove any positions too close to robot
+          invalid_positions = [];
+          for i = 1:length(random_positions)
+            dx = random_positions(i, 1) - this.robots_(j).x;
+            dy = random_positions(i, 2) - this.robots_(j).y;
+            ds = sqrt(dx^2 + dy^2);
+            inside = ds < 0.5*this.config_.scenario.robot_size + this.config_.scenario.random_pos_padding;
+            
+            if(inside)
+              invalid_positions(end + 1) = i; %#ok<AGROW>
+            end
+          end
+          random_positions(invalid_positions, :) = [];
         end
+        
+        % Roll through all targets and assign positions
+        % (every position will be valid now)
+        for j = 1:this.config_.scenario.num_targets
+          % Check that some positions are left
+          if(isempty(random_positions))
+            attempt_count = attempt_count + 1;
+            valid_positions_found = false;
+            continue;
+          end
+          
+          this.targets_(j).x = random_positions(1, 1);
+          this.targets_(j).y = random_positions(1, 2);
+          
+          % Remove position from list
+          random_positions(1, :) = [];
+          
+          % Remove any positions too close to target
+          invalid_positions = [];
+          for i = 1:length(random_positions)
+            dx = random_positions(i, 1) - this.robots_(j).x;
+            dy = random_positions(i, 2) - this.robots_(j).y;
+            ds = sqrt(dx^2 + dy^2);
+            inside = ds < 0.5*this.config_.scenario.target_size + this.config_.scenario.random_pos_padding;
+            
+            if(inside)
+              invalid_positions(end + 1) = i; %#ok<AGROW>
+            end
+          end
+          random_positions(invalid_positions, :) = [];
+        end        
       end
       
-      % Assign the random positions to robots, targets, obstacles,
-      % and the goal, as well as random orientations
-      index = 1;
-      for i = 1:this.config_.scenario.num_robots
-        this.robots_(i).x = valid_positions(index, 1);
-        this.robots_(i).y = valid_positions(index, 2);
-        this.robots_(i).theta = rand*2*pi;
-        index = index + 1;
-      end
-      
-      for i = 1:this.config_.scenario.num_targets
-        this.targets_(i).x = valid_positions(index, 1);
-        this.targets_(i).y = valid_positions(index, 2);
-        index = index + 1;
-      end
-      
-      for i = 1:this.config_.scenario.num_obstacles
-        this.obstacles_(i).x = valid_positions(index, 1);
-        this.obstacles_(i).y = valid_positions(index, 2);
-        index = index + 1;
-      end
-      
-      
-      this.goal_.x = valid_positions(index, 1);
-      this.goal_.y = valid_positions(index, 2);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

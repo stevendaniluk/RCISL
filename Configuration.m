@@ -60,8 +60,8 @@ classdef Configuration < handle
       % World Parameters
       this.scenario.world_height = 10;               % World Y dimension [meters]
       this.scenario.world_width  = 10;               % World X dimension [meters]
-      this.scenario.grid_size = 0.5;                 % Discritization of world into grid for random placement [meters]
-      this.scenario.random_pos_padding = 1.5;        % Padding distance between randomly placed objects [meters]
+      this.scenario.grid_size = 0.1;                 % Discritization of world into grid for random placement [meters]
+      this.scenario.random_pos_padding = 0.5;        % Padding distance between randomly placed objects [meters]
       this.scenario.random_border_padding = 0.5;     % Padding distance between randomly placed objects and the borders [meters]
       this.scenario.robot_size = 0.125;              % Diameter of robots [meters]
       this.scenario.obstacle_size = 1.0;             % Diameter of obstacles [meters]
@@ -150,9 +150,9 @@ classdef Configuration < handle
       
       % Action and State Parameters
       this.IL.num_actions = 4; % Number of actions for a robot
-      goal_res = [3; 5];       % [Goal Distance; Goal Angle]
-      target_res = [2; 3; 5];  % [Target Type; Target Distance; Target Angle]
-      obst_res = [3; 2];       % [Obstacle Distance (per ray); Obstacle type (wall/obstacle or terrain)]
+      goal_res = [4; 5];       % [Goal Distance; Goal Angle]
+      target_res = [2; 4; 5];  % [Target Type; Target Distance; Target Angle]
+      obst_res = [5; 2];       % [Obstacle Distance (per ray); Obstacle type (wall/obstacle or terrain)]
       this.IL.num_obstacle_rays = 3;      % Number of scan rays for obstacles
       this.IL.obstacle_ray_angle = pi/10;  % Angle between rays [degrees]
       this.IL.state_resolution = [goal_res;
