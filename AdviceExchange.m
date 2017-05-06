@@ -125,12 +125,6 @@ classdef AdviceExchange < handle
         return;
       end
       
-      % DEVELOPMENTAL
-      %[action_id, ~] = this.robot_handles_(this.id_).individual_learning_.Policy(quality, experience);
-      %this.mechanism_metrics_.avg_q = this.mechanism_metrics_.avg_q + (quality(action_id) - this.mechanism_metrics_.avg_q)/this.epoch_iters_;
-      %this.getSetCurrentQuality(this.id_, this.mechanism_metrics_.avg_q);
-      %return;
-      
       % Find this robots adviser
       [~, this.adviser_id_] = max(this.cq_);
       if(this.adviser_id_ ~= this.id_)
@@ -163,6 +157,8 @@ classdef AdviceExchange < handle
       
       % Select an (advised) action
       [action_id, ~] = this.robot_handles_(this.id_).individual_learning_.Policy(quality, experience);
+      this.mechanism_metrics_.avg_q = this.mechanism_metrics_.avg_q + (quality(action_id) - this.mechanism_metrics_.avg_q)/this.epoch_iters_;
+      this.getSetCurrentQuality(this.id_, this.mechanism_metrics_.avg_q);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
