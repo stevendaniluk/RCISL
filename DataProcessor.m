@@ -32,14 +32,20 @@ classdef DataProcessor < handle
     % Team performance data
     team_plots_;  % Structure containing data about plot settings
                   %   -iter_axis_max
-                  %   -stddev_axis_max
+                  %   -iter_stddev_axis_max
                   %   -reward_axis_max
+                  %   -effort_axis_max
+                  %   -effort_stddev_axis_max
                   %   -num_runs_iter
-                  %   -num_runs_stddev
+                  %   -num_runs_iter_stddev
+                  %   -num_runs_effort
+                  %   -num_runs_effort_stddev
                   %   -num_runs_reward
                   %   -axis_min_runs
                   %   -iter_legend_strings
-                  %   -stddev_legend_strings
+                  %   -iter_stddev_legend_strings
+                  %   -effort_legend_strings
+                  %   -effort_stddev_legend_strings
                   %   -reward_legend_strings
                   %   -titles_on
     
@@ -73,14 +79,20 @@ classdef DataProcessor < handle
     function this = DataProcessor(type, folder)
       % Set some default parameters
       this.team_plots_.iter_axis_max = 3000;
-      this.team_plots_.stddev_axis_max = 1500;
+      this.team_plots_.iter_stddev_axis_max = 1500;
       this.team_plots_.reward_axis_max = 2.0;
+      this.team_plots_.effort_axis_max = 7000;
+      this.team_plots_.effort_stddev_axis_max = 500;
       this.team_plots_.num_runs_iter = [];
-      this.team_plots_.num_runs_stddev = [];
+      this.team_plots_.num_runs_iter_stddev = [];
+      this.team_plots_.num_runs_effort = [];
+      this.team_plots_.num_runs_effort_stddev = [];
       this.team_plots_.num_runs_reward = [];
       this.team_plots_.axis_min_runs = true;
       this.team_plots_.iter_legend_strings = [];
-      this.team_plots_.stddev_legend_strings = [];
+      this.team_plots_.iter_stddev_legend_strings = [];
+      this.team_plots_.effort_legend_strings = [];
+      this.team_plots_.effort_stddev_legend_strings = [];
       this.team_plots_.reward_legend_strings = [];
       this.team_plots_.titles_on = true;
       this.advice_plots_.titles_on = true;
@@ -120,8 +132,9 @@ classdef DataProcessor < handle
       load(['results/', filename, sprintf('%d', 1), '/', 'simulation_data']);
       this.team_data_ = simulation_data;
       
-      % Store iterations to compute standard deviation
+      % Store iterations and effort to compute standard deviation
       iters(1, :) = simulation_data.iterations;
+      effort(1, :) = simulation_data.avg_effort;
       
       num_sims = 1;
       while(true)
@@ -133,8 +146,9 @@ classdef DataProcessor < handle
         this.team_data_ = this.addStructFields(this.team_data_, simulation_data);
         num_sims = num_sims + 1;
         
-        % Store iterations to compute standard deviation
+        % Store iterations and effort to compute standard deviation
         iters(num_sims, :) = simulation_data.iterations;
+        effort(num_sims, :) = simulation_data.avg_effort;
       end
       
       % Divide by number of sims to average
@@ -142,6 +156,7 @@ classdef DataProcessor < handle
       
       % Add in the standard deviation
       this.team_data_.iterations_stddev = std(iters, 0, 1);
+      this.team_data_.effort_stddev = std(effort, 0, 1);
       
       % Smooth the data
       this.team_data_ = this.smoothStructFields(this.team_data_, this.epoch_smooth_pts_);
@@ -192,7 +207,7 @@ classdef DataProcessor < handle
       this.advice_data_ = this.smoothStructFields(this.advice_data_, this.epoch_smooth_pts_);
       
       % Make vector of epochs/iterations to plot data against
-      this.advice_plots_.x_label_string = 'Epochs';
+      this.advice_plots_.x_label_string = 'Runs';
       this.advice_plots_.x_vector = 1:length(this.advice_data_.K_o_norm);
       this.advice_plots_.x_length = length(this.advice_plots_.x_vector);
       
@@ -295,10 +310,10 @@ classdef DataProcessor < handle
       this.team_plots_.num_runs_iter(end + 1) = length(this.team_data_.iterations);
       plot(1:this.team_plots_.num_runs_iter(end), this.team_data_.iterations, 'LineWidth', thickness);
       if(this.team_plots_.titles_on)
-        title('Mission Iterations');
+        title('Simulation Iterations');
       end
-      xlabel('Epochs');
-      ylabel('Iterations');
+      xlabel('Runs');
+      ylabel('Simulation Time (no. iterations)');
       if(this.team_plots_.axis_min_runs)
         axis([1, min(this.team_plots_.num_runs_iter), 0, this.team_plots_.iter_axis_max]);
       else
@@ -336,27 +351,123 @@ classdef DataProcessor < handle
       % Plot the data
       hold on
       grid on
-      this.team_plots_.num_runs_stddev(end + 1) = length(this.team_data_.iterations);
+      this.team_plots_.num_runs_iter_stddev(end + 1) = length(this.team_data_.iterations);
       plot(1:this.team_plots_.num_runs_iter(end), this.team_data_.iterations_stddev);
       
       if(this.team_plots_.titles_on)
-        title('Standard Deviation of Mission Iterations');
+        title('Standard Deviation of Simulation Time');
       end
-      xlabel('Epochs');
-      ylabel('1 STD of Iterations');
+      xlabel('Runs');
+      ylabel('1 STD of Simulation Time (no. iterations)');
       if(this.team_plots_.axis_min_runs)
-        axis([1, min(this.team_plots_.num_runs_stddev), 0, this.team_plots_.stddev_axis_max]);
+        axis([1, min(this.team_plots_.num_runs_iter_stddev), 0, this.team_plots_.iter_stddev_axis_max]);
       else
-        axis([1, max(this.team_plots_.num_runs_stddev), 0, this.team_plots_.stddev_axis_max]);
+        axis([1, max(this.team_plots_.num_runs_iter_stddev), 0, this.team_plots_.iter_stddev_axis_max]);
       end
       
       % Add legend strings, if provided
       if(nargin >= 2)
-        this.team_plots_.stddev_legend_strings{end + 1} = name;
+        this.team_plots_.iter_stddev_legend_strings{end + 1} = name;
       else
-        this.team_plots_.stddev_legend_strings = [];
+        this.team_plots_.iter_stddev_legend_strings = [];
       end
-      legend(this.team_plots_.stddev_legend_strings)
+      legend(this.team_plots_.iter_stddev_legend_strings)
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   plotEffort
+    %
+    %   Plots the team effort. Legend names are persistent, so that
+    %   this can be called multiple times with new data.
+    %
+    %   INPUTS:
+    %     fig - Figure handle to plot onto
+    %     name - Name to append to the legend (OPTIONAL
+    %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
+    
+    function plotEffort(this, fig, name, subplot_vector, thickness)
+      set(0,'CurrentFigure',fig);
+      
+      % Handle line thickness
+      if(nargin < 5)
+        thickness = 0.5;
+      end
+      
+      % Handle subplots
+      if(nargin >= 4)
+        subplot(subplot_vector(1), subplot_vector(2), subplot_vector(3));
+      end
+      
+      % Plot the data
+      hold on
+      grid on
+      this.team_plots_.num_runs_effort(end + 1) = length(this.team_data_.avg_effort);
+      n = this.config_team_.scenario.num_robots;
+      plot(1:this.team_plots_.num_runs_effort(end), n*this.team_data_.avg_effort, 'LineWidth', thickness);
+      if(this.team_plots_.titles_on)
+        title('Total Effort');
+      end
+      xlabel('Runs');
+      ylabel('Total Effort (no. actions)');
+      if(this.team_plots_.axis_min_runs)
+        axis([1, min(this.team_plots_.num_runs_effort), 0, this.team_plots_.effort_axis_max]);
+      else
+        axis([1, max(this.team_plots_.num_runs_effort), 0, this.team_plots_.effort_axis_max]);
+      end
+      
+      % Add legend strings, if provided
+      if(nargin >= 2)
+        this.team_plots_.effort_legend_strings{end + 1} = name;
+      else
+        this.team_plots_.effort_legend_strings = [];
+      end
+      legend(this.team_plots_.effort_legend_strings)
+    end
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   plotEffortStdDev
+    %
+    %   Plots the standard deviation of team effort.
+    %
+    %   INPUTS:
+    %     fig - Figure handle to plot onto
+    %     name - Name to append to the legend (OPTIONAL
+    %     subplot_vector - Vector indicating which subplot to use (OPTIONAL)
+    
+    function plotEffortStdDev(this, fig, name, subplot_vector)
+      set(0,'CurrentFigure',fig);
+      
+      % Handle subplots
+      if(nargin == 4)
+        subplot(subplot_vector(1), subplot_vector(2), subplot_vector(3));
+      end
+      
+      % Plot the data
+      hold on
+      grid on
+      this.team_plots_.num_runs_effort_stddev(end + 1) = length(this.team_data_.iterations);
+      plot(1:this.team_plots_.num_runs_iter(end), this.team_data_.effort_stddev);
+      
+      if(this.team_plots_.titles_on)
+        title('Standard Deviation of Team Effort');
+      end
+      xlabel('Runs');
+      ylabel('1 STD of Total Effort (no. actions)');
+      if(this.team_plots_.axis_min_runs)
+        axis([1, min(this.team_plots_.num_runs_effort_stddev), 0, this.team_plots_.effort_stddev_axis_max]);
+      else
+        axis([1, max(this.team_plots_.num_runs_effort_stddev), 0, this.team_plots_.effort_stddev_axis_max]);
+      end
+      
+      % Add legend strings, if provided
+      if(nargin >= 2)
+        this.team_plots_.effort_stddev_legend_strings{end + 1} = name;
+      else
+        this.team_plots_.effort_stddev_legend_strings = [];
+      end
+      legend(this.team_plots_.effort_stddev_legend_strings)
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -387,7 +498,7 @@ classdef DataProcessor < handle
       if(this.team_plots_.titles_on)
         title('Mission Average Reward');
       end
-      xlabel('Epochs');
+      xlabel('Runs');
       ylabel('$$R$$', 'Interpreter', 'latex');
       if(this.team_plots_.axis_min_runs)
         axis([1, min(this.team_plots_.num_runs_reward), 0, this.team_plots_.reward_axis_max]);
@@ -401,7 +512,7 @@ classdef DataProcessor < handle
       else
         this.team_plots_.reward_legend_strings = [];
       end
-      legend(this.team_plots_.reward_legend_strings)
+      legend(this.team_plots_.reward_legend_strings, 'Location', 'northwest')
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -31,8 +31,6 @@
 % Experiment 5: Supplement a team of novices with an expert adviser
 %   Plots:
 %     - Iterations vs Epochs
-%     - Iterations Standard Deviation vs Epochs
-%     - Average Team Reward vs Epochs
 %
 % The filenames have the form "folder_name/sim_name_", and a number is
 % appended to the filenames to load in the data for each simulation.
@@ -41,10 +39,10 @@ close all
 
 % General Metrics Plot Settings
 mechanism_metrics = false;
-mechanism_metrics_settings.sim_folder = 'v1_experiment_1';
+mechanism_metrics_settings.sim_folder = 'test';
 
 adviser_metrics = false;
-adviser_metrics_settings.sim_folder = 'v1_experiment_1';
+adviser_metrics_settings.sim_folder = 'test';
 
 % Experiment Plot Settings
 version = 1;
@@ -55,31 +53,42 @@ exp1 = false;
 exp1_settings.sim_folder = sprintf('v%d_experiment_1', version);
 exp1_settings.ref_folder = 'ref/4N-S-NR';
 exp1_settings.ae_folder = 'AE-4N-S-NR';
+exp1_settings.iter_max = 2500;
+exp1_settings.iter_stddev_max = 1000;
+exp1_settings.effort_max = 6000;
+exp1_settings.effort_stddev_max = 500;
+exp1_settings.reward_max = 1.8;
 
 exp2 = false;
 exp2_settings.sim_folder = sprintf('v%d_experiment_2', version);
 exp2_settings.ref_folder = 'ref/4N-Heterogeneous';
+exp2_settings.iter_max = 2500;
+exp2_settings.iter_stddev_max = 1000;
+exp2_settings.effort_max = 6000;
+exp2_settings.effort_stddev_max = 500;
+exp2_settings.reward_max = 1.8;
 
 exp3 = false;
 exp3_settings.sim_folder = sprintf('v%d_experiment_3', version);
-exp3_settings.ref_folder = 'ref/1N-S-R';
-exp3_settings.iter_max = 2000;
-exp3_settings.occurance_max = 60;
-exp3_settings.relevance_max = 0.6;
-exp3_settings.legend_strings = char({'100 Epoch Expert', '10 Epoch Expert', '1 Epoch Expert'});
+exp3_settings.ref_folder = 'ref/1N-S-NR';
+exp3_settings.iter_max = 1500;
+exp3_settings.occurance_max = 70;
+exp3_settings.relevance_max = 0.5;
+exp3_settings.legend_strings = char({'100 Run Expert', '10 Run Expert', '1 Run Expert'});
 
 exp4 = false;
 exp4_settings.sim_folder = sprintf('v%d_experiment_4', version);
-exp4_settings.ref_folder = 'ref/1N-S-R';
-exp4_settings.iter_max = 2000;
-exp4_settings.relevance_max = 0.6;
+exp4_settings.ref_folder = 'ref/1N-S-NR';
+exp4_settings.iter_max = 1500;
+exp4_settings.relevance_max = 0.5;
 exp4_settings.legend_strings = char({'S-NR Expert', 'F-NR Expert', 'S-R Expert', 'F-R Expert'});
 
 exp5 = false;
 exp5_settings.sim_folder = sprintf('v%d_experiment_5', version);
 exp5_settings.ref_folder = 'ref/4N-S-NR';
-exp5_settings.sim_names = {'E1', 'E10', 'E100'};
-exp5_settings.legend_strings = char({'1 Epoch Expert', '10 Epoch Expert', '100 Epoch Expert', 'Peer Advice', 'No Advice'});
+exp5_settings.sim_names = {'E100', 'E50', 'E10'};
+exp5_settings.legend_strings = char({'100 Run Expert', '50 Run Expert', '10 Run Expert', 'Peer Advice', 'No Advice'});
+exp5_settings.iter_max = 2500;
 
 % Plot settings to remove titles and add line types for publishing
 if(publish_version)
@@ -108,89 +117,156 @@ end
 if(exp1)
   dp = DataProcessor();
   dp.team_plots_.titles_on = titles_on;
+  dp.team_plots_.iter_axis_max = exp1_settings.iter_max;
+  dp.team_plots_.iter_stddev_axis_max = exp1_settings.iter_stddev_max;
+  dp.team_plots_.effort_axis_max = exp1_settings.effort_max;
+  dp.team_plots_.effort_stddev_axis_max = exp1_settings.effort_stddev_max;
+  dp.team_plots_.reward_axis_max = exp1_settings.reward_max;
   
   fig_iter = figure;
+  fig_effort = figure;
   fig_reward = figure;
-  fig_std = figure;
+  fig_iter_std = figure;
+  fig_effort_std = figure;
   fig_iter.Name = 'Experiment 1';
+  fig_effort.Name = 'Experiment 1';
   fig_reward.Name = 'Experiment 1';
-  fig_std.Name = 'Experiment 1';
+  fig_iter_std.Name = 'Experiment 1';
+  fig_effort_std.Name = 'Experiment 1';
   
   % Plot advice iterations, std, and reward
   dp.loadTeamData(exp1_settings.sim_folder);
   dp.plotIterations(fig_iter, 'Preference Advice');
-  dp.plotIterationsStdDev(fig_std, 'Preference Advice');
+  dp.plotIterationsStdDev(fig_iter_std, 'Preference Advice');
+  dp.plotEffort(fig_effort, 'Preference Advice');
+  dp.plotEffortStdDev(fig_effort_std, 'Preference Advice');
   dp.plotTeamReward(fig_reward, 'Preference Advice');
   
   try
     % Plot Advice Exchange iterations, std, and reward
     dp.loadTeamData(exp1_settings.ae_folder);
     dp.plotIterations(fig_iter, 'Advice Exchange');
-    dp.plotIterationsStdDev(fig_std, 'Advice Exchange');
+    dp.plotIterationsStdDev(fig_iter_std, 'Advice Exchange');
+    dp.plotEffort(fig_effort, 'Advice Exchange');
+    dp.plotEffortStdDev(fig_effort_std, 'Advice Exchange');
     dp.plotTeamReward(fig_reward, 'Advice Exchange');
   catch
-    warning('Ignoring Advic Exchange data due to failure to load file');
+    warning('Ignoring Advice Exchange data due to failure to load file');
   end
   
   % Plot no advice iterations, std, and reward
   dp.loadTeamData(exp1_settings.ref_folder);
   dp.plotIterations(fig_iter, 'No Advice');
-  dp.plotIterationsStdDev(fig_std, 'No Advice');
+  dp.plotIterationsStdDev(fig_iter_std, 'No Advice');
+  dp.plotEffort(fig_effort, 'No Advice');
+  dp.plotEffortStdDev(fig_effort_std, 'No Advice');
   dp.plotTeamReward(fig_reward, 'No Advice');
   
   set(0, 'CurrentFigure', fig_iter)
   xl = xlim;
   axis([1, min(epoch_max, xl(2)), ylim]);
   
-  set(0, 'CurrentFigure', fig_std)
+  set(0, 'CurrentFigure', fig_iter_std)
+  xl = xlim;
+  axis([1, min(epoch_max, xl(2)), ylim]);
+  
+  set(0, 'CurrentFigure', fig_effort)
+  xl = xlim;
+  axis([1, min(epoch_max, xl(2)), ylim]);
+  
+  set(0, 'CurrentFigure', fig_effort_std)
   xl = xlim;
   axis([1, min(epoch_max, xl(2)), ylim]);
   
   set(0, 'CurrentFigure', fig_reward)
   xl = xlim;
   axis([1, min(epoch_max, xl(2)), ylim]);
+  
+  % The reward Y-axis can be broken, but the function is a bit finicky.
+  % After setting the figure, double click in the window, then call
+  % legend('show'), then set the colour
+  %
+  % Function can be found on Matlab's File Exchange:
+  % https://www.mathworks.com/matlabcentral/fileexchange/45760-break-y-axis
+  %
+  %set(0, 'CurrentFigure', fig_reward);
+  %breakyaxis([0.1, 1.0]);
+  %legend('show'); l = legend(); l.Color = [1, 1, 1]; l.Location = 'northwest';
 end
 
 %% Experiment 2
 if(exp2)
   dp = DataProcessor();
   dp.team_plots_.titles_on = titles_on;
+  dp.team_plots_.iter_axis_max = exp2_settings.iter_max;
+  dp.team_plots_.iter_stddev_axis_max = exp2_settings.iter_stddev_max;
+  dp.team_plots_.effort_axis_max = exp2_settings.effort_max;
+  dp.team_plots_.effort_stddev_axis_max = exp2_settings.effort_stddev_max;
+  dp.team_plots_.reward_axis_max = exp2_settings.reward_max;
   
   fig_iter = figure;
   fig_reward = figure;
-  fig_std = figure;
+  fig_iter_std = figure;
+  fig_effort = figure;
+  fig_effort_std = figure;
   fig_iter.Name = 'Experiment 2';
   fig_reward.Name = 'Experiment 2';
-  fig_std.Name = 'Experiment 2';
+  fig_iter_std.Name = 'Experiment 2';
+  fig_effort.Name = 'Experiment 2';
+  fig_effort_std.Name = 'Experiment 2';
   
-  % Plot advice iterations, std, and reward
+  % Plot advice iterations, effort, std, and reward
   dp.loadTeamData(exp2_settings.sim_folder);
   dp.plotIterations(fig_iter, 'Preference Advice');
-  dp.plotIterationsStdDev(fig_std, 'Preference Advice');
+  dp.plotIterationsStdDev(fig_iter_std, 'Preference Advice');
+  dp.plotEffort(fig_effort, 'Preference Advice');
+  dp.plotEffortStdDev(fig_effort_std, 'Preference Advice');
   dp.plotTeamReward(fig_reward, 'Preference Advice');
   
-  % Plot no advice iterations, std, and reward
+  % Plot no advice iterations, effort, std, and reward
   dp.loadTeamData(exp2_settings.ref_folder);
   dp.plotIterations(fig_iter, 'No Advice');
-  dp.plotIterationsStdDev(fig_std, 'No Advice');
+  dp.plotIterationsStdDev(fig_iter_std, 'No Advice');
+  dp.plotEffort(fig_effort, 'No Advice');
+  dp.plotEffortStdDev(fig_effort_std, 'No Advice');
   dp.plotTeamReward(fig_reward, 'No Advice');
   
   set(0, 'CurrentFigure', fig_iter)
   xl = xlim;
   axis([1, min(epoch_max, xl(2)), ylim]);
   
-  set(0, 'CurrentFigure', fig_std)
+  set(0, 'CurrentFigure', fig_iter_std)
+  xl = xlim;
+  axis([1, min(epoch_max, xl(2)), ylim]);
+  
+  set(0, 'CurrentFigure', fig_effort)
+  xl = xlim;
+  axis([1, min(epoch_max, xl(2)), ylim]);
+  
+  set(0, 'CurrentFigure', fig_effort_std)
   xl = xlim;
   axis([1, min(epoch_max, xl(2)), ylim]);
   
   set(0, 'CurrentFigure', fig_reward)
   xl = xlim;
   axis([1, min(epoch_max, xl(2)), ylim]);
+  
+  % The reward Y-axis can be broken, but the function is a bit finicky.
+  % After setting the figure, double click in the window, then call
+  % legend('show'), then set the colour
+  %
+  % Function can be found on Matlab's File Exchange:
+  % https://www.mathworks.com/matlabcentral/fileexchange/45760-break-y-axis
+  %
+  %set(0, 'CurrentFigure', fig_reward);
+  %breakyaxis([0.1, 1.0]);
+  %legend('show'); l = legend(); l.Color = [1, 1, 1]; l.Location = 'northwest';
 end
 
 %% Experiment 3
 if(exp3)
   dp = DataProcessor();
+  dp.team_plots_.titles_on = titles_on;
   dp.team_plots_.iter_axis_max = exp3_settings.iter_max;
   dp.advice_plots_.titles_on = titles_on;
   dp.loadAdviceData(exp3_settings.sim_folder);
@@ -245,6 +321,7 @@ end
 %% Experiment 4
 if(exp4)
   dp = DataProcessor();
+  dp.team_plots_.titles_on = titles_on;
   dp.team_plots_.iter_axis_max = exp4_settings.iter_max;
   dp.advice_plots_.titles_on = titles_on;
   dp.loadAdviceData(exp4_settings.sim_folder);
@@ -256,11 +333,11 @@ if(exp4)
 	fig_iter = figure;
   fig_iter.Name = 'Experiment 4';
 	
-  dp.loadTeamData(exp3_settings.sim_folder);
+  dp.loadTeamData(exp4_settings.sim_folder);
   dp.plotIterations(fig_iter, 'Varying Capabilities');
   
   try
-    dp.loadTeamData(exp4_settings.sim_folder);
+    dp.loadTeamData(exp3_settings.sim_folder);
     dp.plotIterations(fig_iter, 'Varying Skill');
   catch
     warning('Ignoring varying skill due to failure to load experiment 3 file');
@@ -291,6 +368,7 @@ if(exp5)
   
   dp = DataProcessor();
   dp.team_plots_.titles_on = titles_on;
+  dp.team_plots_.iter_axis_max = exp5_settings.iter_max;
   
   % Check for files (will have numbers 1, 2, 3, etc. appended)
   for i = 1:length(exp5_settings.sim_names)
