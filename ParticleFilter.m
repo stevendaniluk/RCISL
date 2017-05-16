@@ -1,6 +1,18 @@
 classdef ParticleFilter < handle
   % PARTICLEFILTER - A particle filter for robot state estimation
   
+  % A generic particle filter that estimates position information: X, Y,
+  % and optionally theta. The intended use of the function is to call the
+  % update method with the control and measurement as arguments. The update
+  % method will then perform the control and measurement updates as well as
+  % performing resampling.
+  %
+  % The algorithm is based on:
+  % [1] M. S. Arulampalam, S. Maskell, N. Gordon and T. Clapp, "A tutorial 
+  % on particle filters for online nonlinear/non-Gaussian Bayesian 
+  % tracking," in IEEE Transactions on Signal Processing, vol. 50, no. 2, 
+  % pp. 174-188, Feb 2002.
+    
   properties
     config_;      % Configuration object
     initialized_; % If the initial state and weights have been initialized
@@ -151,12 +163,6 @@ classdef ParticleFilter < handle
         Pz = 1./(1 + ds);
       end
       
-      W = Pz.*this.W_;
-      W = W/sum(W);
-      if(sum(isnan(W)))
-        1+1;
-      end
-      
       % Update weights and normalize
       this.W_ = Pz.*this.W_;
       this.W_ = this.W_/sum(this.W_);
@@ -166,15 +172,18 @@ classdef ParticleFilter < handle
     %
     %   resample
     %
-    %   TODO
+    %   Resample particles from the distribution (with replacement) based
+    %   on their current weights. Then, extract states corresponding to the
+    %   newly sampled particles, and set all weights to be equal. Particles
+    %   are only resampled when the effective particle drops below a
+    %   threshold value (see section 5.1 in [1])
     
     function resample(this)
       N = this.config_.noise.PF.num_particles;
       % Calculate effective sample size
       Neff = 1/sum(this.W_.^2);
       
-      resample_percentage = 0.75;
-      Nt = resample_percentage*N;
+      Nt = this.config_.noise.PF.resample_percent*N;
       
       if Neff < Nt
         % {xk, wk} is an approximate discrete representation of p(x_k | y_{1:k})
