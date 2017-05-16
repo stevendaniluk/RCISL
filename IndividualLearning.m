@@ -118,8 +118,8 @@ classdef IndividualLearning < handle
       
       % Instantiate advice (if needed)
       if (this.config_.advice.enabled)
-        if(strcmp(this.config_.advice.mechanism, 'advice_enhancement'))
-          this.advice_ = AdviceEnhancement(this.config_, this.id_);
+        if(strcmp(this.config_.advice.mechanism, 'preference_advice'))
+          this.advice_ = PreferenceAdvice(this.config_, this.id_);
         elseif(strcmp(this.config_.advice.mechanism, 'advice_exchange'))
           this.advice_ = AdviceExchange(this.config_, this.id_);
         end

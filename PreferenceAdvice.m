@@ -1,5 +1,28 @@
-classdef AdviceEnhancement < handle
-  % AdviceDev - Developmental advice mechanism
+classdef PreferenceAdvice < handle
+  % PreferenceAdvice - Preference Advice Mechanism
+  
+  % Performes the Preference Advice algorithm for biasing a robot's policy
+  % with the input of advisers. The main algorithm is performed through the
+  % getAdvice method, which is intended to be called from the
+  % IndividualLearning class before selecting an action.
+  %
+  % At each time step (i.e. before each action selection from
+  % IndividualLearning), the mechanism will first determine if advice
+  % should be requested from an adviser, and if so, advisers will
+  % continue to be polled and their advice either incorporated or ignored,
+  % until either no advisers remain or it is decided to cease advice at
+  % this time step.
+  %
+  % An assortment of metrics about the mechanisms performance are recorded
+  % during use, and will be saved to a file from within ExecutiveSimulation
+  % at the end of each simulation. See the initializeMetrics method for all
+  % the metrics.
+  %
+  % Virtual advisers can be used be loading a Q-table and experience table
+  % for each adviser, which can be done through setting the appropriate
+  % fields in the configuration. These advisers will be polled as if they
+  % were participating in the scenario. Real and virtual advisers can be
+  % used at the same time.
   
   properties
     % General properties
@@ -45,7 +68,7 @@ classdef AdviceEnhancement < handle
     %   Loads in configuration data, initializes properties and data to
     %   be recorded.
     
-    function this = AdviceEnhancement(config, id)
+    function this = PreferenceAdvice(config, id)
       % General parameters
       this.config_ = config;
       this.id_ = id;
@@ -150,7 +173,8 @@ classdef AdviceEnhancement < handle
     %
     %   preAdviceUpdate
     %
-    %   To be called before each time advice is retrieved.
+    %   To be called before each time advice is retrieved. Performs some
+    %   miscellaneous updates
     
     function  preAdviceUpdate(this)
       this.iters_ = this.iters_ + 1;
@@ -175,13 +199,19 @@ classdef AdviceEnhancement < handle
     %
     %   getAdvice
     %
-    %   Performs the main algorithm for the advice enhancement
+    %   Performs the main algorithm for the Preference Advice mechanism
     %   mechanism.
+    %     -Convert initial action selection probabilities to preference
+    %      values
+    %     -Form state, and decide if advice should be requested
+    %     -If necessary, poll adviser, decide to use advice or not and if
+    %      another adviser should be polled, then repeat until either no
+    %      advisers remain or advice should cease for this time step
     %
     %   INPUTS:
     %   state_vector = Vector defining the robots current state
     %   quality = Vector of quality values for this robots state
-    %   experience = Vector of times each has been executed
+    %   experience = Vector of times each action has been executed
     %
     %   OUTPUTS:
     %   action_id = Id number of advised acton
@@ -376,7 +406,7 @@ classdef AdviceEnhancement < handle
     %   convertPToK
     %
     %   Converts a vector of action selection probability to a vector
-    %   of knowledge values
+    %   of preference values
     
     function K = convertPToK(this, p_a)
       K = sign(p_a - this.eps_).*(p_a - this.eps_).^2;
@@ -426,7 +456,8 @@ classdef AdviceEnhancement < handle
     %
     %   formState
     %
-    %   Converts the K_o and K_m values to a discritized state vector
+    %   Converts the advisee and adviser preference levels and adivsee
+    %   state visitations to a discritized state vector.
     
     function state = formState(this, K_o, K_m, v)
       K_o_norm = sqrt((1/(1 - this.eps_))*sum(abs(K_o)));

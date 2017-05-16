@@ -260,7 +260,7 @@ classdef ExecutiveSimulation < handle
           advice_data = cell(this.config_.scenario.num_robots, 1);
           for i = 1:this.config_.scenario.num_robots
             advice_data{i} = this.robots_(i, 1).individual_learning_.advice_.advice_data_;
-            if(strcmp(this.config_.advice.mechanism, 'advice_enhancement'))
+            if(strcmp(this.config_.advice.mechanism, 'preference_advice'))
               advice_data{i}.q_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.q_table_;
               advice_data{i}.exp_table = this.robots_(i, 1).individual_learning_.advice_.q_learning_.exp_table_;
             end

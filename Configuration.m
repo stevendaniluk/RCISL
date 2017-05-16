@@ -186,9 +186,9 @@ classdef Configuration < handle
       % Advice Mechanism
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       this.advice.enabled = false;                   % If advice should be used
-      this.advice.mechanism = 'advice_enhancement';  % Options: "advice_enhancement", "advice_exchange"
+      this.advice.mechanism = 'preference_advice';  % Options: "preference_advice", "advice_exchange"
       
-      if(strcmp(this.advice.mechanism, 'advice_enhancement'))
+      if(strcmp(this.advice.mechanism, 'preference_advice'))
         this.advice.num_advisers = inf;                    % Max number of advisers to use (inf means use all available)
         this.advice.QL.gamma = 0.3;                        % Q-learning discount factor
         this.advice.QL.alpha_max = 1.0;                    % Q-learning maximum value of learning rate
