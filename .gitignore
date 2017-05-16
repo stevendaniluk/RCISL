@@ -4,7 +4,10 @@
 
 # Contents of results and expert data folders
 results/*
+!results/example_sim_data
+
 expert_data/*
+!expert_data/example_expert
 
 # Windows default autosave extension
 *.asv 

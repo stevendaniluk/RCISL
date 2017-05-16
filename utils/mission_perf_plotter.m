@@ -8,12 +8,12 @@
 % appended to the filenames to load in the data for each simulation.
 
 % General settings
-folders = {'test', 'ref/N'};
+folders = {'example_sim_data'};
 legend_names = {};          % Optional: Manually set legend names
 plot_iter = true;           % Flag for if iterations should be plotted
 plot_reward = false;        % Flag for if average reward should be plotted
 axis_min_runs = true;       % Limit the x axis to the minimum iterations of all simulations
-iter_axis_max = 1000;       % Length of y axis for iterations plot
+iter_axis_max = 2000;       % Length of y axis for iterations plot
 reward_axis_max = 0.1;      % Length of y axis for reward plot
 smooth_pts = 10;            % Number of points to smooth data over
 

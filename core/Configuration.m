@@ -140,7 +140,7 @@ classdef Configuration < handle
       
       % Expert Parameters
       this.IL.expert_on = false;             % If expert agent(s) shoudld be loaded
-      this.IL.expert_filename = {'A', 'B'};  % Folder for each expert (in expert_data dir)
+      this.IL.expert_filename = {'example_expert', 'example_expert'};  % Folder for each expert (in expert_data dir)
       this.IL.expert_id = [1, 2];            % Id(s) of expert agent(s)
       
       % Policy parameters
