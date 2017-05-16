@@ -45,7 +45,7 @@ classdef Configuration < handle
       this.sim.save_advice_data = false;      % Flag for recording and saving advice data
       
       % Graphics Parameters
-      this.sim.show_live_graphics = false;   % Display the graphics during the simluation
+      this.sim.show_live_graphics = true;   % Display the graphics during the simluation
       
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       % Scenario Definition
@@ -151,8 +151,8 @@ classdef Configuration < handle
       
       % Action and State Parameters
       this.IL.num_actions = 4; % Number of actions for a robot
-      goal_res = [4; 5];       % [Goal Distance; Goal Angle]
-      target_res = [2; 4; 5];  % [Target Type; Target Distance; Target Angle]
+      goal_res = [5; 5];       % [Goal Distance; Goal Angle]
+      target_res = [2; 5; 5];  % [Target Type; Target Distance; Target Angle]
       obst_res = [5; 2];       % [Obstacle Distance (per ray); Obstacle type (wall/obstacle or terrain)]
       this.IL.num_obstacle_rays = 3;      % Number of scan rays for obstacles
       this.IL.obstacle_ray_angle = pi/10;  % Angle between rays [degrees]
@@ -202,10 +202,10 @@ classdef Configuration < handle
         this.advice.fake_advisers = false;                 % Flag for using fake advisers (as opposed to other robots)
         this.advice.fake_adviser_files = {'E100'; 'E10'};  % Filenames for fake adviser data (fromt he expert folder)
       elseif(strcmp(this.advice.mechanism, 'advice_exchange'))
-        this.advice.alpha = 0.9;    % Coefficient for current average quality update
-        this.advice.beta = 0.9;     % Coefficient for best average quality update
-        this.advice.delta = 0.9;    % Coefficient for average quality comparison
-        this.advice.rho = 0.9;      % Coefficient for quality sum comparison
+        this.advice.alpha = 0.80;    % Coefficient for current average quality update
+        this.advice.beta = 0.80;     % Coefficient for best average quality update
+        this.advice.delta = 0.95;    % Coefficient for average quality comparison
+        this.advice.rho = 0.95;      % Coefficient for quality sum comparison
       end
     end
   end
