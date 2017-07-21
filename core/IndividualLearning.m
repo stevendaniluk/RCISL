@@ -264,6 +264,9 @@ classdef IndividualLearning < handle
       rel_goal.theta = atan2(rel_goal.y, rel_goal.x) - robot_state.pose_.theta;
       rel_goal.theta = mod((rel_goal.theta + pi/state_res(2)), 2*pi);
       state_vector(2) = floor(rel_goal.theta*state_res(2)/(2*pi));
+      if(isnan(state_vector(2)))
+        1+1;
+      end
       
       % Save the goal distance for reward calculations
       this.reward_data_.robot_goal_dist = rel_goal.d;
@@ -282,10 +285,10 @@ classdef IndividualLearning < handle
         % Set the target type
         if(strcmp(world_state.targets_(robot_state.target_.id).type, 'light'))
           % Light item
-          state_vector(3) = 1;
+          state_vector(3) = 0;
         elseif(strcmp(world_state.targets_(robot_state.target_.id).type, 'heavy'))
           % Heavy item
-          state_vector(3) = 2;
+          state_vector(3) = 1;
         else
           warning('Invalid target type. Setting state vector as "No Target".');
         end
@@ -431,8 +434,21 @@ classdef IndividualLearning < handle
         state_string(end - 1:end) = '] ';
         
         warning(['state_vector values greater than max allowed. Reducing to max value. State Vector: ', state_string]);
-        state_vector = mod(state_vector, state_res');
+        state_vector = mod(state_vector, state_res);
       end
+      
+      if(sum(isnan(state_vector) ~= 0))
+        state_string = '[';
+        for i = 1:length(state_vector)
+          state_string = sprintf('%s%d, ', state_string, state_vector(i));
+        end
+        state_string(end - 1:end) = '] ';
+        
+        warning(['state_vector has NaN values, setting to zero. State Vector: ', state_string]);
+        state_vector(isnan(state_vector)) = 0;
+      end
+      
+      
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
