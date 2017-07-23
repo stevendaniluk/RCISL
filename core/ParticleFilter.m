@@ -103,6 +103,7 @@ classdef ParticleFilter < handle
       if(isfield(this.X_, 'theta'))
         X.theta = sum(this.X_.theta.*this.W_);
       end
+      
     end
     
     
@@ -130,12 +131,18 @@ classdef ParticleFilter < handle
         
         this.X_.x = this.X_.x + ds*cos(this.X_.theta);
         this.X_.y = this.X_.y + ds*sin(this.X_.theta);
-        this.X_.theta = mod(this.X_.theta + control.theta, 2*pi);
+        
+        this.X_.theta = this.X_.theta + control.theta;
+        this.X_.theta = normrnd(this.X_.theta, this.config_.noise.PF.sigma_control_ang);
+        this.X_.theta = mod(this.X_.theta, 2*pi);
       else
         % No orientation, just directly translate the state
         this.X_.x = this.X_.x + control.x;
         this.X_.y = this.X_.y + control.y;
       end
+      
+      this.X_.x = normrnd(this.X_.x, this.config_.noise.PF.sigma_control_lin);
+      this.X_.y = normrnd(this.X_.y, this.config_.noise.PF.sigma_control_lin);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -161,6 +168,9 @@ classdef ParticleFilter < handle
       if(sum(Pz < 0.0001))
         % Fallback behaviour for everything being zero probability
         Pz = 1./(1 + ds);
+        if(sum(Pz < 0.0001))
+          Pz = ones(1, length(Pz))/length(Pz);
+        end
       end
       
       % Update weights and normalize
@@ -195,6 +205,30 @@ classdef ParticleFilter < handle
         this.X_.y = this.X_.y(particles);
         if(isfield(this.X_, 'theta'))
           this.X_.theta = this.X_.theta(particles);
+        end
+        
+        % Randomly generate new particles, by pruning those with the
+        % least weight, then randomy placing new particles
+        [~, W_order] = sort(this.W_);
+        new_particle_count = ceil(length(this.W_)*this.config_.noise.PF.random_percentage);
+        
+        % Compute the expected state state
+        x_expected = sum(this.X_.x.*this.W_);
+        y_expected = sum(this.X_.y.*this.W_);
+        if(isfield(this.X_, 'theta'))
+          theta_expected = sum(this.X_.theta.*this.W_);
+        end
+        
+        % Replace least weighted particles randomly generated
+        % particles within X standard deviations of expected state
+        sigma = this.config_.noise.PF.random_sigma;
+        for i = 1:new_particle_count
+          this.X_.x(W_order(i)) = normrnd(x_expected, sigma);
+          this.X_.y(W_order(i)) = normrnd(y_expected, sigma);
+          
+          if(isfield(this.X_, 'theta'))
+            this.X_.theta(W_order(i)) = normrnd(theta_expected, sigma);
+          end
         end
         
         % Set all particles to have equal weights

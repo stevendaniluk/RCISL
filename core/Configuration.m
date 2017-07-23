@@ -114,12 +114,16 @@ classdef Configuration < handle
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       % Noise and Particle Filter Parameters
-      this.noise.enabled = false;             % Add noise to robot state
-      this.noise.sigma_trans = 0.1;           % Std Dev for translational motion
-      this.noise.sigma_rot = 0.1;             % Std Dev for rotational motion
+      this.noise.enabled = true;             % Add noise to robot state
+      this.noise.sigma_trans = 0.2;           % Std Dev for translational motion
+      this.noise.sigma_rot = 0.0;             % Std Dev for rotational motion
       this.noise.PF.enabled = false;          % Filter state with particle filter
-      this.noise.PF.num_particles = 20;       % Particles to use in filter
-      this.noise.PF.resample_percent = 0.75;  % Effective particle threshold for resampling
+      this.noise.PF.num_particles = 100;       % Particles to use in filter
+      this.noise.PF.resample_percent = 0.50;  % Effective particle threshold for resampling
+      this.noise.PF.random_percentage = 0.10; % Percentage of particles to prune, and randomly regenerate
+      this.noise.PF.random_sigma = 1.0;       % Std Dev of random particle additions from expected state
+      this.noise.PF.sigma_control_lin = 0.1;  % Std Dev of linear control
+      this.noise.PF.sigma_control_ang = 0.1;  % Std Dev of angular control
       this.noise.PF.sigma_meas = 0.1;         % Std Dev of measurement likelihood
       this.noise.PF.sigma_initial = 0.1;      % Std Dev of distribution to draw initial particles from
       

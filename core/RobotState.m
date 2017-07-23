@@ -221,10 +221,6 @@ classdef RobotState < handle
             obstacle = this.obstacles_(i).pf.update(null_control, obstacles_noise(i));
             this.obstacles_(i).x = obstacle.x;
             this.obstacles_(i).y = obstacle.y;
-            if(isnan(obstacle.x) || isnan(obstacle.y))
-              1+1;
-            end
-            
           end
           
           % Filtered terrain data
@@ -263,6 +259,25 @@ classdef RobotState < handle
             this.terrain_.y = terrain_noise.y;
           end
         end
+      end
+    end
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %   changeTarget
+    %
+    %   Handles resetting relevant properties when target changes.
+    %
+    %   INPUTS:
+    %   new_target_id: Id of newly assigned target
+    
+    function changeTarget(this, new_target_id)
+      this.target_.id = new_target_id;
+      this.target_.carrying = false;
+      
+      if(this.config_.noise.PF.enabled)
+        this.target_.pf.initialized_ = false;
       end
     end
     
