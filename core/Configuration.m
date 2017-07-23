@@ -80,7 +80,7 @@ classdef Configuration < handle
       this.scenario.robot_defs(1).strong = false;
       this.scenario.robot_defs(1).rugged = false;
       this.scenario.robot_defs(1).reach = 0.5;
-      this.scenario.robot_defs(1).label = 'S-NR';
+      this.scenario.robot_defs(1).label = 'S-NR-W';
       
       % Fast, Non-Rugged, Weak
       this.scenario.robot_defs(2).step_size = 0.40;
@@ -88,7 +88,7 @@ classdef Configuration < handle
       this.scenario.robot_defs(2).strong = false;
       this.scenario.robot_defs(2).rugged = false;
       this.scenario.robot_defs(2).reach = 0.5;
-      this.scenario.robot_defs(2).label = 'F-NR';
+      this.scenario.robot_defs(2).label = 'F-NR-W';
       
       % Slow, Rugged, Weak
       this.scenario.robot_defs(3).step_size = 0.20;
@@ -96,7 +96,7 @@ classdef Configuration < handle
       this.scenario.robot_defs(3).strong = false;
       this.scenario.robot_defs(3).rugged = true;
       this.scenario.robot_defs(3).reach = 0.5;
-      this.scenario.robot_defs(3).label = 'S-R';
+      this.scenario.robot_defs(3).label = 'S-R-W';
       
       % Fast, Rugged, Weak
       this.scenario.robot_defs(4).step_size = 0.40;
@@ -104,7 +104,23 @@ classdef Configuration < handle
       this.scenario.robot_defs(4).strong = false;
       this.scenario.robot_defs(4).rugged = true;
       this.scenario.robot_defs(4).reach = 0.5;
-      this.scenario.robot_defs(4).label = 'F-R';
+      this.scenario.robot_defs(4).label = 'F-R-W';
+      
+      % Slow, Non-Rugged, Strong
+      this.scenario.robot_defs(5).step_size = 0.20;
+      this.scenario.robot_defs(5).rotate_size = pi*(1/5);
+      this.scenario.robot_defs(5).strong = true;
+      this.scenario.robot_defs(5).rugged = false;
+      this.scenario.robot_defs(5).reach = 0.5;
+      this.scenario.robot_defs(5).label = 'S-NR-S';
+      
+      % Fast, Non-Rugged, Strong
+      this.scenario.robot_defs(6).step_size = 0.40;
+      this.scenario.robot_defs(6).rotate_size = pi*(1/5);
+      this.scenario.robot_defs(6).strong = true;
+      this.scenario.robot_defs(6).rugged = false;
+      this.scenario.robot_defs(6).reach = 0.5;
+      this.scenario.robot_defs(6).label = 'F-NR-S';
       
       this.scenario.robot_types = [1, 2, 3, 4];
       this.scenario.target_types = {'light', 'light', 'light', 'light'};
@@ -114,9 +130,9 @@ classdef Configuration < handle
       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       % Noise and Particle Filter Parameters
-      this.noise.enabled = true;             % Add noise to robot state
+      this.noise.enabled = false;             % Add noise to robot state
       this.noise.sigma_trans = 0.2;           % Std Dev for translational motion
-      this.noise.sigma_rot = 0.0;             % Std Dev for rotational motion
+      this.noise.sigma_rot = 0.2;             % Std Dev for rotational motion
       this.noise.PF.enabled = false;          % Filter state with particle filter
       this.noise.PF.num_particles = 100;       % Particles to use in filter
       this.noise.PF.resample_percent = 0.50;  % Effective particle threshold for resampling
@@ -179,7 +195,7 @@ classdef Configuration < handle
       
       % L-Alliance Parameters
       this.TL.LA.motiv_freq = 5;                    % Frequency at which motivation updates
-      this.TL.LA.max_task_time = 5000;              % Maximum time on task before acquescing
+      this.TL.LA.max_task_time = 1500;              % Maximum time on task before acquescing
       this.TL.LA.trial_time_update = 'stochastic';  % Options: "stochastic", "moving_avg"
       this.TL.LA.theta1 = 1.0;                      % Coefficient for stochastic update
       this.TL.LA.theta2 = 15.0;                     % Coefficient for stochastic update
