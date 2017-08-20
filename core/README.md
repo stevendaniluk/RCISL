@@ -123,6 +123,10 @@ Parameters withing the Configuration object are divided into the following categ
 | `PF.enabled` | If a particle filter should be used for state estimation | True-False | A generic particle filter is used to estimate all physical state variables for the robot. |
 | `PF.num_particles` | Number of particles to use in particle filter | 5-50 | More particles will add computational costs. ~20 particles is typically sufficient. |
 | `PF.resample_percent` | Threshold percentage of effective particles, below which the particles will be resampled | 0.4-0.8 | See references in ParticleFilter for more information. |
+| `PF.random_percentage` | Percentage of particles to prune, and randomly regenerate | 0.00-0.20 | Can help prevent filter divergence. |
+| `PF.random_sigma` | Std Dev of random particle additions from expected state | 0.1-2.0 | Large values will help recover from severly diverged estimates. |
+| `PF.sigma_control_lin` | Std Dev of linear control | 0.001-0.5 | A smaller value treats the robots actions as exact. |
+| `PF.sigma_initial` | Std Dev of angular control | 0.001-0.2 | A smaller value treats the robots actions as exact. |
 | `PF.sigma_meas` | Standard deviation of measurement distribution | 0.05-0.5 | Measurements are assumed to be from a zero mean Gaussian distribution. |
 | `PF.sigma_initial` | Standard deviation of initial particles | 0.05-0.5 | Initial particles are sampled from a Gaussian distribution centred on the true state. |
 
