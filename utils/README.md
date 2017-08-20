@@ -21,3 +21,6 @@ Runs a series of simulations with the defined number of robots and types. Used f
 
 #### run_advice_experiments
 Performs the 5 experiments used for testing the Preference Advice mechanism.
+
+#### run_robust_advice_experiments
+Performs the 3 experiments used for testing the Preference Advice mechanism with team learning and measurement uncertainty.
